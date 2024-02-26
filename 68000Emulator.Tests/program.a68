@@ -1,0 +1,97 @@
+***********************************************
+* Assumes supervisor mode
+***********************************************
+* 2022-11-23
+***********************************************
+* Exception vector table
+***********************************************
+			ORG		0
+ResetSSP	DC.L	TOS
+ResetPC		DC.L	start
+
+***********************************************
+* Stack space
+***********************************************
+	ORG	$1000
+
+	DS	$400
+TOS:	
+
+loopCount	DC.L	$20000
+***********************************************
+* Program
+***********************************************
+	ORG	$10000
+
+start: 
+	move.l 	#0,d0
+	move.l 	d0,d1
+	move.l 	d0,d2
+	move.l 	d0,d3
+	move.l 	d0,d4
+	move.l 	d0,d5
+	move.l 	d0,d6
+	move.l 	d0,d7
+	move.l 	d0,a0
+	move.l 	d0,a1
+	move.l 	d0,a2
+	move.l 	d0,a3
+	move.l 	d0,a4
+	move.l 	d0,a5
+	move.l 	d0,a6
+	move.l 	d0,a7
+
+	move.l #TOS,SP				; Initialize stack pointer
+	
+	jmp		FarAway
+
+Back:
+
+	move.l	loopCount,d4
+
+Loop:
+
+	move.l 	#0,d0				; Clear d0
+	move.l 	#$badf00d,d6 		; Marker to see if push/restore works
+	movem.l d0-d7/a0-a7,-(sp)	; Push all registers onto stack
+
+	move.l 	#1,d0				; Put something non-zero in d0
+	movem.l	(sp)+,d0-d7/a0-a7	; Restore all registers
+	cmp.l 	#1,d0				; See if d0 is clear
+	beq		Bad
+
+	cmp.l 	#$badf00d,d6 
+	bne 	BadFood
+
+	move.b	$08,d1
+
+	addq.l	#1,d5
+	subq.l	#1,d4
+	bne		Loop
+
+	bra		Label2
+
+Label1a:
+
+	move.l	#$ABCDEF12,d0
+	move.l	#$1010FF00,d2
+	stop	#$2000		; Make sure supervisor bit is set to avoid privilege exception
+
+Label2: 
+
+	ori.w	#$A000,d2
+	jmp		Label1a
+
+Bad:
+	stop 	#0			; Generate privilege exception
+
+BadFood:
+	stop 	#1			; Generate privilege exception
+
+	ORG		$30000
+
+FarAway:
+	jmp		Back
+
+	end		start
+	

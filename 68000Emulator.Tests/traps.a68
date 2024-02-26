@@ -1,0 +1,72 @@
+       ORG     $00038000
+start:
+       EOR.L   D0,D0
+       MOVEA.L D0,SP
+       MOVEA.L #$00010000,SP
+       ANDI    #$dfff,SR
+       MOVEA.L D0,SP
+       MOVEA.L #$00020000,SP
+       MOVEA.L #$00030002,A0
+       MOVE.B  $00e80000,D4            ; VIA Base Address (also ViaRegs.RegisterB ->  Output Register B, <- Input Register B)
+       MOVE.B  $00030002,D6            ; RAM
+       BEQ     $00038110
+       MOVEA.L #$00030003,A0
+       MOVE.L  $00030001,D4            ; RAM
+       MOVE.B  $00030003,D6            ; RAM
+       BEQ     $00038110
+       MOVEA.L #$00030004,A0
+       ILLEGAL
+       MOVE.B  $00030004,D6            ; RAM
+       BEQ     $00038110
+       MOVEA.L #$00030005,A0
+       MOVEQ   #0,D6
+       MOVEQ   #1,D5
+       DIVS.W  D6,D5
+       MOVE.B  $00030005,D6            ; RAM
+       BEQ     $00038110
+       MOVEA.L #$00030006,A0
+       MOVE.W  #$0005,D6
+       MOVE.W  #$0006,D5
+       CHK.W   D6,D5
+       MOVE.B  $00030006,D6            ; RAM
+       BEQ     $00038110
+       MOVEA.L #$00030007,A0
+       MOVE.L  #$7fffffff,D6
+       ADD.L   D6,D6
+       TRAPV
+       MOVE.B  $00030007,D6            ; RAM
+       BEQ     $00038110
+       BRA     $00038106
+       MOVE.W  (SP)+,D1
+       MOVE.L  (SP)+,D2
+       MOVE.W  (SP)+,D3
+       MOVE.B  #$0001,D6
+       MOVE.B  D6,$00030002            ; RAM
+       RTE
+       MOVE.W  (SP)+,D1
+       MOVE.L  (SP)+,D2
+       MOVE.W  (SP)+,D3
+       MOVE.B  #$0001,D6
+       MOVE.B  D6,$00030003            ; RAM
+       RTE
+       MOVE.B  #$0001,D6
+       MOVE.B  D6,$00030004            ; RAM
+       RTE
+       MOVE.B  #$0001,D6
+       MOVE.B  D6,$00030005            ; RAM
+       RTE
+       MOVE.B  #$0001,D6
+       MOVE.B  D6,$00030006            ; RAM
+       RTE
+       MOVE.B  #$0001,D6
+       MOVE.B  D6,$00030007            ; RAM
+       RTE
+       MOVE.L  #$22222222,D1
+       MOVE.B  #$0001,D6
+       MOVE.B  D6,$00030008            ; RAM
+       STOP    #$2000
+       MOVE.L  #$11111111,D0
+       STOP    #$0000
+       MOVE.L  #$deadbeef,D0
+       STOP    #$2000
+       END     start

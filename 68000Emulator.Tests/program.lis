@@ -1,0 +1,135 @@
+Sections:
+00: "seg0" (0-8)
+01: "seg1000" (1000-1804)
+02: "seg10000" (10000-1007A)
+03: "seg30000" (30000-30006)
+
+
+Source: "program.a68"
+                            	     1: ***********************************************
+                            	     2: * Assumes supervisor mode
+                            	     3: ***********************************************
+                            	     4: * 2022-11-23
+                            	     5: ***********************************************
+                            	     6: * Exception vector table
+                            	     7: ***********************************************
+                            	     8: 			ORG		0
+00:00000000 00001800        	     9: ResetSSP	DC.L	TOS
+00:00000004 00010000        	    10: ResetPC		DC.L	start
+                            	    11: 
+                            	    12: ***********************************************
+                            	    13: * Stack space
+                            	    14: ***********************************************
+                            	    15: 	ORG	$1000
+                            	    16: 
+01:00001000 0000            	    17: 	DS	$400
+01:00001002 *
+                            	    18: TOS:	
+                            	    19: 
+01:00001800 00020000        	    20: loopCount	DC.L	$20000
+                            	    21: ***********************************************
+                            	    22: * Program
+                            	    23: ***********************************************
+                            	    24: 	ORG	$10000
+                            	    25: 
+                            	    26: start: 
+02:00010000 7000            	    27: 	move.l 	#0,d0
+02:00010002 2200            	    28: 	move.l 	d0,d1
+02:00010004 2400            	    29: 	move.l 	d0,d2
+02:00010006 2600            	    30: 	move.l 	d0,d3
+02:00010008 2800            	    31: 	move.l 	d0,d4
+02:0001000A 2A00            	    32: 	move.l 	d0,d5
+02:0001000C 2C00            	    33: 	move.l 	d0,d6
+02:0001000E 2E00            	    34: 	move.l 	d0,d7
+02:00010010 2040            	    35: 	move.l 	d0,a0
+02:00010012 2240            	    36: 	move.l 	d0,a1
+02:00010014 2440            	    37: 	move.l 	d0,a2
+02:00010016 2640            	    38: 	move.l 	d0,a3
+02:00010018 2840            	    39: 	move.l 	d0,a4
+02:0001001A 2A40            	    40: 	move.l 	d0,a5
+02:0001001C 2C40            	    41: 	move.l 	d0,a6
+02:0001001E 2E40            	    42: 	move.l 	d0,a7
+                            	    43: 
+02:00010020 3E7C1800        	    44: 	move.l #TOS,SP				; Initialize stack pointer
+                            	    45: 	
+02:00010024 4EF900030000    	    46: 	jmp		FarAway
+                            	    47: 
+                            	    48: Back:
+                            	    49: 
+02:0001002A 28381800        	    50: 	move.l	loopCount,d4
+                            	    51: 
+                            	    52: Loop:
+                            	    53: 
+02:0001002E 7000            	    54: 	move.l 	#0,d0				; Clear d0
+02:00010030 2C3C0BADF00D    	    55: 	move.l 	#$badf00d,d6 		; Marker to see if push/restore works
+02:00010036 48E7FFFF        	    56: 	movem.l d0-d7/a0-a7,-(sp)	; Push all registers onto stack
+                            	    57: 
+02:0001003A 7001            	    58: 	move.l 	#1,d0				; Put something non-zero in d0
+02:0001003C 4CDFFFFF        	    59: 	movem.l	(sp)+,d0-d7/a0-a7	; Restore all registers
+02:00010040 B0BC00000001    	    60: 	cmp.l 	#1,d0				; See if d0 is clear
+02:00010046 672A            	    61: 	beq		Bad
+                            	    62: 
+02:00010048 BCBC0BADF00D    	    63: 	cmp.l 	#$badf00d,d6 
+02:0001004E 6626            	    64: 	bne 	BadFood
+                            	    65: 
+02:00010050 12380008        	    66: 	move.b	$08,d1
+                            	    67: 
+02:00010054 5285            	    68: 	addq.l	#1,d5
+02:00010056 5384            	    69: 	subq.l	#1,d4
+02:00010058 66D4            	    70: 	bne		Loop
+                            	    71: 
+02:0001005A 6010            	    72: 	bra		Label2
+                            	    73: 
+                            	    74: Label1a:
+                            	    75: 
+02:0001005C 203CABCDEF12    	    76: 	move.l	#$ABCDEF12,d0
+02:00010062 243C1010FF00    	    77: 	move.l	#$1010FF00,d2
+02:00010068 4E722000        	    78: 	stop	#$2000		; Make sure supervisor bit is set to avoid privilege exception
+                            	    79: 
+                            	    80: Label2: 
+                            	    81: 
+02:0001006C 0042A000        	    82: 	ori.w	#$A000,d2
+02:00010070 60EA            	    83: 	jmp		Label1a
+                            	    84: 
+                            	    85: Bad:
+02:00010072 4E720000        	    86: 	stop 	#0			; Generate privilege exception
+                            	    87: 
+                            	    88: BadFood:
+02:00010076 4E720001        	    89: 	stop 	#1			; Generate privilege exception
+                            	    90: 
+                            	    91: 	ORG		$30000
+                            	    92: 
+                            	    93: FarAway:
+03:00030000 4EF90001002A    	    94: 	jmp		Back
+                            	    95: 
+                            	    96: 	end		start
+                            	    97: 	
+
+
+Symbols by name:
+Back                             A:0001002A
+Bad                              A:00010072
+BadFood                          A:00010076
+FarAway                          A:00030000
+Label1a                          A:0001005C
+Label2                           A:0001006C
+Loop                             A:0001002E
+ResetPC                          A:00000004
+ResetSSP                         A:00000000
+TOS                              A:00001800
+loopCount                        A:00001800
+start                            A:00010000
+
+Symbols by value:
+00000000 ResetSSP
+00000004 ResetPC
+00001800 TOS
+00001800 loopCount
+00010000 start
+0001002A Back
+0001002E Loop
+0001005C Label1a
+0001006C Label2
+00010072 Bad
+00010076 BadFood
+00030000 FarAway

@@ -1,14 +1,33 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <RootNamespace>PendleCodeMonkey.MC68000EmulatorConsoleApp</RootNamespace>
     <Authors>PendleCodeMonkey</Authors>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\68000EmulatorLib\68000EmulatorLib.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="proc.a68">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+      <Generator>a68.bat proc.a68</Generator>
+    </Resource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="proc.a68">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="proc.h68">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="proc.lis">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
 </Project>
