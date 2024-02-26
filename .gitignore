@@ -387,3 +387,5 @@ FodyWeavers.xsd
 .idea/
 *.sln.iml
 
+# Assembler Binary
+vasmm68k_mot.exe
