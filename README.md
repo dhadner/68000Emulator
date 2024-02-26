@@ -2,6 +2,16 @@
 
 This repo contains the code for a Motorola 68000 processor emulator library.
 
+NOTE (dhadner): This fork has been updated for .NET 8.0.
+
+1. Add S-record file loader.
+2. Handle normal TRAPs without throwing exceptions but still use exceptions for unexpected errors.  Benchmarked against original exception-only implementation without any discernable performance difference when not handling exceptions.  Exceptions are now faster and don't clutter up output log with errors when executing normal LINEA instructions, for example.  In fact, when running Mac SE ROM there are no exceptions thrown except for a single intentional ROM test of the illegal instruction handler (which the subclassed Machine handles correctly.
+3. Add Disassembler.
+4. Add hooks for debiggers.
+5. Fix a few opcode handlers where there were subtle errors.
+6. Add ability to subclass Machine to add exception handling, trap dispatching, and interrupt capability.
+6. Tested above by executing Mac SE ROM using custom debugger and display app.  ROM currently executes without apparent opcode execution errors.
+
 <br>
 
 The 68000Emulator solution consists of the following projects:
