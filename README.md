@@ -4,14 +4,22 @@ This repo contains the code for a Motorola 68000 processor emulator library.
 
 NOTE (dhadner): This fork has been updated (in the "macview" branch) for .NET 8.0.
 
-1. Add S-record file loader.
-2. Handle normal TRAPs without throwing exceptions but still use exceptions for unexpected errors.  Benchmarked against original exception-only implementation without any discernable performance difference when not handling exceptions.  Exceptions are now faster and don't clutter up output log with errors when executing normal LINEA instructions, for example.  In fact, when running Mac SE ROM there are no exceptions thrown except for a single intentional ROM test of the illegal instruction handler (which the subclassed Machine -- not part of this repo) handles correctly.
-3. Add Disassembler.
-4. Add hooks for debuggers.  Tested with a debugger that is not part of this repo.
-5. Fix a few opcode handlers where there were subtle errors.
-6. Add ability to subclass Machine to add exception handling, trap dispatching, and interrupt capability.
-7. Add Logger class to allow applications to hook to log messages without any higher-level coupling or dependencies.
-8. Tested above by executing Mac SE ROM using custom debugger and display app.  ROM currently executes without apparent opcode execution errors.
+1. Update to .NET 8.0
+2. Add S-record file loader.  Allows for use of standard assemblers and compilers.  
+   See a68.bat in the 68000EmulatorConsoleApp folder for details.
+3. Handle normal TRAPs without throwing exceptions but still use exceptions for unexpected errors.  
+   Benchmarked against original exception-only implementation without any discernable performance 
+   difference when not handling exceptions.  Exceptions are now faster and don't clutter up output
+   log with errors when executing normal LINEA instructions, for example.  In fact, when running 
+   Mac SE ROM there are no exceptions thrown except for a single intentional ROM test of the illegal 
+   instruction handler (which the subclassed Machine -- not part of this repo) handles correctly.
+4. Add Disassembler with ability to integrate with external debugger.
+5. Add hooks for debuggers.  Tested with a debugger that is not part of this repo.
+6. Fix a few opcode handlers where there were subtle errors.
+7. Add ability to subclass Machine to add exception handling, trap dispatching, and interrupt capability.
+8. Add Logger class to allow applications to hook to log messages without any higher-level coupling or dependencies.
+9. Tested above by executing Mac SE ROM using custom debugger and display app.  ROM currently executes without 
+   apparent opcode execution errors.
 
 <br>
 
@@ -25,7 +33,7 @@ The 68000Emulator solution consists of the following projects:
 
 ### Prerequisites
 
-- [.NET Core 3.1 SDK](https://www.microsoft.com/net/download/core)
+- [.NET Core 8.0 SDK](https://www.microsoft.com/net/download/core)
   
 <br>
 
@@ -51,18 +59,10 @@ From a developer's point of view, the emulator is used as follows:
 
 <br>
 
-### What next?
-
-The following are features that are being considered for the future:  
-1. Implement a disassembler.
-2. Implement an assembler (because it's very tedious entering assembly language code in binary format).
-3. Implement some form of interactive debugger (with features such as single stepping, breakpoint handling, etc.).
-
-<br>
-
 ### History
 
 | Version | Details
 |---:| ---
+| 2.0.0 | Update to .NET 8.0 and add S-record, subclassing, logger, & debugger compatibility features. 
 | 1.0.0 | Initial implementation of the 68000 emulator.
 
