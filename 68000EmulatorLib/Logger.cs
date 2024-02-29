@@ -31,7 +31,7 @@
         //[Conditional("DEBUG")]
         public static void Log(string message)
         {
-            if (Level >= DefaultLevel)
+            if (Level != LogLevel.None && Level >= DefaultLevel)
             {
                 LogEvent?.Invoke(new LogEventArgs(DefaultLevel, message));
             }
@@ -45,7 +45,7 @@
         //[Conditional("DEBUG")]
         public static void Log(LogLevel level, string message)
         {
-            if (level >= Level)
+            if (level != LogLevel.None && level >= Level)
             {
                 LogEvent?.Invoke(new LogEventArgs(level, message));
             }
@@ -75,6 +75,6 @@
         Warning = 3,
         Error = 4,
         Critical = 5,
-        None = 6,
+        None = 6
     }
 }
