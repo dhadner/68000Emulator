@@ -161,23 +161,25 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <summary>
             /// Gets the list of non-executable sections (i.e. blocks of memory that the disassembler treats as non-executable)
             /// </summary>
-            public List<(uint Address, uint Length)> NonExecutableSections { get; } = [];
+            public List<(uint Address, uint Length)> NonExecutableSections { get; } = new();
 
             protected delegate void DisassemblyHandler(Instruction inst, StringBuilder sb);
-            protected readonly Dictionary<OpHandlerID, DisassemblyHandler> _handlers = [];
-            protected readonly uint[] _bit =  [ 0x00000001, 0x00000002, 0x00000004, 0x00000008, 0x00000010, 0x00000020, 0x00000040, 0x00000080,
+            protected readonly Dictionary<OpHandlerID, DisassemblyHandler> _handlers = new();
+            protected readonly uint[] _bit = new uint[]
+                                              { 0x00000001, 0x00000002, 0x00000004, 0x00000008, 0x00000010, 0x00000020, 0x00000040, 0x00000080,
                                                 0x00000100, 0x00000200, 0x00000400, 0x00000800, 0x00001000, 0x00002000, 0x00004000, 0x00008000,
                                                 0x00010000, 0x00020000, 0x00040000, 0x00080000, 0x00100000, 0x00200000, 0x00400000, 0x00800000,
-                                                0x01000000, 0x02000000, 0x04000000, 0x08000000, 0x10000000, 0x20000000, 0x40000000, 0x80000000 ];
-            protected readonly uint[] _rbit = [ 0x80000000, 0x40000000, 0x20000000, 0x10000000, 0x08000000, 0x04000000, 0x02000000, 0x01000000,
+                                                0x01000000, 0x02000000, 0x04000000, 0x08000000, 0x10000000, 0x20000000, 0x40000000, 0x80000000 };
+            protected readonly uint[] _rbit = new uint[]
+                                              { 0x80000000, 0x40000000, 0x20000000, 0x10000000, 0x08000000, 0x04000000, 0x02000000, 0x01000000,
                                                 0x00800000, 0x00400000, 0x00200000, 0x00100000, 0x00090000, 0x00040000, 0x00020000, 0x00010000,
                                                 0x00008000, 0x00004000, 0x00002000, 0x00001000, 0x00000800, 0x00000400, 0x00000200, 0x00000100,
-                                                0x00000080, 0x00000040, 0x00000020, 0x00000010, 0x00000008, 0x00000004, 0x00000002, 0x00000001 ];
-            protected readonly string[] _reg =
-            [
+                                                0x00000080, 0x00000040, 0x00000020, 0x00000010, 0x00000008, 0x00000004, 0x00000002, 0x00000001 };
+            protected readonly string[] _reg = new string[]
+            {
                     "D0","D1","D2","D3","D4","D5","D6","D7",
                     "A0","A1","A2","A3","A4","A5","A6","A7",
-            ];
+            };
 
             /// <summary>
             /// Initialize the Opcode handlers.
@@ -363,13 +365,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 CurrentAddress = StartAddress;
                 int count = 0;
 
-                List<DisassemblyRecord> result = [];
+                List<DisassemblyRecord> result = new();
                 while (!IsEndOfData && count++ < maxCount)
                 {
                     var nonExecSection = GetNonExecutableSection(CurrentAddress);
                     if (nonExecSection != null)
                     {
-                        result.Add(new DisassemblyRecord(false, CurrentAddress, [], NonExecutableDataDisassembly(nonExecSection.Value, CurrentAddress), null)); ;
+                        result.Add(new DisassemblyRecord(false, CurrentAddress, new byte[0], NonExecutableDataDisassembly(nonExecSection.Value, CurrentAddress), null)); ;
                     }
                     else
                     {
@@ -477,7 +479,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 Machine.CPU.PC = CurrentAddress;
                 Instruction? inst = Machine.Decoder.FetchInstruction();
                 int length = (int)Machine.CPU.PC - (int)CurrentInstructionAddress;
-                List<byte> codeBytes = [];
+                List<byte> codeBytes = new();
 
                 // Show the actual instruction bytes
                 StringBuilder code = new();
