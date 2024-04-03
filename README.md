@@ -2,9 +2,9 @@
 
 This repo contains the code for a Motorola 68000 processor emulator library.
 
-NOTE (dhadner): This fork has been updated (in the "macview" branch) for .NET 7.0.
+NOTE (dhadner): This fork has been updated (in the "macview" branch) for .NET 8.0.
 
-1. Update to .NET 7.0
+1. Update to .NET 8.0
 2. Add S-record file loader.  Allows for use of standard assemblers and compilers.  
    See a68.bat in the 68000EmulatorConsoleApp folder for details.
 3. Handle normal TRAPs without throwing exceptions but still use exceptions for unexpected errors.  
@@ -33,11 +33,11 @@ The 68000Emulator solution consists of the following projects:
 
 ### Prerequisites
 
-- [.NET Core 7.0 SDK](https://www.microsoft.com/net/download/core)
+- [.NET Core 8.0 SDK](https://www.microsoft.com/net/download/core)
   
 <br>
 
-### Why was this created?
+### Why was this created? (by PendleCodeMonkey)
 
 For the very same reason that I wrote emulators for the Z80 and 6502 processors... to relive a little of my youth, but mainly "just for fun" :-)  
 This project completes emulation of the trio of processors that I wrote code for in the 1980's and early 90's.
@@ -63,6 +63,7 @@ From a developer's point of view, the emulator is used as follows:
 
 | Version | Details
 |---:| ---
+| 2.1.0 | Update to .NET 8.0. 
 | 2.0.0 | Update to .NET 7.0 and add S-record, subclassing, logger, & debugger compatibility features. 
 | 1.0.0 | Initial implementation of the 68000 emulator.
 
