@@ -50,18 +50,28 @@
                 LogEvent?.Invoke(new LogEventArgs(level, message));
             }
         }
+
+        public static void Log(LogLevel level, string feature, string message)
+        {
+            if (level != LogLevel.None && level >= Level)
+            {
+                LogEvent?.Invoke(new LogEventArgs(level, message, feature));
+            }
+        }
     }
 
     public class LogEventArgs
     {
-        public LogEventArgs(LogLevel level, string message)
+        public LogEventArgs(LogLevel level, string message, string? feature = null)
         {
             Level = level;
             Message = message;
+            Feature = feature;
         }
 
         public LogLevel Level;
         public string Message;
+        public string? Feature;
     }
 
     /// <summary>
