@@ -371,7 +371,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     var nonExecSection = GetNonExecutableSection(CurrentAddress);
                     if (nonExecSection != null)
                     {
-                        result.Add(new DisassemblyRecord(false, CurrentAddress, new byte[0], NonExecutableDataDisassembly(nonExecSection.Value, CurrentAddress), null)); ;
+                        result.Add(new DisassemblyRecord(false, CurrentAddress, [], NonExecutableDataDisassembly(nonExecSection.Value, CurrentAddress), null)); ;
                     }
                     else
                     {
@@ -499,9 +499,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 if (inst != null)
                 {
                     StringBuilder sb = new();
-                    if (_handlers.ContainsKey(inst.Info.HandlerID))
+                    if (_handlers.TryGetValue(inst.Info.HandlerID, out DisassemblyHandler? value))
                     {
-                        _handlers[inst.Info.HandlerID](inst, sb);
+                        value(inst, sb);
                     }
                     else
                     {
