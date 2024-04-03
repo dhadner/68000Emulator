@@ -1267,6 +1267,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sb.Append('S');
                 Condition cond = (Condition)((inst.Opcode & 0x0F00) >> 8);
                 AppendCondition(cond, sb);
+                sb.Append(".B"); // Size is always byte
                 AppendTab(EAColumn, sb);
                 AppendEffectiveAddress(inst, EAType.Destination, sb);
             }
