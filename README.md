@@ -2,9 +2,9 @@
 
 This repo contains the code for a Motorola 68000 processor emulator library.
 
-NOTE (dhadner): This fork has been updated (in the "macview" branch) for .NET 8.0.
+NOTE (dhadner): This fork has been updated (in the "macview" branch) for .NET 7.0.
 
-1. Update to .NET 8.0
+1. Update to .NET 7.0
 2. Add S-record file loader.  Allows for use of standard assemblers and compilers.  
    See a68.bat in the 68000EmulatorConsoleApp folder for details.
 3. Handle normal TRAPs without throwing exceptions but still use exceptions for unexpected errors.  
