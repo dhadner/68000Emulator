@@ -33,7 +33,7 @@ The 68000Emulator solution consists of the following projects:
 
 ### Prerequisites
 
-- [.NET Core 8.0 SDK](https://www.microsoft.com/net/download/core)
+- [.NET Core 7.0 SDK](https://www.microsoft.com/net/download/core)
   
 <br>
 
