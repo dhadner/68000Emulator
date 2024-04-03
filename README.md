@@ -63,6 +63,6 @@ From a developer's point of view, the emulator is used as follows:
 
 | Version | Details
 |---:| ---
-| 2.0.0 | Update to .NET 8.0 and add S-record, subclassing, logger, & debugger compatibility features. 
+| 2.0.0 | Update to .NET 7.0 and add S-record, subclassing, logger, & debugger compatibility features. 
 | 1.0.0 | Initial implementation of the 68000 emulator.
 
