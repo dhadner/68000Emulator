@@ -119,13 +119,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <summary>
             /// Maximum instruction length in bytes.
             /// </summary>
-            public static readonly int MaxInstructionLength = 10;
+            public const int MaxInstructionLength = 10;
 
             /// <summary>
             /// Number of bytes to allow in one DC.B directive.  A <see cref="NonExecutableSection"/>
             /// is not limited in length and can consist of many non-executable data blocks.
             /// </summary>
-            public int MaxNonExecDataDisassemblyBlockSize { get; set; } = 16;
+            public const int MaxNonExecDataDisassemblyBlockSize = 8;
 
             /// <summary>
             /// Gets or sets the <see cref="Machine"/> instance for which this <see cref="Disassembler"/> instance
@@ -371,7 +371,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     var nonExecSection = GetNonExecutableSection(CurrentAddress);
                     if (nonExecSection != null)
                     {
-                        result.Add(new DisassemblyRecord(false, CurrentAddress, [], NonExecutableDataDisassembly(nonExecSection.Value, CurrentAddress), null)); ;
+                        result.Add(GetNonExecutableSectionRecord(CurrentAddress, length - (CurrentAddress - startAddress), nonExecSection.Value));
                     }
                     else
                     {
@@ -380,6 +380,40 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                 }
                 return result;
+            }
+
+            /// <summary>
+            /// Return a Disassembly record for the section that starts at <see cref="address"/>
+            /// and has the requested <see cref="length"/>.
+            /// Note that the actual section may start at a much lower address and continue on past the
+            /// requested length so handle appropriately.  Also, the requested section may
+            /// end prior to the length passed in, so also handle that appropriately.
+            /// </summary>
+            /// <param name="address"></param>
+            /// <param name="length"></param>
+            /// <param name="section"></param>
+            /// <returns></returns>
+            protected DisassemblyRecord GetNonExecutableSectionRecord(uint address, uint length, int section)
+            {
+                (var nesAddress, var nesLength) = NonExecutableSections[section];
+                length = Math.Min(length, MaxNonExecDataDisassemblyBlockSize);
+
+                // Length of NES that is contained in this record.
+                uint nesRecordLength = nesLength - (address - nesAddress);
+
+                uint recordLength = Math.Min(length, nesRecordLength);
+                byte[] machineCode = new byte[recordLength];
+                for (uint i = 0; i < recordLength; i++)
+                {
+                    // Can't use ReadNextByte() because NonExecutableDataDisassembly(...)
+                    // will call it below and calling it here would result in double
+                    // incrementing CurrentAddress.
+                    machineCode[i] = Machine.Memory.ReadByte(address + i);
+                }
+                var assembly = NonExecutableDataDisassembly(section, address);
+                string? comment = Comment(address, machineCode, assembly, true);
+                var record = new DisassemblyRecord(false, address, machineCode, assembly, comment);
+                return record;
             }
 
             /// <summary>
@@ -460,9 +494,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Allow subclass to add a comment.
             /// </summary>
             /// <param name="address"></param>
+            /// <param name="codeBytes"></param>
             /// <param name="assembly"></param>
+            /// <param name="isNonExecutableSection"></param>
             /// <returns></returns>
-            protected virtual string? Comment(uint address, byte[] codeBytes, string? assembly)
+            protected virtual string? Comment(uint address, byte[] codeBytes, string? assembly, bool isNonExecutableSection = false)
             {
                 return null;
             }
