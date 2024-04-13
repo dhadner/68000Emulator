@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
+using static PendleCodeMonkey.MC68000EmulatorLib.Machine;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -89,6 +90,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     // Initialize registers from the actual machine.
                     SetCPUState(machine.GetCPUState());
+                    Debugger = machine.Debugger;
                 }
 
                 /// <summary>
@@ -114,7 +116,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <summary>
             /// Column where the effective address (source,dest) text starts.
             /// </summary>
-            protected static int EAColumn { get; } = 8;
+            public const int EAColumn = 8;
 
             /// <summary>
             /// Maximum instruction length in bytes.
@@ -274,7 +276,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 _handlers.Add(OpHandlerID.NBCD, DST);
                 _handlers.Add(OpHandlerID.MOVEP, MOVEP);
                 _handlers.Add(OpHandlerID.MOVEM, MOVEM);
-                _handlers.Add(OpHandlerID.LINEA, NOOPERANDS);
+                _handlers.Add(OpHandlerID.LINEA, LINEA);
                 _handlers.Add(OpHandlerID.LINEF, NOOPERANDS);
             }
 
@@ -359,27 +361,35 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </returns>
             public List<DisassemblyRecord> Disassemble(uint startAddress, uint length, int maxCount = int.MaxValue)
             {
-                Machine.CPU.PC = startAddress;
-                StartAddress = startAddress;
-                Length = length;
-                CurrentAddress = StartAddress;
-                int count = 0;
-
-                List<DisassemblyRecord> result = new();
-                while (!IsEndOfData && count++ < maxCount)
+                try
                 {
-                    var nonExecSection = GetNonExecutableSection(CurrentAddress);
-                    if (nonExecSection != null)
+                    Disassembling = true;
+                    Machine.CPU.PC = startAddress;
+                    StartAddress = startAddress;
+                    Length = length;
+                    CurrentAddress = StartAddress;
+                    int count = 0;
+
+                    List<DisassemblyRecord> result = new();
+                    while (!IsEndOfData && count++ < maxCount)
                     {
-                        result.Add(GetNonExecutableSectionRecord(CurrentAddress, length - (CurrentAddress - startAddress), nonExecSection.Value));
+                        var nonExecSection = GetNonExecutableSection(CurrentAddress);
+                        if (nonExecSection != null)
+                        {
+                            result.Add(GetNonExecutableSectionRecord(CurrentAddress, length - (CurrentAddress - startAddress), nonExecSection.Value));
+                        }
+                        else
+                        {
+                            (bool endOfData, uint address, byte[] bytes, string assembly, string? comment) = DisassembleAtCurrentAddress();
+                            result.Add(new DisassemblyRecord(endOfData, address, bytes, assembly, comment));
+                        }
                     }
-                    else
-                    {
-                        (bool endOfData, uint address, byte[] bytes, string assembly, string? comment) = DisassembleAtCurrentAddress();
-                        result.Add(new DisassemblyRecord(endOfData, address, bytes, assembly, comment));
-                    }
+                    return result;
                 }
-                return result;
+                finally
+                {
+                    Disassembling = false;
+                }
             }
 
             /// <summary>
@@ -504,49 +514,84 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
+            /// Instruction mnemonic.
+            /// </summary>
+            /// <param name="inst"></param>
+            /// <returns>mnemonic for disassembly without size info (e.g., no ".W" suffix if word instruction)</returns>
+            protected virtual string Mnemonic(Instruction inst)
+            {
+                return inst.Info.Mnemonic;
+            }
+
+            bool _disassembling = false;
+            protected bool Disassembling
+            {
+                get
+                {
+                    return _disassembling;
+                }
+                set
+                {
+                    _disassembling = value;
+                    if (Machine.Debugger != null)
+                    {
+                        Machine.Debugger.Disassembling = value;
+                    }
+                }
+            }
+
+            /// <summary>
             /// Disassemble the current instruction.
             /// </summary>
             /// <returns></returns>
             protected (bool endOfData, uint address, byte[] machineCode, string assembly, string? comment) DisassembleAtCurrentAddress()
             {
-                CurrentInstructionAddress = CurrentAddress;
-                bool endOfData = false;
-                string assembly = "UNKNOWN";
-                Machine.CPU.PC = CurrentAddress;
-                Instruction? inst = Machine.Decoder.FetchInstruction();
-                int length = (int)Machine.CPU.PC - (int)CurrentInstructionAddress;
-                List<byte> codeBytes = new();
-
-                // Show the actual instruction bytes
-                StringBuilder code = new();
-                int i;
-                for (i = 0; (i < length) && !IsEndOfData; i++)
-                {                    
-                    byte value = ReadNextByte();
-                    codeBytes.Add(value);
-                }
-                if (IsEndOfData && i < length)
+                try
                 {
-                    // End of memory block before we finished
-                    assembly = "... ";
-                    endOfData = true;
-                }
+                    CurrentInstructionAddress = CurrentAddress;
+                    Disassembling = true;
+                    bool endOfData = false;
+                    string assembly = "UNKNOWN";
+                    Machine.CPU.PC = CurrentAddress;
+                    Instruction? inst = Machine.Decoder.FetchInstruction();
+                    int length = (int)Machine.CPU.PC - (int)CurrentInstructionAddress;
+                    List<byte> codeBytes = new();
 
-                if (inst != null)
-                {
-                    StringBuilder sb = new();
-                    if (_handlers.TryGetValue(inst.Info.HandlerID, out DisassemblyHandler? value))
+                    // Show the actual instruction bytes
+                    StringBuilder code = new();
+                    int i;
+                    for (i = 0; (i < length) && !IsEndOfData; i++)
                     {
-                        value(inst, sb);
+                        byte value = ReadNextByte();
+                        codeBytes.Add(value);
                     }
-                    else
+                    if (IsEndOfData && i < length)
                     {
-                        sb.Append("????");
+                        // End of memory block before we finished
+                        assembly = "... ";
+                        endOfData = true;
                     }
-                    assembly = sb.ToString();
+
+                    if (inst != null)
+                    {
+                        StringBuilder sb = new();
+                        if (_handlers.TryGetValue(inst.Info.HandlerID, out DisassemblyHandler? value))
+                        {
+                            value(inst, sb);
+                        }
+                        else
+                        {
+                            sb.Append("????");
+                        }
+                        assembly = sb.ToString();
+                    }
+                    byte[] machineCode = codeBytes.ToArray();
+                    return (endOfData, CurrentInstructionAddress, machineCode, assembly, Comment(CurrentInstructionAddress, machineCode, assembly));
                 }
-                byte[] machineCode = codeBytes.ToArray();
-                return (endOfData, CurrentInstructionAddress, machineCode, assembly, Comment(CurrentInstructionAddress, machineCode, assembly));
+                finally
+                {
+                    Disassembling = false;
+                }
             }
 
             /// <summary>
@@ -572,7 +617,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 return regNum == 7 ? "SP" : $"A{regNum}";
             }
-
+            
             /// <summary>
             /// Append the instruction size and tab.
             /// </summary>
@@ -581,14 +626,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected void AppendSizeAndTab(Instruction inst, StringBuilder sb)
             {
                 OpSize size = inst.Size ?? OpSize.Word;
-                string sSize = size switch
-                {
-                    OpSize.Byte => ".B",
-                    OpSize.Long => ".L",
-                    _ => ".W"
-                };
-                sb.Append(sSize);
-                AppendTab(EAColumn, sb);
+                AppendSizeAndTab(size, sb);
             }
 
             /// <summary>
@@ -596,7 +634,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             /// <param name="size"></param>
             /// <param name="sb"></param>
-            protected void AppendSizeAndTab(OpSize size, StringBuilder sb)
+            protected void AppendSizeAndTab(OpSize? size, StringBuilder sb)
             {
                 string sSize = size switch
                 {
@@ -638,7 +676,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="sb"></param>
             protected void AppendEffectiveAddress(Instruction instruction, EAType eaType, StringBuilder sb)
             {
-                (_, string effectiveAddress) = ComputeEffectiveAddress(instruction, eaType);
+                (_, _, string effectiveAddress) = ComputeEffectiveAddress(instruction, eaType);
                 sb.Append(effectiveAddress);
             }
 
@@ -650,7 +688,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns></returns>
             protected bool EffectiveAddressIsMemory(Instruction instruction, EAType eaType)
             {
-                (bool isMemory, _) = ComputeEffectiveAddress(instruction, eaType);
+                (bool isMemory, _, _) = ComputeEffectiveAddress(instruction, eaType);
                 return isMemory;
             }
 
@@ -672,7 +710,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="instruction">The <see cref="Instruction"/> instance.</param>
             /// <param name="eaType">The type of effective effectiveAddress to be evaluated (Source or Destination).</param>
             /// <returns>isMemory = true if effective effectiveAddress is memory, effective effectiveAddress as an assembler string</returns>
-            protected (bool isMemory, string eaStr) ComputeEffectiveAddress(Instruction instruction, EAType eaType)
+            protected (bool isMemory, OpSize? size, string eaStr) ComputeEffectiveAddress(Instruction instruction, EAType eaType)
             {
                 ushort? ea = eaType == EAType.Source ? instruction.SourceAddrMode : instruction.DestAddrMode;
                 ushort? ext1 = eaType == EAType.Source ? instruction.SourceExtWord1 : instruction.DestExtWord1;
@@ -681,10 +719,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 uint? address;
                 uint? immVal;
                 bool isMemory = true;
+                OpSize? size = null;
                 string eaStr = "";
                 if (ea.HasValue)
                 {
-                    OpSize size = instruction.Size ?? OpSize.Word;
+                    OpSize opSize = instruction.Size ?? OpSize.Word;
 
                     // Get register number (for addressing modes that use a register)
                     ushort regNum = (ushort)(ea & 0x0007);
@@ -711,7 +750,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             //Debug.Assert(ext1.HasValue, "Required extension word is not available");
                             if (ext1.HasValue)
                             {
-                                eaStr = $"(${(short)ext1.Value:x4},{AddressReg(regNum)})";
+                                eaStr = $"({(short)ext1.Value},{AddressReg(regNum)})";
                             }
                             break;
                         case (byte)AddrMode.AddressIndex:
@@ -741,6 +780,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     {
                                         address = (uint)((ext1.Value << 16) + ext2.Value);
                                         eaStr = FormatEffectiveAddress(CurrentInstructionAddress, address.Value);
+                                        size = OpSize.Long;
                                     }
                                     break;
                                 case (byte)AddrMode.PCDisp:
@@ -760,21 +800,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         byte disp = (byte)(ext1.Value & 0x00FF);
                                         byte indexRegNum = (byte)((ext1.Value & 0x7000) >> 12);
                                         char sz = (ext1.Value & 0x0800) == 0 ? 'W' : 'L';
-
-                                        eaStr = $"({(sbyte)disp},PC,D{indexRegNum}.{sz})";
+                                        uint absAddress = (uint)((sbyte)disp + (int)CurrentInstructionAddress);
+                                        eaStr = $"${absAddress:x8}(PC,D{indexRegNum}.{sz})";
                                     }
                                     break;
                                 case (byte)AddrMode.Immediate:
                                     //Debug.Assert(ext1.HasValue, "Required extension word is not available");
                                     if (ext1.HasValue)
                                     {
-                                        if (size == OpSize.Long)
+                                        if (opSize == OpSize.Long)
                                         {
                                             //Debug.Assert(ext2.HasValue, "Required extension word is not available");
                                             if (ext2.HasValue)
                                             {
                                                 immVal = (uint)((ext1.Value << 16) + ext2.Value);
                                                 eaStr = $"#${immVal:x8}";
+                                                size = OpSize.Long;
                                             }
                                         }
                                         else
@@ -789,7 +830,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             break;
                     }
                 }
-                return (isMemory, eaStr);
+                if (isMemory && size != null)
+                {
+                    string sSize = size switch
+                    {
+                        OpSize.Byte => ".B",
+                        OpSize.Long => ".L",
+                        _ => ".W"
+                    };
+                    eaStr = $"({eaStr}){sSize}";
+                }
+                return (isMemory, size, eaStr);
             }
 
             /// <summary>
@@ -797,9 +848,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             /// <param name="inst"></param>
             /// <param name="sb"></param>
-            protected static void AppendMnemonic(Instruction inst, StringBuilder sb)
+            protected void AppendMnemonic(Instruction inst, StringBuilder sb)
             {
-                sb.Append(inst.Info.Mnemonic);
+                sb.Append(Mnemonic(inst));
             }
 
             /// <summary>
@@ -1059,8 +1110,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected void MOVEA(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
-                sb.Append(".L");
-                AppendTab(EAColumn, sb);
+                AppendSizeAndTab(inst, sb);
 
                 AppendEffectiveAddress(inst, EAType.Source, sb);
                 sb.Append(',');
@@ -1209,10 +1259,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     AppendCondition(cond, sb);
                 }
-                AppendTab(EAColumn, sb);
 
                 uint pc = Machine.CPU.PC;
                 int disp = inst.Opcode & 0x00FF;
+                OpSize size = OpSize.Word;
                 if (disp == 0)
                 {
                     if (inst.SourceExtWord1.HasValue)
@@ -1233,8 +1283,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 else
                 {
                     disp = Helpers.SignExtendValue((uint)disp, OpSize.Byte);
+                    size = OpSize.Byte;
                 }
 
+                AppendSizeAndTab(size, sb);
                 uint address = (uint)(pc + disp);
                 sb.Append($"${address:x8}");
             }
@@ -1249,9 +1301,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected void BRA_BSR(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
-                AppendTab(EAColumn, sb);
                 uint pc = Machine.CPU.PC;
                 int disp = inst.Opcode & 0x00FF;
+                OpSize size = OpSize.Word;
                 if (disp == 0)
                 {
                     // Byte displacement is zero so use the extension word value as a 16-bit displacement.
@@ -1272,7 +1324,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 else
                 {
                     disp = Helpers.SignExtendValue((uint)disp, OpSize.Byte);
+                    size = OpSize.Byte;
                 }
+
+                AppendSizeAndTab(size, sb);
                 uint address = (uint)(pc + disp);
                 sb.Append($"${address:x8}");
             }
@@ -1311,7 +1366,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected void ADDA_SUBA_CMPA(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
-                AppendTab(EAColumn, sb);
+                AppendSizeAndTab(inst, sb);
 
                 AppendEffectiveAddress(inst, EAType.Source, sb);
                 sb.Append(',');
@@ -1404,9 +1459,16 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected void LEA(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
-                AppendTab(EAColumn, sb);
-
-                AppendEffectiveAddress(inst, EAType.Source, sb);
+                (_, OpSize? size, string effectiveAddress) = ComputeEffectiveAddress(inst, EAType.Source);
+                if (size != null)
+                {
+                    AppendSizeAndTab(size, sb);
+                }
+                else
+                {
+                    AppendTab(EAColumn, sb);
+                }
+                sb.Append(effectiveAddress);
                 int regNum = (inst.Opcode & 0x0E00) >> 9;
                 sb.Append(',');
                 sb.Append($"{AddressReg(regNum)}");
@@ -1552,16 +1614,26 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
-            protected static void NOOPERANDS(Instruction inst, StringBuilder sb)
+            protected void NOOPERANDS(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
             }
 
-            protected static void NONE(Instruction inst, StringBuilder sb)
+            protected void NONE(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 sb.Append(" ???");
             }
+
+            protected void LINEA(Instruction inst, StringBuilder sb)
+            {
+                sb.Append($"DC.W");
+                AppendTab(EAColumn, sb);
+                sb.Append($"${inst.Opcode:x4} (");
+                AppendMnemonic(inst, sb);
+                sb.Append(")");
+            }
+
         }
     }
 }
