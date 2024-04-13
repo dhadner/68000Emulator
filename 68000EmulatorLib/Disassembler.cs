@@ -114,7 +114,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <summary>
             /// Column where the effective address (source,dest) text starts.
             /// </summary>
-            protected static int EAColumn { get; } = 8;
+            public const int EAColumn = 8;
 
             /// <summary>
             /// Maximum instruction length in bytes.
@@ -274,7 +274,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 _handlers.Add(OpHandlerID.NBCD, DST);
                 _handlers.Add(OpHandlerID.MOVEP, MOVEP);
                 _handlers.Add(OpHandlerID.MOVEM, MOVEM);
-                _handlers.Add(OpHandlerID.LINEA, NOOPERANDS);
+                _handlers.Add(OpHandlerID.LINEA, LINEA);
                 _handlers.Add(OpHandlerID.LINEF, NOOPERANDS);
             }
 
@@ -501,6 +501,16 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected virtual string? Comment(uint address, byte[] codeBytes, string? assembly, bool isNonExecutableSection = false)
             {
                 return null;
+            }
+
+            /// <summary>
+            /// Instruction mnemonic.
+            /// </summary>
+            /// <param name="inst"></param>
+            /// <returns>mnemonic for disassembly without size info (e.g., no ".W" suffix if word instruction)</returns>
+            protected virtual string Mnemonic(Instruction inst)
+            {
+                return inst.Info.Mnemonic;
             }
 
             /// <summary>
@@ -797,9 +807,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             /// <param name="inst"></param>
             /// <param name="sb"></param>
-            protected static void AppendMnemonic(Instruction inst, StringBuilder sb)
+            protected void AppendMnemonic(Instruction inst, StringBuilder sb)
             {
-                sb.Append(inst.Info.Mnemonic);
+                sb.Append(Mnemonic(inst));
             }
 
             /// <summary>
@@ -1552,16 +1562,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
-            protected static void NOOPERANDS(Instruction inst, StringBuilder sb)
+            protected void NOOPERANDS(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
             }
 
-            protected static void NONE(Instruction inst, StringBuilder sb)
+            protected void NONE(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 sb.Append(" ???");
             }
+
+            protected void LINEA(Instruction inst, StringBuilder sb)
+            {
+                AppendMnemonic(inst, sb);
+            }
+
         }
     }
 }
