@@ -499,9 +499,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 else if (address.HasValue)
                 {
-                    if (Machine.Debugging)
+                    if (Machine.Debugger != null && Machine.Debugger.Debugging)
                     {
-                        Machine.DebugReadAccess?.Invoke(address.Value);
+                        Machine.Debugger.DebugReadAccess(address.Value);
                     }
                     value = size switch
                     {
@@ -542,9 +542,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 else if (address.HasValue)
                 {
-                    if (Machine.Debugging)
+                    if (Machine.Debugger != null && Machine.Debugger.Debugging)
                     {
-                        Machine.DebugWriteAccess?.Invoke(address.Value);
+                        Machine.Debugger.DebugWriteAccess(address.Value);
                     }
                     switch (size)
                     {

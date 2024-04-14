@@ -87,19 +87,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public virtual bool IsEndOfExecution { get; protected set; }
 
         /// <summary>
-        /// True if debugging. Set by the debugger.
+        /// Optional debugger.  Subclasses can provide debug features.
         /// </summary>
-        public bool Debugging { get; set; }
-
-        /// <summary>
-        /// Callback to debugger on read access when Debugging.
-        /// </summary>
-        public Action<uint>? DebugReadAccess = null;
-
-        /// <summary>
-        /// Callback to debugger on write access when Debugging.
-        /// </summary>
-        public Action<uint>? DebugWriteAccess = null;
+        public IDebugger? Debugger { get; set; }
 
         /// <summary>
         /// Configuration Option: True if machine should

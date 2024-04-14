@@ -89,6 +89,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     // Initialize registers from the actual machine.
                     SetCPUState(machine.GetCPUState());
+                    Debugger = machine.Debugger;
                 }
 
                 /// <summary>
@@ -359,27 +360,35 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </returns>
             public List<DisassemblyRecord> Disassemble(uint startAddress, uint length, int maxCount = int.MaxValue)
             {
-                Machine.CPU.PC = startAddress;
-                StartAddress = startAddress;
-                Length = length;
-                CurrentAddress = StartAddress;
-                int count = 0;
-
-                List<DisassemblyRecord> result = new();
-                while (!IsEndOfData && count++ < maxCount)
+                try
                 {
-                    var nonExecSection = GetNonExecutableSection(CurrentAddress);
-                    if (nonExecSection != null)
+                    Disassembling = true;
+                    Machine.CPU.PC = startAddress;
+                    StartAddress = startAddress;
+                    Length = length;
+                    CurrentAddress = StartAddress;
+                    int count = 0;
+
+                    List<DisassemblyRecord> result = new();
+                    while (!IsEndOfData && count++ < maxCount)
                     {
-                        result.Add(GetNonExecutableSectionRecord(CurrentAddress, length - (CurrentAddress - startAddress), nonExecSection.Value));
+                        var nonExecSection = GetNonExecutableSection(CurrentAddress);
+                        if (nonExecSection != null)
+                        {
+                            result.Add(GetNonExecutableSectionRecord(CurrentAddress, length - (CurrentAddress - startAddress), nonExecSection.Value));
+                        }
+                        else
+                        {
+                            (bool endOfData, uint address, byte[] bytes, string assembly, string? comment) = DisassembleAtCurrentAddress();
+                            result.Add(new DisassemblyRecord(endOfData, address, bytes, assembly, comment));
+                        }
                     }
-                    else
-                    {
-                        (bool endOfData, uint address, byte[] bytes, string assembly, string? comment) = DisassembleAtCurrentAddress();
-                        result.Add(new DisassemblyRecord(endOfData, address, bytes, assembly, comment));
-                    }
+                    return result;
                 }
-                return result;
+                finally
+                {
+                    Disassembling = false;
+                }
             }
 
             /// <summary>
@@ -513,50 +522,75 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return inst.Info.Mnemonic;
             }
 
+            bool _disassembling = false;
+            protected bool Disassembling
+            {
+                get
+                {
+                    return _disassembling;
+                }
+                set
+                {
+                    _disassembling = value;
+                    if (Machine.Debugger != null)
+                    {
+                        Machine.Debugger.Disassembling = value;
+                    }
+                }
+            }
+
             /// <summary>
             /// Disassemble the current instruction.
             /// </summary>
             /// <returns></returns>
             protected (bool endOfData, uint address, byte[] machineCode, string assembly, string? comment) DisassembleAtCurrentAddress()
             {
-                CurrentInstructionAddress = CurrentAddress;
-                bool endOfData = false;
-                string assembly = "UNKNOWN";
-                Machine.CPU.PC = CurrentAddress;
-                Instruction? inst = Machine.Decoder.FetchInstruction();
-                int length = (int)Machine.CPU.PC - (int)CurrentInstructionAddress;
-                List<byte> codeBytes = new();
-
-                // Show the actual instruction bytes
-                StringBuilder code = new();
-                int i;
-                for (i = 0; (i < length) && !IsEndOfData; i++)
-                {                    
-                    byte value = ReadNextByte();
-                    codeBytes.Add(value);
-                }
-                if (IsEndOfData && i < length)
+                try
                 {
-                    // End of memory block before we finished
-                    assembly = "... ";
-                    endOfData = true;
-                }
+                    CurrentInstructionAddress = CurrentAddress;
+                    Disassembling = true;
+                    bool endOfData = false;
+                    string assembly = "UNKNOWN";
+                    Machine.CPU.PC = CurrentAddress;
+                    Instruction? inst = Machine.Decoder.FetchInstruction();
+                    int length = (int)Machine.CPU.PC - (int)CurrentInstructionAddress;
+                    List<byte> codeBytes = new();
 
-                if (inst != null)
-                {
-                    StringBuilder sb = new();
-                    if (_handlers.TryGetValue(inst.Info.HandlerID, out DisassemblyHandler? value))
+                    // Show the actual instruction bytes
+                    StringBuilder code = new();
+                    int i;
+                    for (i = 0; (i < length) && !IsEndOfData; i++)
                     {
-                        value(inst, sb);
+                        byte value = ReadNextByte();
+                        codeBytes.Add(value);
                     }
-                    else
+                    if (IsEndOfData && i < length)
                     {
-                        sb.Append("????");
+                        // End of memory block before we finished
+                        assembly = "... ";
+                        endOfData = true;
                     }
-                    assembly = sb.ToString();
+
+                    if (inst != null)
+                    {
+                        StringBuilder sb = new();
+                        if (_handlers.TryGetValue(inst.Info.HandlerID, out DisassemblyHandler? value))
+                        {
+                            value(inst, sb);
+                        }
+                        else
+                        {
+                            sb.Append("????");
+                        }
+                        assembly = sb.ToString();
+                    }
+                    byte[] machineCode = codeBytes.ToArray();
+                    return (endOfData, CurrentInstructionAddress, machineCode, assembly, Comment(CurrentInstructionAddress, machineCode, assembly));
                 }
-                byte[] machineCode = codeBytes.ToArray();
-                return (endOfData, CurrentInstructionAddress, machineCode, assembly, Comment(CurrentInstructionAddress, machineCode, assembly));
+                finally
+                {
+                    Disassembling = false;
+                }
             }
 
             /// <summary>
