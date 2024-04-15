@@ -755,7 +755,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             //Debug.Assert(ext1.HasValue, "Required extension word is not available");
                             if (ext1.HasValue)
                             {
-                                eaStr = $"(${(short)ext1.Value:x4},{AddressReg(regNum)})";
+                                eaStr = $"(${(int)(short)ext1.Value:x8},{AddressReg(regNum)})";
                             }
                             break;
                         case (byte)AddrMode.AddressIndex:
@@ -1609,7 +1609,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             protected void LINEA(Instruction inst, StringBuilder sb)
             {
+                sb.Append($"DC.W");
+                AppendTab(EAColumn, sb);
+                sb.Append($"${inst.Opcode:x4} (");
                 AppendMnemonic(inst, sb);
+                sb.Append(")");
             }
 
         }
