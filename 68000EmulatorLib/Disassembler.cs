@@ -755,7 +755,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             //Debug.Assert(ext1.HasValue, "Required extension word is not available");
                             if (ext1.HasValue)
                             {
-                                eaStr = $"(${(int)(short)ext1.Value:x8},{AddressReg(regNum)})";
+                                eaStr = $"({(short)ext1.Value},{AddressReg(regNum)})";
                             }
                             break;
                         case (byte)AddrMode.AddressIndex:
