@@ -2,6 +2,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Reflection.Metadata;
+using System.Runtime.Intrinsics.X86;
 using System.Text;
 using static PendleCodeMonkey.MC68000EmulatorLib.Machine;
 
@@ -127,7 +129,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Number of bytes to allow in one DC.B directive.  A <see cref="NonExecutableSection"/>
             /// is not limited in length and can consist of many non-executable data blocks.
             /// </summary>
-            public const int MaxNonExecDataDisassemblyBlockSize = 8;
+            public const int MaxNonExecDataDisassemblyBlockSize = 4;
 
             /// <summary>
             /// Gets or sets the <see cref="Machine"/> instance for which this <see cref="Disassembler"/> instance
@@ -469,12 +471,33 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return GetNonExecutableSection(address) != null;
             }
 
+            static byte[] _bytes = new byte[MaxNonExecDataDisassemblyBlockSize];
+            static StringBuilder _asciiBuilder = new();
+
+            string GetBytesAsString(byte[] array, uint length)
+            {
+                _asciiBuilder.Clear();
+                for (int i = 0; i < length && i < array.Length; i++)
+                {
+                    char ch = Encoding.ASCII.GetString(array, i, 1)[0];
+                    if (Char.IsLetterOrDigit(ch) || Char.IsPunctuation(ch) || Char.IsSymbol(ch) || (ch == ' '))
+                    {
+                        _asciiBuilder.Append(ch);
+                    }
+                    else 
+                    {
+                        _asciiBuilder.Append(' ');
+                    }
+                }
+                return _asciiBuilder.ToString();
+            }
+
             /// <summary>
             /// Returns a string containing a block of non-executable data.
             /// </summary>
             /// <remarks>
             /// Non-executable data is output in the disassembly using a DC.B directive.
-            /// Non-executable data sections are output in blocks of a maximum of 16 bytes (as set 
+            /// Non-executable data sections are output in blocks of a maximum of 8 bytes (as set 
             /// by MaxNonExecDataDisassemblyBlockSize).
             /// </remarks>
             /// <param name="nonExecSection">Zero-based index of the non-executable section.</param>
@@ -483,19 +506,59 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 StringBuilder sb = new();
                 var section = NonExecutableSections[nonExecSection];
-
-                sb.Append("DC.B ");
-
                 int bytesRemaining = (int)((ulong)section.Address + section.Length - startAddress);
-                for (int i = 0; i < Math.Min(MaxNonExecDataDisassemblyBlockSize, bytesRemaining); i++)
+                uint length = (uint)Math.Min(MaxNonExecDataDisassemblyBlockSize, bytesRemaining);
+                string dc = "DC.B";
+                if (length == 2)
                 {
-                    if (IsEndOfData) { break; }
-                    byte value = ReadNextByte();
-                    if (i > 0)
+                    dc = "DC.W";
+                }
+                else if (length == 4)
+                {
+                    dc = "DC.L";
+                }
+                sb.Append(dc);
+                AppendTab(EAColumn, sb);
+                Array.Clear(_bytes);
+                
+                if (length == 2)
+                {
+                    ushort val = 0;
+                    for (int i = 0; i < length; i++)
                     {
-                        sb.Append(',');
+                        if (IsEndOfData) { break; }
+                        byte value = ReadNextByte();
+                        _bytes[i] = value;
+                        val = (ushort)((val << 8) | value);
                     }
-                    sb.Append($"${value:x2}");
+                    sb.Append($"${val:x4}        '{GetBytesAsString(_bytes, length)}'");
+                }
+                else if (length == 4)
+                {
+                    uint val = 0;
+                    for (int i = 0; i < length; i++)
+                    {
+                        if (IsEndOfData) { break; }
+                        byte value = ReadNextByte();
+                        _bytes[i] = value;
+                        val = (val << 8) | value;
+                    }
+                    sb.Append($"${val:x8}    '{GetBytesAsString(_bytes, length)}'");
+                }
+                else
+                {
+                    for (int i = 0; i < length; i++)
+                    {
+                        if (IsEndOfData) { break; }
+                        byte value = ReadNextByte();
+                        _bytes[i] = value;
+                        if (i > 0)
+                        {
+                            sb.Append(',');
+                        }
+                        sb.Append($"${value:x2}");
+                    }
+                    sb.Append($"  '{GetBytesAsString(_bytes, length)}'");
                 }
                 return sb.ToString();
             }
