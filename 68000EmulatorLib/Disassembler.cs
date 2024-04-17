@@ -1,11 +1,7 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Reflection.Metadata;
-using System.Runtime.Intrinsics.X86;
 using System.Text;
-using static PendleCodeMonkey.MC68000EmulatorLib.Machine;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
