@@ -508,7 +508,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 var section = NonExecutableSections[nonExecSection];
                 int bytesRemaining = (int)((ulong)section.Address + section.Length - startAddress);
                 uint length = (uint)Math.Min(MaxNonExecDataDisassemblyBlockSize, bytesRemaining);
-                string dc = "DC.B";
+                string dc;
                 if (length == 2)
                 {
                     dc = "DC.W";
@@ -516,6 +516,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 else if (length == 4)
                 {
                     dc = "DC.L";
+                }
+                else
+                {
+                    dc = "DC.B";
                 }
                 sb.Append(dc);
                 AppendTab(EAColumn, sb);
