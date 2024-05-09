@@ -119,6 +119,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             return newValue;
         }
 
+        /// <summary>
+        /// Check to ensure the instruction has an extention word.  Throw exception if not.
+        /// </summary>
+        /// <param name="inst"></param>
+        /// <exception cref="IllegalInstruction">Thrown if no extension word.</exception>
         public static void AssertHasSourceExtWord1(Instruction inst)
         {
             if (inst.SourceExtWord1 == null)
