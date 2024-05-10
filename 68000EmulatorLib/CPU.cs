@@ -4,6 +4,9 @@ using System.Diagnostics;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
+    /// <summary>
+    /// Implementation of the <see cref="CPU"/> class.
+    /// </summary>
     public class CPU
     {
         public CPU()

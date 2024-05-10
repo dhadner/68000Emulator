@@ -6,7 +6,7 @@ using System.Text;
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
     /// <summary>
-    /// The disassembler is part of the Machine class for access to internals.
+    /// Partial implementation of the <see cref="Machine"/> class.
     /// </summary>
     public partial class Machine
     {

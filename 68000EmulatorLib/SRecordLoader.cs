@@ -6,6 +6,9 @@ using System.IO;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
+    /// <summary>
+    /// Partial implementation of the <see cref="Machine"/> class.
+    /// </summary>
     public partial class Machine
     {
         /// <summary>
@@ -51,12 +54,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="highestAddress">Highest address found in file</param>
             /// <returns><c>null</c> if the data was successfully loaded, otherwise an error message.
             /// If there is an error, the addresses will be set to 0.</returns>
-            internal string? Load(string name, out uint startingAddress, out uint lowestAddress, out uint highestAddress)
+            internal string? Load(string name, out uint? startingAddress, out uint lowestAddress, out uint highestAddress)
             {
                 int lineNumber = 0;
                 uint lowAddress = 0xffffffff;
                 uint highAddress = 0;
-                uint startAddress = 0;
+                uint? startAddress = null;
                 string? errMsg = null;
 
                 FileInfo file = new FileInfo(name);
@@ -205,9 +208,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 else
                 {
+                    startingAddress = null;
                     lowestAddress = 0;
                     highestAddress = 0;
-                    startingAddress = 0;
                 }
                 return errMsg;
             }

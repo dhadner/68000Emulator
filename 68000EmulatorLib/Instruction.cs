@@ -2,6 +2,9 @@
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
+    /// <summary>
+    /// Partial implementation of the <see cref="Machine"/> class.
+    /// </summary>
     public partial class Machine
     {
         /// <summary>

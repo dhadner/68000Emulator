@@ -61,7 +61,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <remarks>
         /// This instance performs the execution of the 68000 instructions.
         /// </remarks>
-        protected OpcodeExecutionHandler ExecutionHandler { get; private set; }
+        internal OpcodeExecutionHandler ExecutionHandler { get; set; }
 
         /// <summary>
         /// Currently-executing instruction.
@@ -205,10 +205,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Get the current call depth to support debugging (step-out, step-over).
         /// </summary>
-        public int CallDepth
-        {
-            get { return ExecutionHandler._numberOfJSRCalls; }
-        }
+        public int CallDepth => ExecutionHandler._numberOfJSRCalls;
 
         /// <summary>
         /// Load executable data into memory at the specified address.
@@ -292,10 +289,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 Memory.Clear();
             }
             SRecordLoader loader = new SRecordLoader(this);
-            string? errMsg = loader.Load(sFile, out uint startingAddress, out uint lowestAddress, out uint highestAddress);
+            string? errMsg = loader.Load(sFile, out uint? startingAddress, out uint lowestAddress, out uint highestAddress);
             if (errMsg == null)
             {
-                CPU.PC = startingAddress;
+                if (startingAddress.HasValue)
+                {
+                    CPU.PC = startingAddress.Value;
+                }
                 _loadedAddress = lowestAddress;
                 _dataLength = highestAddress - lowestAddress;
             }

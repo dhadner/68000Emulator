@@ -5,12 +5,15 @@ using System.Diagnostics;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
+    /// <summary>
+    /// Partial implementation of the <see cref="Machine"/> class.
+    /// </summary>
     public partial class Machine
     {
         /// <summary>
         /// Implementation of the <see cref="OpcodeExecutionHandler"/> class.
         /// </summary>
-        public class OpcodeExecutionHandler
+        internal class OpcodeExecutionHandler
         {
             delegate TrapException? OpHandler(Instruction instruction);
 
@@ -29,7 +32,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Initializes a new instance of the <see cref="OpcodeExecutionHandler"/> class.
             /// </summary>
             /// <param name="machine">The <see cref="Machine"/> instance for which this object is handling the execution of instructions.</param>
-            public OpcodeExecutionHandler(Machine machine)
+            internal OpcodeExecutionHandler(Machine machine)
             {
                 Machine = machine ?? throw new ArgumentNullException(nameof(machine));
 

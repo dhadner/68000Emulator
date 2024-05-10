@@ -106,7 +106,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Assert.Equal(state.D6, (uint)0x0badf00d);   // Marker register
             Assert.Equal(state.USP, (uint)0x00002000);
             Assert.Equal(state.SSP, (uint)0x00001800);
-            Assert.Equal(state.PC, (uint)0x0001006C);
+            Assert.Equal(state.PC, (uint)0x0001006c);
         }
 
         [Fact]
