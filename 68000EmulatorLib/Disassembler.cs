@@ -813,7 +813,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             //Debug.Assert(ext1.HasValue, "Required extension word is not available");
                             if (ext1.HasValue)
                             {
-                                eaStr = $"({(short)ext1.Value},{AddressReg(regNum)})";
+                                short eaVal = (short)ext1.Value;
+                                if (eaVal < 0)
+                                {
+                                    // HACK: Some external assemblers can't handle negative values efficiently -
+                                    // they sign extend them and thus generate different code from what was disassembled here.
+                                    eaStr = $"({eaVal},{AddressReg(regNum)})";
+                                }
+                                else
+                                {
+                                    eaStr = $"(${eaVal:x4},{AddressReg(regNum)})";
+                                }
                             }
                             break;
                         case (byte)AddrMode.AddressIndex:
@@ -823,7 +833,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 byte disp = (byte)(ext1.Value & 0x00FF);
                                 byte indexRegNum = (byte)((ext1.Value & 0x7000) >> 12);
                                 char sz = (ext1.Value & 0x0800) == 0 ? 'W' : 'L';
-                                eaStr = $"({(sbyte)disp},{AddressReg(regNum)},D{indexRegNum}.{sz})";
+                                sbyte eaDisp = (sbyte)disp;
+                                if (eaDisp < 0)
+                                {
+                                    // HACK: Some external assemblers can't handle negative values efficiently -
+                                    // they sign extend them and thus generate different code from what was disassembled here.
+                                    eaStr = $"({eaDisp},{AddressReg(regNum)},D{indexRegNum}.{sz})";
+                                }
+                                else
+                                {
+                                    eaStr = $"(${eaDisp:x2},{AddressReg(regNum)},D{indexRegNum}.{sz})";
+                                }
                             }
                             break;
                         case 0x0038:
@@ -1690,9 +1710,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             protected void LINEA(Instruction inst, StringBuilder sb)
             {
-                sb.Append($"DC.W");
+                sb.Append($"LINEA");
                 AppendTab(EAColumn, sb);
-                sb.Append($"${inst.Opcode:x4} (");
+                sb.Append($"${(ushort)(inst.Opcode & 0x0fff):x3} (");
                 AppendMnemonic(inst, sb);
                 sb.Append(")");
             }
