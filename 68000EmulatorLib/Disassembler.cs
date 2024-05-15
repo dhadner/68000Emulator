@@ -1041,7 +1041,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             protected void IMMEDtoCCR(Instruction inst, StringBuilder sb)
             {
-                string mnemonic = inst.Info.Mnemonic;
+                string mnemonic = Mnemonic(inst);
                 mnemonic = mnemonic[..^"toCCR".Length];
                 sb.Append(mnemonic);
                 AppendTab(EAColumn, sb);
@@ -1056,7 +1056,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             protected void IMMEDtoSR(Instruction inst, StringBuilder sb)
             {
-                string mnemonic = inst.Info.Mnemonic;
+                string mnemonic = Mnemonic(inst);
                 mnemonic = mnemonic[..^"toSR".Length];
                 sb.Append(mnemonic);
                 AppendTab(EAColumn, sb);
@@ -1708,13 +1708,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sb.Append(" ???");
             }
 
-            protected void LINEA(Instruction inst, StringBuilder sb)
+            protected virtual void LINEA(Instruction inst, StringBuilder sb)
             {
                 sb.Append($"LINEA");
                 AppendTab(EAColumn, sb);
-                sb.Append($"${(ushort)(inst.Opcode & 0x0fff):x3} (");
-                AppendMnemonic(inst, sb);
-                sb.Append(")");
+                sb.Append($"${(ushort)(inst.Opcode & 0x0fff):x3}");
             }
 
         }
