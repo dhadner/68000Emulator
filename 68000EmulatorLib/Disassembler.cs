@@ -1370,7 +1370,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 AppendSizeAndTab(size, sb);
                 uint address = (uint)(pc + disp);
-                sb.Append($"${address:x8}");
+                sb.Append(FormatEffectiveAddress(address));
             }
 
             protected void JMP_JSR(Instruction inst, StringBuilder sb)
