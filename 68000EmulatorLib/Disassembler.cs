@@ -759,10 +759,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Format effective effectiveAddress.  Allows subclasses to show which I/O device is
             /// being accessed, etc.
             /// </summary>
-            /// <param name="currentInstructionAddress"></param>
             /// <param name="effectiveAddress"></param>
             /// <returns>effectiveAddress as a string</returns>
-            protected virtual string FormatEffectiveAddress(uint currentInstructionAddress, uint effectiveAddress)
+            protected virtual string FormatEffectiveAddress(uint effectiveAddress)
             {
                 return $"${effectiveAddress:x8}";
             }
@@ -854,7 +853,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     if (ext1.HasValue)
                                     {
                                         address = ext1.Value | ((ext1.Value & 0x8000) == 0 ? 0x0 : 0xFFFF0000);
-                                        eaStr = FormatEffectiveAddress(CurrentInstructionAddress, address.Value);
+                                        eaStr = FormatEffectiveAddress(address.Value);
                                     }
                                     break;
                                 case (byte)AddrMode.AbsLong:
@@ -862,7 +861,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     if (ext1.HasValue && ext2.HasValue)
                                     {
                                         address = (uint)((ext1.Value << 16) + ext2.Value);
-                                        eaStr = FormatEffectiveAddress(CurrentInstructionAddress, address.Value);
+                                        eaStr = FormatEffectiveAddress(address.Value);
                                         size = OpSize.Long;
                                     }
                                     break;
@@ -873,7 +872,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         // PC has been incremented past the extension word.  The definition of
                                         // PC displacement uses the value of the extension word address as the PC value.
                                         address = (uint)(Machine.CPU.PC - 2 + (short)ext1.Value);
-                                        eaStr = FormatEffectiveAddress(CurrentInstructionAddress, address.Value);
+                                        eaStr = FormatEffectiveAddress(address.Value);
                                     }
                                     break;
                                 case (byte)AddrMode.PCIndex:
