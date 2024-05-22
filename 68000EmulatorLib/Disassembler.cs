@@ -1411,7 +1411,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 AppendSizeAndTab(size, sb);
                 uint address = (uint)(pc + disp);
-                sb.Append($"${address:x8}");
+                sb.Append(FormatEffectiveAddress(address));
             }
 
             protected void DBcc(Instruction inst, StringBuilder sb)
@@ -1431,7 +1431,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     int disp = Helpers.SignExtendValue((uint)inst.SourceExtWord1, OpSize.Word) - 2;
                     uint address = (uint)(pc + disp);
-                    sb.Append($"D{dRegNum},${address:x8}");
+                    sb.Append($"D{dRegNum},{FormatEffectiveAddress(address)}");
                 }
             }
 
