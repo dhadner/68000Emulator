@@ -185,7 +185,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
-            protected virtual List<NonExecSection> NonExecSections { get; set; } = new();
+            public virtual List<NonExecSection> NonExecSections { get; set; } = new();
 
             protected delegate void DisassemblyHandler(Instruction inst, StringBuilder sb);
             protected readonly Dictionary<OpHandlerID, DisassemblyHandler> _handlers = new();
