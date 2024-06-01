@@ -1,6 +1,7 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
@@ -508,7 +509,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         var nonExecSection = GetNonExecutableSection(CurrentAddress);
                         if (nonExecSection != null)
                         {
-                            result.Add(GetNonExecutableSectionRecord(CurrentAddress, length - (CurrentAddress - startAddress), nonExecSection));
+                            uint len = Math.Min(nonExecSection.Address + nonExecSection.Length - CurrentAddress, MaxNonExecDataDisassemblyBlockSize);
+                            len = Math.Min(len, length - (CurrentAddress - startAddress));
+                            result.Add(GetNonExecutableSectionRecord(CurrentAddress, len, nonExecSection));
                         }
                         else
                         {
@@ -551,7 +554,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     // incrementing CurrentAddress.
                     machineCode[i] = Machine.Memory.ReadByte(address + i);
                 }
-                var assembly = NonExecutableDataDisassembly(section, address);
+                var assembly = NonExecutableDataDisassembly(length, address);
                 string? comment = Comment(address, machineCode, assembly, true);
                 var record = new DisassemblyRecord(false, address, machineCode, assembly, comment);
                 return record;
@@ -631,11 +634,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </remarks>
             /// <param name="section">Zero-based index of the non-executable section.</param>
             /// <returns>A string containing the disassembled output for the block of non-executable data.</returns>
-            protected string NonExecutableDataDisassembly(NonExecSection section, uint startAddress)
+            protected string NonExecutableDataDisassembly(uint length, uint startAddress)
             {
                 StringBuilder sb = new();
-                int bytesRemaining = (int)((ulong)section.Address + section.Length - startAddress);
-                uint length = (uint)Math.Min(MaxNonExecDataDisassemblyBlockSize, bytesRemaining);
                 string dc;
                 if (length == 2)
                 {
