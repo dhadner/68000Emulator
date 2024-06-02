@@ -186,7 +186,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
-            public virtual List<NonExecSection> NonExecSections { get; set; } = new();
+            protected List<NonExecSection> NonExecSections { get; set; } = new();
+            protected Dictionary<uint, NonExecSection> NonExecSectionsByAddress { get; set; } = new();
 
             protected delegate void DisassemblyHandler(Instruction inst, StringBuilder sb);
             protected readonly Dictionary<OpHandlerID, DisassemblyHandler> _handlers = new();
@@ -327,12 +328,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             /// <summary>
             /// Sort the list and then walk up the list, removing duplicate sections that cover
-            /// the same memory and combine those that overlap.
+            /// the same memory and combine those that overlap.  Updates the dictionary by 
+            /// address before returning.
             /// </summary>
-            /// <param name="sections"></param>
-            private static void NormalizeSections(List<NonExecSection> sections)
+            protected void NormalizeSections()
             {
                 // Sort the sections by address
+                List<NonExecSection> sections = NonExecSections;
                 sections.Sort((a, b) => a.Address.CompareTo(b.Address));
 
                 bool combined;
@@ -359,6 +361,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
                     }
                 } while (combined);
+                NonExecSectionsByAddress.Clear();
+                foreach (NonExecSection section in NonExecSections)
+                {
+                    NonExecSectionsByAddress.Add(section.Address, section);
+                }
             }
 
             /// <summary>
@@ -370,10 +377,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </remarks>
             /// <param name="startAddress">The start effectiveAddress of the block of non-executable data.</param>
             /// <param name="length">The length (in bytes) of the block of non-executable data.</param>
-            public void SetNonExecutableSection(uint startAddress, uint length)
+            public void SetNonExecutableRange(uint startAddress, uint length)
             {
+                
+                NormalizeSections();
                 NonExecSections.Add(new(startAddress, length));
-                NormalizeSections(NonExecSections);
+                NormalizeSections();
             }
 
             /// <summary>
@@ -383,11 +392,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             /// <param name="startAddress"></param>
             /// <param name="length"></param>
-            public void ClearNonExecutableSection(uint startAddress, uint length)
+            public void ClearNonExecutableRange(uint startAddress, uint length)
             {
                 uint maxAddress = startAddress + length - 1;
                 List<NonExecSection> sections = [];
-                NormalizeSections(NonExecSections);
+                NormalizeSections();
 
                 // CASE 0: Range to be [c]leared does not intersect any [s]ections.
                 //         Nothing needs to be done.
@@ -469,7 +478,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         throw new ApplicationException("ClearNonExecutableSectionRange: Should not happen - logic error!");
                     }
                 }
-                NormalizeSections(NonExecSections);
+                NormalizeSections();
             }
 
             /// <summary>
@@ -478,6 +487,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             public void ClearNonExecutableSections()
             {
                 NonExecSections.Clear();
+                NonExecSectionsByAddress.Clear();
             }
 
             /// <summary>
@@ -582,11 +592,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// the current effectiveAddress is within executable code.</returns>
             public NonExecSection? GetNonExecutableSection(uint address)
             {
-                foreach (var nonExec in NonExecSections)
+                foreach (var section in NonExecSections)
                 {
-                    if (address >= nonExec.Address && address < (nonExec.Address + nonExec.Length))
+                    if (address >= section.Address && address < (section.Address + section.Length))
                     {
-                        return nonExec;
+                        return section;
                     }
                 }
 
@@ -737,7 +747,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Disassemble the current instruction.
+            /// Disassemble the current instruction.  The address is guaranteed to not be in a non-executable
+            /// section.
             /// </summary>
             /// <returns></returns>
             protected (bool endOfData, uint address, byte[] machineCode, string assembly, string? comment) DisassembleAtCurrentAddress()
@@ -751,6 +762,24 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Machine.CPU.PC = CurrentAddress;
                     Instruction? inst = Machine.Decoder.FetchInstruction();
                     int length = (int)Machine.CPU.PC - (int)CurrentInstructionAddress;
+
+                    // If the FetchInstruction() method went past the code section and
+                    // into a non-executable section, back up.
+                    uint lastAddress = Machine.CPU.PC - 1;
+                    uint checkAddress = CurrentInstructionAddress + 2;
+                    while (checkAddress <= lastAddress)
+                    {
+                        if (GetNonExecutableSection(checkAddress) != null)
+                        {
+                            //length = (int)(checkAddress - CurrentInstructionAddress);
+                        }
+                        checkAddress += 2;
+                    }
+                    if ((length & 1) != 0)
+                    {
+                        Debug.WriteLine("Odd address?");
+                    }
+
                     List<byte> codeBytes = new();
 
                     // Show the actual instruction bytes
@@ -758,6 +787,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     int i;
                     for (i = 0; (i < length) && !IsEndOfData; i++)
                     {
+                        if (GetNonExecutableSection(CurrentAddress) != null)
+                        {
+                           //break;
+                        }
                         byte value = ReadNextByte();
                         codeBytes.Add(value);
                     }
