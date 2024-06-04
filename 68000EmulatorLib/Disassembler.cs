@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -166,8 +167,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="length"></param>
             public class NonExecSection(uint address, uint length)
             {
-                public uint Address { get; private set; } = address;
-                public uint Length { get; private set; } = length;
+                public virtual uint Address { get; protected set; } = address;
+                public virtual uint Length { get; protected set; } = length;
 
                 /// <summary>
                 /// Return true if the section contains at least one byte of the
@@ -176,7 +177,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// <param name="startAddress"></param>
                 /// <param name="length"></param>
                 /// <returns></returns>
-                public bool IntersectsWith(uint startAddress, uint length)
+                public virtual bool IntersectsWith(uint startAddress, uint length)
                 {
                     if (startAddress + length <= Address || startAddress >= Address + Length)
                     {
@@ -746,6 +747,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
+#if REORG
+            private bool reOrgInProgress = false;
+            private uint reOrgAddress = 0;
+#endif 
+
             /// <summary>
             /// Disassemble the current instruction.  The address is guaranteed to not be in a non-executable
             /// section.
@@ -759,26 +765,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Disassembling = true;
                     bool endOfData = false;
                     string assembly = "UNKNOWN";
+
+                    // Decoder fetches the instruction at the current PC, so set it to
+                    // where we want to disassembler.
                     Machine.CPU.PC = CurrentAddress;
                     Instruction? inst = Machine.Decoder.FetchInstruction();
-                    int length = (int)Machine.CPU.PC - (int)CurrentInstructionAddress;
 
-                    // If the FetchInstruction() method went past the code section and
-                    // into a non-executable section, back up.
-                    uint lastAddress = Machine.CPU.PC - 1;
-                    uint checkAddress = CurrentInstructionAddress + 2;
-                    while (checkAddress <= lastAddress)
-                    {
-                        if (GetNonExecutableSection(checkAddress) != null)
-                        {
-                            //length = (int)(checkAddress - CurrentInstructionAddress);
-                        }
-                        checkAddress += 2;
-                    }
-                    if ((length & 1) != 0)
-                    {
-                        Debug.WriteLine("Odd address?");
-                    }
+                    // PC has been incremented to point to the next instruction after this one.
+                    int length = (int)Machine.CPU.PC - (int)CurrentInstructionAddress;
 
                     List<byte> codeBytes = new();
 
@@ -787,10 +781,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     int i;
                     for (i = 0; (i < length) && !IsEndOfData; i++)
                     {
-                        if (GetNonExecutableSection(CurrentAddress) != null)
-                        {
-                           //break;
-                        }
                         byte value = ReadNextByte();
                         codeBytes.Add(value);
                     }
@@ -800,13 +790,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         assembly = "... ";
                         endOfData = true;
                     }
-
-                    if (inst != null)
+                    else if (inst != null)
                     {
                         StringBuilder sb = new();
-                        if (_handlers.TryGetValue(inst.Info.HandlerID, out DisassemblyHandler? value))
+                        if (_handlers.TryGetValue(inst.Info.HandlerID, out DisassemblyHandler? instructionDisassembler))
                         {
-                            value(inst, sb);
+                            instructionDisassembler(inst, sb);
                         }
                         else
                         {
@@ -814,8 +803,42 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
                         assembly = sb.ToString();
                     }
-                    byte[] machineCode = codeBytes.ToArray();
-                    return (endOfData, CurrentInstructionAddress, machineCode, assembly, Comment(CurrentInstructionAddress, machineCode, assembly));
+#if REORG
+                    // If we previously encroached on a non-executable section, we will
+                    // use ORG to reset the PC to the start of the non-executable section.
+                    // The next call to disassemble will be to the routine that
+                    // handles non-executable sections.
+                    if (reOrgInProgress)
+                    {
+                        StringBuilder orgBuilder = new();
+                        orgBuilder.Append("ORG");
+                        AppendTab(EAColumn, orgBuilder);
+                        orgBuilder.Append($"${reOrgAddress:x8}");
+                        CurrentAddress = reOrgAddress;
+                        reOrgInProgress = false;
+                        reOrgAddress = 0;
+                        return (endOfData, CurrentAddress, [], orgBuilder.ToString(), "");
+                    }
+                    else
+#endif
+                    {
+                        byte[] machineCode = codeBytes.ToArray();
+#if REORG
+                        NonExecSection? nonExecSection = null;
+                        uint nesCheckAddress = CurrentInstructionAddress + 2;
+                        while (nonExecSection == null && nesCheckAddress < CurrentAddress)
+                        {
+                            nonExecSection = GetNonExecutableSection(nesCheckAddress);
+                            nesCheckAddress += 2;
+                        }
+                        if (nonExecSection != null)
+                        {
+                            reOrgInProgress = true;
+                            reOrgAddress = nesCheckAddress - 2;
+                        }
+#endif
+                        return (endOfData, CurrentInstructionAddress, machineCode, assembly, Comment(CurrentInstructionAddress, machineCode, assembly));
+                    }
                 }
                 finally
                 {
