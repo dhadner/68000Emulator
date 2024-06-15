@@ -1477,19 +1477,29 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     addVal = 8;
                 }
 
+                int size = (inst.Opcode & 0x00E0) >> 6;
+                string sz = size switch
+                {
+                    0 => ".B",
+                    1 => ".W",
+                    2 => ".L",
+                    _ => ""
+                };
+
                 // When being applied to an effectiveAddress register, we work with the entire 32-bit value regardless
                 // of the size that has been specified. This operation also doesn't affect the flags.
                 if ((inst.Opcode & 0x0038) == (int)AddrMode.AddressRegister)
                 {
                     int regNum = inst.Opcode & 0x0007;
-                    sb.Append(".L");
+                    sb.Append(sz);
                     AppendTab(EAColumn, sb);
                     sb.Append($"#{addVal},");
                     sb.Append($"{AddressReg(regNum)}");
                 }
                 else
                 {
-                    AppendSizeAndTab(inst, sb);
+                    sb.Append(sz);
+                    AppendTab(EAColumn, sb);
                     sb.Append($"#{addVal},");
                     AppendEffectiveAddress(inst, EAType.Destination, sb);
                 }

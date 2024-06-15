@@ -16,6 +16,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         protected uint _dataLength;
 
         /// <summary>
+        /// True when loading a file into memory.
+        /// </summary>
+        public bool LoadingProgram { get; protected set; }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="Machine"/> class.  Allows subclasses to
         /// use their own Memory implementation.
         /// </summary>
@@ -289,7 +294,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 Memory.Clear();
             }
             SRecordLoader loader = new SRecordLoader(this);
+            LoadingProgram = true;
             string? errMsg = loader.Load(sFile, out uint? startingAddress, out uint lowestAddress, out uint highestAddress);
+            LoadingProgram = false;
             if (errMsg == null)
             {
                 if (startingAddress.HasValue)
