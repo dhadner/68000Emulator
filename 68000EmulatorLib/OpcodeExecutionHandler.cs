@@ -27,6 +27,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             private readonly object lockObj = new object();     // Object that is locked for TAS instruction.
 
             internal int _numberOfJSRCalls = 0;
+            internal uint CurrentInstructionAddress = 0;
 
             /// <summary>
             /// Initializes a new instance of the <see cref="OpcodeExecutionHandler"/> class.
@@ -696,7 +697,16 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     {
                                         // PC has been incremented past the extension word.  The definition of
                                         // PC displacement uses the value of the extension word address as the PC value.
-                                        address = (uint)(Machine.CPU.PC - 2 + (short)ext1.Value);
+                                        uint pc;
+                                        if (eaType == EAType.Source)
+                                        {
+                                            pc = CurrentInstructionAddress + 2;
+                                        }
+                                        else
+                                        {
+                                            pc = Machine.CPU.PC - 2;
+                                        }
+                                        address = (uint)(pc + (short)ext1.Value);
                                     }
                                     break;
                                 case (byte)AddrMode.PCIndex:
@@ -713,7 +723,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         }
                                         // PC has been incremented past the extension word.  The definition of
                                         // PC displacement uses the value of the extension word address as the PC value.
-                                        address = (uint)(Machine.CPU.PC - 2 + (int)indexValue + (sbyte)disp);
+                                        address = (uint)(CurrentInstructionAddress + 2 + (int)indexValue + (sbyte)disp);
                                     }
                                     break;
                                 case (byte)AddrMode.Immediate:
@@ -1626,8 +1636,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             private TrapException? CMPM(Instruction inst)
             {
                 OpSize size = inst.Size ?? OpSize.Word;
-                byte rX = (byte)(inst.Opcode & 0x0007);
-                byte rY = (byte)((inst.Opcode & 0x0E00) >> 9);
+                byte rY = (byte)(inst.Opcode & 0x0007);         // Source
+                byte rX = (byte)((inst.Opcode & 0x0E00) >> 9);  // Destination
 
                 uint rXAddr = Machine.CPU.ReadAddressRegister(rX);
                 uint rYAddr = Machine.CPU.ReadAddressRegister(rY);
@@ -1654,8 +1664,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 Machine.CPU.IncrementAddressRegister(rY, size);
 
                 // Subtract to perform the comparison.
-                int result = rYVal - rXVal;
-                SetFlags(inst.Info.HandlerID, size, (uint)result, (uint)rXVal, (uint)rYVal);
+                int result = rXVal - rYVal;
+                SetFlags(inst.Info.HandlerID, size, (uint)result, (uint)rYVal, (uint)rXVal);
 
                 return null;
             }

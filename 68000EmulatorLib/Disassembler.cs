@@ -1058,9 +1058,16 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     //Debug.Assert(ext1.HasValue, "Required extension word is not available");
                                     if (ext1.HasValue)
                                     {
-                                        // PC has been incremented past the extension word.  The definition of
-                                        // PC displacement uses the value of the extension word address as the PC value.
-                                        address = (uint)(Machine.CPU.PC - 2 + (short)ext1.Value);
+                                        uint pc;
+                                        if (eaType == EAType.Source)
+                                        {
+                                            pc = CurrentInstructionAddress + 2;
+                                        }
+                                        else
+                                        {
+                                            pc = Machine.CPU.PC - 2;
+                                        }
+                                        address = (uint)(pc + (short)ext1.Value);
                                         eaStr = FormatEffectiveAddress(address.Value);
                                     }
                                     break;
@@ -1071,8 +1078,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         byte disp = (byte)(ext1.Value & 0x00FF);
                                         byte indexRegNum = (byte)((ext1.Value & 0x7000) >> 12);
                                         char sz = (ext1.Value & 0x0800) == 0 ? 'W' : 'L';
-                                        uint absAddress = (uint)((sbyte)disp + (int)CurrentInstructionAddress);
-                                        eaStr = $"${absAddress:x8}(PC,D{indexRegNum}.{sz})";
+                                        uint baseAddress = (uint)((sbyte)disp + (int)CurrentInstructionAddress + 2);
+                                        eaStr = $"${baseAddress:x8}(PC,D{indexRegNum}.{sz})";
                                     }
                                     break;
                                 case (byte)AddrMode.Immediate:
@@ -1320,7 +1327,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected void SUBX(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
-                AppendTab(EAColumn, sb);
+                AppendSizeAndTab(inst, sb);
                 bool isAddressPreDecrement = (inst.Opcode & 0x0008) != 0;
                 int srcReg = inst.Opcode & 0x0007;
                 int dstReg = (inst.Opcode & 0x0E00) >> 9;
@@ -1357,10 +1364,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected void CMPM(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
-                AppendTab(EAColumn, sb);
+                AppendSizeAndTab(inst, sb);
 
-                byte aSrcRegNum = (byte)(inst.Opcode & 0x0E00 >> 9);
-                byte aDstRegNum = (byte)(inst.Opcode & 0x0007);
+                byte aDstRegNum = (byte)((inst.Opcode & 0x0E00) >> 9);
+                byte aSrcRegNum = (byte)(inst.Opcode & 0x0007);
 
                 sb.Append("(A");
                 sb.Append(aSrcRegNum);
@@ -1679,7 +1686,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     if (bitNum.HasValue)
                     {
-                        bitNum &= 0x00000007;
+                        bitNum &= 0x000000FF;
                     }
                     inst.Size = OpSize.Byte;
                 }
