@@ -1,5 +1,7 @@
 using PendleCodeMonkey.MC68000EmulatorLib;
 using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
+using System;
+using System.Diagnostics.Eventing.Reader;
 using Xunit;
 using static PendleCodeMonkey.MC68000EmulatorLib.Machine;
 
@@ -41,84 +43,203 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             return machine;
         }
 
+        static Random rng = new Random(1);
+
         [Theory]
-        [InlineData(0x00, null, null, OpSize.Word, (byte)0, null, null, null)]                                  // D0
-        [InlineData(0x01, null, null, OpSize.Word, (byte)1, null, null, null)]                                  // D1
-        [InlineData(0x02, null, null, OpSize.Word, (byte)2, null, null, null)]                                  // D2
-        [InlineData(0x03, null, null, OpSize.Word, (byte)3, null, null, null)]                                  // D3
-        [InlineData(0x04, null, null, OpSize.Word, (byte)4, null, null, null)]                                  // D4
-        [InlineData(0x05, null, null, OpSize.Word, (byte)5, null, null, null)]                                  // D5
-        [InlineData(0x06, null, null, OpSize.Word, (byte)6, null, null, null)]                                  // D6
-        [InlineData(0x07, null, null, OpSize.Word, (byte)7, null, null, null)]                                  // D7
-        [InlineData(0x08, null, null, OpSize.Word, null, (byte)0, null, null)]                                  // A0
-        [InlineData(0x09, null, null, OpSize.Word, null, (byte)1, null, null)]                                  // A1
-        [InlineData(0x0A, null, null, OpSize.Word, null, (byte)2, null, null)]                                  // A2
-        [InlineData(0x0B, null, null, OpSize.Word, null, (byte)3, null, null)]                                  // A3
-        [InlineData(0x0C, null, null, OpSize.Word, null, (byte)4, null, null)]                                  // A4
-        [InlineData(0x0D, null, null, OpSize.Word, null, (byte)5, null, null)]                                  // A5
-        [InlineData(0x0E, null, null, OpSize.Word, null, (byte)6, null, null)]                                  // A6
-        [InlineData(0x0F, null, null, OpSize.Word, null, (byte)7, null, null)]                                  // A7
-        [InlineData(0x10, null, null, OpSize.Word, null, null, (uint)0x0100, null)]                             // (A0)
-        [InlineData(0x11, null, null, OpSize.Word, null, null, (uint)0x0200, null)]                             // (A1)
-        [InlineData(0x12, null, null, OpSize.Word, null, null, (uint)0x0300, null)]                             // (A2)
-        [InlineData(0x13, null, null, OpSize.Word, null, null, (uint)0x0400, null)]                             // (A3)
-        [InlineData(0x14, null, null, OpSize.Word, null, null, (uint)0x0500, null)]                             // (A4)
-        [InlineData(0x15, null, null, OpSize.Word, null, null, (uint)0x0600, null)]                             // (A5)
-        [InlineData(0x16, null, null, OpSize.Word, null, null, (uint)0x0700, null)]                             // (A6)
-        [InlineData(0x17, null, null, OpSize.Word, null, null, (uint)0x2000, null)]                             // (A7)
-        [InlineData(0x18, null, null, OpSize.Word, null, null, (uint)0x0100, null)]                             // (A0)+
-        [InlineData(0x19, null, null, OpSize.Word, null, null, (uint)0x0200, null)]                             // (A1)+
-        [InlineData(0x1A, null, null, OpSize.Word, null, null, (uint)0x0300, null)]                             // (A2)+
-        [InlineData(0x1B, null, null, OpSize.Word, null, null, (uint)0x0400, null)]                             // (A3)+
-        [InlineData(0x1C, null, null, OpSize.Word, null, null, (uint)0x0500, null)]                             // (A4)+
-        [InlineData(0x1D, null, null, OpSize.Word, null, null, (uint)0x0600, null)]                             // (A5)+
-        [InlineData(0x1E, null, null, OpSize.Word, null, null, (uint)0x0700, null)]                             // (A6)+
-        [InlineData(0x1F, null, null, OpSize.Word, null, null, (uint)0x2000, null)]                             // (A7)+
-        [InlineData(0x20, null, null, OpSize.Word, null, null, (uint)0x00FE, null)]                             // -(A0)
-        [InlineData(0x21, null, null, OpSize.Word, null, null, (uint)0x01FE, null)]                             // -(A1)
-        [InlineData(0x22, null, null, OpSize.Word, null, null, (uint)0x02FE, null)]                             // -(A2)
-        [InlineData(0x23, null, null, OpSize.Word, null, null, (uint)0x03FE, null)]                             // -(A3)
-        [InlineData(0x24, null, null, OpSize.Word, null, null, (uint)0x04FE, null)]                             // -(A4)
-        [InlineData(0x25, null, null, OpSize.Word, null, null, (uint)0x05FE, null)]                             // -(A5)
-        [InlineData(0x26, null, null, OpSize.Word, null, null, (uint)0x06FE, null)]                             // -(A6)
-        [InlineData(0x27, null, null, OpSize.Word, null, null, (uint)0x1FFE, null)]                             // -(A7)
-        [InlineData(0x28, (ushort)0x50, null, OpSize.Word, null, null, (uint)0x0150, null)]                     // (d16,A0)
-        [InlineData(0x29, (ushort)0x52, null, OpSize.Word, null, null, (uint)0x0252, null)]                     // (d16,A1)
-        [InlineData(0x2A, (ushort)0x54, null, OpSize.Word, null, null, (uint)0x0354, null)]                     // (d16,A2)
-        [InlineData(0x2B, (ushort)0x56, null, OpSize.Word, null, null, (uint)0x0456, null)]                     // (d16,A3)
-        [InlineData(0x2C, (ushort)0x58, null, OpSize.Word, null, null, (uint)0x0558, null)]                     // (d16,A4)
-        [InlineData(0x2D, (ushort)0x5A, null, OpSize.Word, null, null, (uint)0x065A, null)]                     // (d16,A5)
-        [InlineData(0x2E, (ushort)0x5C, null, OpSize.Word, null, null, (uint)0x075C, null)]                     // (d16,A6)
-        [InlineData(0x2F, (ushort)0x5E, null, OpSize.Word, null, null, (uint)0x205E, null)]                     // (d16,A7)
-        [InlineData(0x30, (ushort)0x50, null, OpSize.Word, null, null, (uint)0x0161, null)]                     // (d8,D0,A0)
-        [InlineData(0x31, (ushort)0x1050, null, OpSize.Word, null, null, (uint)0x0272, null)]                     // (d8,D1,A1)
-        [InlineData(0x32, (ushort)0x2050, null, OpSize.Word, null, null, (uint)0x0383, null)]                     // (d8,D2,A2)
-        [InlineData(0x33, (ushort)0x3050, null, OpSize.Word, null, null, (uint)0x0494, null)]                     // (d8,D3,A3)
-        [InlineData(0x34, (ushort)0x4050, null, OpSize.Word, null, null, (uint)0x05A5, null)]                     // (d8,D4,A4)
-        [InlineData(0x35, (ushort)0x5050, null, OpSize.Word, null, null, (uint)0x06B6, null)]                     // (d8,D5,A5)
-        [InlineData(0x36, (ushort)0x6050, null, OpSize.Word, null, null, (uint)0x07C7, null)]                     // (d8,D6,A6)
-        [InlineData(0x37, (ushort)0x7050, null, OpSize.Word, null, null, (uint)0x20D8, null)]                     // (d8,D7,A7)
-        [InlineData(0x38, (ushort)0x1FF0, null, OpSize.Word, null, null, (uint)0x1FF0, null)]                   // (xxx).w
-        [InlineData(0x39, (ushort)0x0006, (ushort)0x1234, OpSize.Word, null, null, (uint)0x00061234, null)]     // (xxx).l
-        [InlineData(0x3A, (ushort)0x50, null, OpSize.Word, null, null, (uint)0x404e, null)]                     // (d16,PC)
-        [InlineData(0x3B, (ushort)0x50, null, OpSize.Word, null, null, (uint)0x405f, null)]                     // (d8,D0,PC)
-        [InlineData(0x3C, (ushort)0x1234, null, OpSize.Word, null, null, null, (uint)0x1234)]                   // #<data>  [word]
-        [InlineData(0x3C, (ushort)0x1234, (ushort)0x5678, OpSize.Long, null, null, null, (uint)0x12345678)]     // #<data>  [long]
-        public void EvaluateEffectiveAddress(byte addrMode, ushort? ext1, ushort? ext2, OpSize size,
-                                                byte? expDataReg, byte? expAddrReg, uint? expAddress, uint? expImm)
+        [InlineData(0x00, null, null, OpSize.Word, EAType.Source, (byte)0, null, null, null)]                                   // D0
+        [InlineData(0x01, null, null, OpSize.Word, EAType.Source, (byte)1, null, null, null)]                                   // D1
+        [InlineData(0x02, null, null, OpSize.Word, EAType.Source, (byte)2, null, null, null)]                                   // D2
+        [InlineData(0x03, null, null, OpSize.Word, EAType.Source, (byte)3, null, null, null)]                                   // D3
+        [InlineData(0x04, null, null, OpSize.Word, EAType.Source, (byte)4, null, null, null)]                                   // D4
+        [InlineData(0x05, null, null, OpSize.Word, EAType.Source, (byte)5, null, null, null)]                                   // D5
+        [InlineData(0x06, null, null, OpSize.Word, EAType.Source, (byte)6, null, null, null)]                                   // D6
+        [InlineData(0x07, null, null, OpSize.Word, EAType.Source, (byte)7, null, null, null)]                                   // D7
+        [InlineData(0x08, null, null, OpSize.Word, EAType.Source, null, (byte)0, null, null)]                                   // A0
+        [InlineData(0x09, null, null, OpSize.Word, EAType.Source, null, (byte)1, null, null)]                                   // A1
+        [InlineData(0x0A, null, null, OpSize.Word, EAType.Source, null, (byte)2, null, null)]                                   // A2
+        [InlineData(0x0B, null, null, OpSize.Word, EAType.Source, null, (byte)3, null, null)]                                   // A3
+        [InlineData(0x0C, null, null, OpSize.Word, EAType.Source, null, (byte)4, null, null)]                                   // A4
+        [InlineData(0x0D, null, null, OpSize.Word, EAType.Source, null, (byte)5, null, null)]                                   // A5
+        [InlineData(0x0E, null, null, OpSize.Word, EAType.Source, null, (byte)6, null, null)]                                   // A6
+        [InlineData(0x0F, null, null, OpSize.Word, EAType.Source, null, (byte)7, null, null)]                                   // A7
+        [InlineData(0x10, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x0100, null)]                              // (A0)
+        [InlineData(0x11, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x0200, null)]                              // (A1)
+        [InlineData(0x12, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x0300, null)]                              // (A2)
+        [InlineData(0x13, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x0400, null)]                              // (A3)
+        [InlineData(0x14, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x0500, null)]                              // (A4)
+        [InlineData(0x15, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x0600, null)]                              // (A5)
+        [InlineData(0x16, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x0700, null)]                              // (A6)
+        [InlineData(0x17, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x2000, null)]                              // (A7)
+        [InlineData(0x18, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x0100, null)]                              // (A0)+
+        [InlineData(0x19, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x0200, null)]                              // (A1)+
+        [InlineData(0x1A, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x0300, null)]                              // (A2)+
+        [InlineData(0x1B, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x0400, null)]                              // (A3)+
+        [InlineData(0x1C, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x0500, null)]                              // (A4)+
+        [InlineData(0x1D, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x0600, null)]                              // (A5)+
+        [InlineData(0x1E, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x0700, null)]                              // (A6)+
+        [InlineData(0x1F, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x2000, null)]                              // (A7)+
+        [InlineData(0x20, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x00FE, null)]                              // -(A0)
+        [InlineData(0x21, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x01FE, null)]                              // -(A1)
+        [InlineData(0x22, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x02FE, null)]                              // -(A2)
+        [InlineData(0x23, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x03FE, null)]                              // -(A3)
+        [InlineData(0x24, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x04FE, null)]                              // -(A4)
+        [InlineData(0x25, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x05FE, null)]                              // -(A5)
+        [InlineData(0x26, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x06FE, null)]                              // -(A6)
+        [InlineData(0x27, null, null, OpSize.Word, EAType.Source, null, null, (uint)0x1FFE, null)]                              // -(A7)
+        [InlineData(0x28, (ushort)0x50, null, OpSize.Word, EAType.Source, null, null, (uint)0x0150, null)]                      // (d16,A0)
+        [InlineData(0x29, (ushort)0x52, null, OpSize.Word, EAType.Source, null, null, (uint)0x0252, null)]                      // (d16,A1)
+        [InlineData(0x2A, (ushort)0x54, null, OpSize.Word, EAType.Source, null, null, (uint)0x0354, null)]                      // (d16,A2)
+        [InlineData(0x2B, (ushort)0x56, null, OpSize.Word, EAType.Source, null, null, (uint)0x0456, null)]                      // (d16,A3)
+        [InlineData(0x2C, (ushort)0x58, null, OpSize.Word, EAType.Source, null, null, (uint)0x0558, null)]                      // (d16,A4)
+        [InlineData(0x2D, (ushort)0x5A, null, OpSize.Word, EAType.Source, null, null, (uint)0x065A, null)]                      // (d16,A5)
+        [InlineData(0x2E, (ushort)0x5C, null, OpSize.Word, EAType.Source, null, null, (uint)0x075C, null)]                      // (d16,A6)
+        [InlineData(0x2F, (ushort)0x5E, null, OpSize.Word, EAType.Source, null, null, (uint)0x205E, null)]                      // (d16,A7)
+        [InlineData(0x30, (ushort)0x50, null, OpSize.Word, EAType.Source, null, null, (uint)0x0161, null)]                      // (d8,D0,A0)
+        [InlineData(0x31, (ushort)0x1050, null, OpSize.Word, EAType.Source, null, null, (uint)0x0272, null)]                    // (d8,D1,A1)
+        [InlineData(0x32, (ushort)0x2050, null, OpSize.Word, EAType.Source, null, null, (uint)0x0383, null)]                    // (d8,D2,A2)
+        [InlineData(0x33, (ushort)0x3050, null, OpSize.Word, EAType.Source, null, null, (uint)0x0494, null)]                    // (d8,D3,A3)
+        [InlineData(0x34, (ushort)0x4050, null, OpSize.Word, EAType.Source, null, null, (uint)0x05A5, null)]                    // (d8,D4,A4)
+        [InlineData(0x35, (ushort)0x5050, null, OpSize.Word, EAType.Source, null, null, (uint)0x06B6, null)]                    // (d8,D5,A5)
+        [InlineData(0x36, (ushort)0x6050, null, OpSize.Word, EAType.Source, null, null, (uint)0x07C7, null)]                    // (d8,D6,A6)
+        [InlineData(0x37, (ushort)0x7050, null, OpSize.Word, EAType.Source, null, null, (uint)0x20D8, null)]                    // (d8,D7,A7)
+        [InlineData(0x38, (ushort)0x1FF0, null, OpSize.Word, EAType.Source, null, null, (uint)0x1FF0, null)]                    // (xxx).w
+        [InlineData(0x39, (ushort)0x0006, (ushort)0x1234, OpSize.Word, EAType.Source, null, null, (uint)0x00061234, null)]      // (xxx).l
+        [InlineData(0x3A, (ushort)0x50, null, OpSize.Word, EAType.Source, null, null, (uint)0x4052, null)]                      // (d16,PC)
+        [InlineData(0x3B, (ushort)0x50, null, OpSize.Word, EAType.Source, null, null, (uint)0x4063, null)]                      // (d8,D0,PC)
+        [InlineData(0x3C, (ushort)0x1234, null, OpSize.Word, EAType.Source, null, null, null, (uint)0x1234)]                    // #<data>  [word]
+        [InlineData(0x3C, (ushort)0x1234, (ushort)0x5678, OpSize.Long, EAType.Source, null, null, null, (uint)0x12345678)]      // #<data>  [long]
+        [InlineData(0x00, null, null, OpSize.Word, EAType.Destination, (byte)0, null, null, null)]                              // D0
+        [InlineData(0x01, null, null, OpSize.Word, EAType.Destination, (byte)1, null, null, null)]                              // D1
+        [InlineData(0x02, null, null, OpSize.Word, EAType.Destination, (byte)2, null, null, null)]                              // D2
+        [InlineData(0x03, null, null, OpSize.Word, EAType.Destination, (byte)3, null, null, null)]                              // D3
+        [InlineData(0x04, null, null, OpSize.Word, EAType.Destination, (byte)4, null, null, null)]                              // D4
+        [InlineData(0x05, null, null, OpSize.Word, EAType.Destination, (byte)5, null, null, null)]                              // D5
+        [InlineData(0x06, null, null, OpSize.Word, EAType.Destination, (byte)6, null, null, null)]                              // D6
+        [InlineData(0x07, null, null, OpSize.Word, EAType.Destination, (byte)7, null, null, null)]                              // D7
+        [InlineData(0x08, null, null, OpSize.Word, EAType.Destination, null, (byte)0, null, null)]                              // A0
+        [InlineData(0x09, null, null, OpSize.Word, EAType.Destination, null, (byte)1, null, null)]                              // A1
+        [InlineData(0x0A, null, null, OpSize.Word, EAType.Destination, null, (byte)2, null, null)]                              // A2
+        [InlineData(0x0B, null, null, OpSize.Word, EAType.Destination, null, (byte)3, null, null)]                              // A3
+        [InlineData(0x0C, null, null, OpSize.Word, EAType.Destination, null, (byte)4, null, null)]                              // A4
+        [InlineData(0x0D, null, null, OpSize.Word, EAType.Destination, null, (byte)5, null, null)]                              // A5
+        [InlineData(0x0E, null, null, OpSize.Word, EAType.Destination, null, (byte)6, null, null)]                              // A6
+        [InlineData(0x0F, null, null, OpSize.Word, EAType.Destination, null, (byte)7, null, null)]                              // A7
+        [InlineData(0x10, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0100, null)]                         // (A0)
+        [InlineData(0x11, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0200, null)]                         // (A1)
+        [InlineData(0x12, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0300, null)]                         // (A2)
+        [InlineData(0x13, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0400, null)]                         // (A3)
+        [InlineData(0x14, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0500, null)]                         // (A4)
+        [InlineData(0x15, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0600, null)]                         // (A5)
+        [InlineData(0x16, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0700, null)]                         // (A6)
+        [InlineData(0x17, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x2000, null)]                         // (A7)
+        [InlineData(0x18, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0100, null)]                         // (A0)+
+        [InlineData(0x19, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0200, null)]                         // (A1)+
+        [InlineData(0x1A, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0300, null)]                         // (A2)+
+        [InlineData(0x1B, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0400, null)]                         // (A3)+
+        [InlineData(0x1C, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0500, null)]                         // (A4)+
+        [InlineData(0x1D, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0600, null)]                         // (A5)+
+        [InlineData(0x1E, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0700, null)]                         // (A6)+
+        [InlineData(0x1F, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x2000, null)]                         // (A7)+
+        [InlineData(0x20, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x00FE, null)]                         // -(A0)
+        [InlineData(0x21, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x01FE, null)]                         // -(A1)
+        [InlineData(0x22, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x02FE, null)]                         // -(A2)
+        [InlineData(0x23, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x03FE, null)]                         // -(A3)
+        [InlineData(0x24, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x04FE, null)]                         // -(A4)
+        [InlineData(0x25, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x05FE, null)]                         // -(A5)
+        [InlineData(0x26, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x06FE, null)]                         // -(A6)
+        [InlineData(0x27, null, null, OpSize.Word, EAType.Destination, null, null, (uint)0x1FFE, null)]                         // -(A7)
+        [InlineData(0x28, (ushort)0x50, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0150, null)]                 // (d16,A0)
+        [InlineData(0x29, (ushort)0x52, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0252, null)]                 // (d16,A1)
+        [InlineData(0x2A, (ushort)0x54, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0354, null)]                 // (d16,A2)
+        [InlineData(0x2B, (ushort)0x56, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0456, null)]                 // (d16,A3)
+        [InlineData(0x2C, (ushort)0x58, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0558, null)]                 // (d16,A4)
+        [InlineData(0x2D, (ushort)0x5A, null, OpSize.Word, EAType.Destination, null, null, (uint)0x065A, null)]                 // (d16,A5)
+        [InlineData(0x2E, (ushort)0x5C, null, OpSize.Word, EAType.Destination, null, null, (uint)0x075C, null)]                 // (d16,A6)
+        [InlineData(0x2F, (ushort)0x5E, null, OpSize.Word, EAType.Destination, null, null, (uint)0x205E, null)]                 // (d16,A7)
+        [InlineData(0x30, (ushort)0x50, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0161, null)]                 // (d8,D0,A0)
+        [InlineData(0x31, (ushort)0x1050, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0272, null)]               // (d8,D1,A1)
+        [InlineData(0x32, (ushort)0x2050, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0383, null)]               // (d8,D2,A2)
+        [InlineData(0x33, (ushort)0x3050, null, OpSize.Word, EAType.Destination, null, null, (uint)0x0494, null)]               // (d8,D3,A3)
+        [InlineData(0x34, (ushort)0x4050, null, OpSize.Word, EAType.Destination, null, null, (uint)0x05A5, null)]               // (d8,D4,A4)
+        [InlineData(0x35, (ushort)0x5050, null, OpSize.Word, EAType.Destination, null, null, (uint)0x06B6, null)]               // (d8,D5,A5)
+        [InlineData(0x36, (ushort)0x6050, null, OpSize.Word, EAType.Destination, null, null, (uint)0x07C7, null)]               // (d8,D6,A6)
+        [InlineData(0x37, (ushort)0x7050, null, OpSize.Word, EAType.Destination, null, null, (uint)0x20D8, null)]               // (d8,D7,A7)
+        [InlineData(0x38, (ushort)0x1FF0, null, OpSize.Word, EAType.Destination, null, null, (uint)0x1FF0, null)]               // (xxx).w
+        [InlineData(0x39, (ushort)0x0006, (ushort)0x1234, OpSize.Word, EAType.Destination, null, null, (uint)0x00061234, null)] // (xxx).l
+        [InlineData(0x3A, (ushort)0x50, null, OpSize.Word, EAType.Destination, null, null, (uint)0x4052, null)]                 // (d16,PC)
+        [InlineData(0x3B, (ushort)0x50, null, OpSize.Word, EAType.Destination, null, null, (uint)0x4063, null)]                 // (d8,D0,PC)
+        [InlineData(0x3C, (ushort)0x1234, null, OpSize.Word, EAType.Destination, null, null, null, (uint)0x1234)]               // #<data>  [word]
+        [InlineData(0x3C, (ushort)0x1234, (ushort)0x5678, OpSize.Long, EAType.Destination, null, null, null, (uint)0x12345678)] // #<data>  [long]
+        public void EvaluateEffectiveAddress(byte addrMode, ushort? ext1, ushort? ext2, OpSize size, EAType eaType,
+                                             byte? expDataReg, byte? expAddrReg, uint? expAddress, uint? expImm)
         {
-            // Arrange
+            // Arrange - start PC = 0x4000, D0 = 0x0011
             var machine = CreateMachine();
 
-            // Create an instance of the Instruction class. We pass a zero opcode value and a null InstrumentInfo object here
+            // Create an instance of the Instruction class. We pass a zero opcode value and a null InstructionInfo object here
             // because these are not used when evaluating the effective address (so we don't need to worry about supplying
             // 'proper' values).
-            // We also only supply the source effective address parameters (as the method works identically for both source and
-            // destination effective addresses; therefore, we only need to test one).
-            Instruction inst = new Instruction(0, null, size, addrMode, ext1, ext2);
+            ushort? srcExt1 = null;
+            ushort? srcExt2 = null;
+            ushort? destExt1 = null;
+            ushort? destExt2 = null;
 
-            // Act
-            var (dataRegNum, addrRegNum, address, immValue) = machine.ExecutionHandler.EvaluateEffectiveAddress(inst, EAType.Source);
+            // Act -Bump past opcode word - same for all instructions
+            machine.CPU.PC += 2;
+
+            // Bump PC past 0, 1, or 2 arbitrary extension words
+            int rand = rng.Next();
+            if (eaType == EAType.Source)
+            {
+                srcExt1 = ext1;
+                srcExt2 = ext2;
+
+                if (rand < Int32.MaxValue / 3)
+                {
+                    destExt1 = null;
+                    destExt2 = null;
+                }
+                else if (rand < 2 * (Int32.MaxValue / 3))
+                {
+                    destExt1 = 0;
+                    destExt2 = null;
+                }
+                else
+                {
+                    destExt1 = 0;
+                    destExt2 = 0;
+                }
+            }
+           
+            if (eaType == EAType.Destination)
+            {
+                destExt1 = ext1;
+                destExt2 = ext2;
+ 
+                if (rand < Int32.MaxValue / 3)
+                {
+                    srcExt1 = null;
+                    srcExt2 = null;
+                }
+                else if (rand < 2 * (Int32.MaxValue / 3))
+                {
+                    srcExt1 = 0;
+                    srcExt2 = null;
+                }
+                else
+                {
+                    srcExt1 = 0;
+                    srcExt2 = 0;
+                }
+            }
+
+            if (srcExt1 != null) machine.CPU.PC += 2;  // Bump past srcExt1 if present
+            if (srcExt2 != null) machine.CPU.PC += 2;  // Bump past srcExt2 if present
+            if (destExt1 != null) machine.CPU.PC += 2;  // Bump past destExt1 if present
+            if (destExt2 != null) machine.CPU.PC += 2;  // Bump past destExt2 if present
+
+            Instruction inst = new Instruction(0, null, size, addrMode, srcExt1, srcExt2, addrMode, destExt1, destExt2);
+            var (dataRegNum, addrRegNum, address, immValue) = machine.ExecutionHandler.EvaluateEffectiveAddress(inst, eaType);
 
             // Assert
             Assert.Equal(expDataReg, dataRegNum);

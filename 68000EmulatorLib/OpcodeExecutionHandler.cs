@@ -27,7 +27,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             private readonly object lockObj = new object();     // Object that is locked for TAS instruction.
 
             internal int _numberOfJSRCalls = 0;
-            internal uint CurrentInstructionAddress = 0;
 
             /// <summary>
             /// Initializes a new instance of the <see cref="OpcodeExecutionHandler"/> class.
@@ -695,18 +694,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     Debug.Assert(ext1.HasValue, "Required extension word is not available");
                                     if (ext1.HasValue)
                                     {
-                                        // PC has been incremented past the extension word.  The definition of
-                                        // PC displacement uses the value of the extension word address as the PC value.
-                                        uint pc;
-                                        if (eaType == EAType.Source)
+                                        uint pcDecrement = 2; // Assume source, PC just after ext1 or dest, PC just after ext1
+                                        if (eaType == EAType.Source && instruction.DestExtWord1 != null)
                                         {
-                                            pc = CurrentInstructionAddress + 2;
+                                            pcDecrement += 2;
+                                            if (instruction.DestExtWord2 != null)
+                                            {
+                                                pcDecrement += 2;
+                                            }
                                         }
-                                        else
-                                        {
-                                            pc = Machine.CPU.PC - 2;
-                                        }
-                                        address = (uint)(pc + (short)ext1.Value);
+
+                                        address = (uint)(Machine.CPU.PC - pcDecrement + (short)ext1.Value);
                                     }
                                     break;
                                 case (byte)AddrMode.PCIndex:
@@ -723,7 +721,16 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         }
                                         // PC has been incremented past the extension word.  The definition of
                                         // PC displacement uses the value of the extension word address as the PC value.
-                                        address = (uint)(CurrentInstructionAddress + 2 + (int)indexValue + (sbyte)disp);
+                                        uint pcDecrement = 2; // Assume source, PC just after ext1 or dest, PC just after ext1
+                                        if (eaType == EAType.Source && instruction.DestExtWord1 != null)
+                                        {
+                                            pcDecrement += 2;
+                                            if (instruction.DestExtWord2 != null)
+                                            {
+                                                pcDecrement += 2;
+                                            }
+                                        }
+                                        address = (uint)(Machine.CPU.PC - pcDecrement + (int)indexValue + (sbyte)disp);
                                     }
                                     break;
                                 case (byte)AddrMode.Immediate:

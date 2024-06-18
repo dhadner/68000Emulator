@@ -419,7 +419,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// without the overhead of stack frame crawling, etc.</exception>
         public virtual TrapException? ExecuteInstruction()
         {
-            ExecutionHandler.CurrentInstructionAddress = CPU.PC;
             var instruction = Decoder.FetchInstruction();
             return ExecutionHandler.Execute(instruction);
         }
