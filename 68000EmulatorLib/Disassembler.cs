@@ -1058,16 +1058,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     //Debug.Assert(ext1.HasValue, "Required extension word is not available");
                                     if (ext1.HasValue)
                                     {
-                                        uint pc;
-                                        if (eaType == EAType.Source)
+                                        // PC has been incremented past the extension word.  The definition of
+                                        // PC displacement uses the value of the extension word address as the PC value.
+                                        int pcDecrement = 2; // Assume source, PC just after ext1 or dest, PC just after ext1
+                                        if (eaType == EAType.Source && instruction.DestExtWord1 != null)
                                         {
-                                            pc = CurrentInstructionAddress + 2;
+                                            pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
                                         }
-                                        else
-                                        {
-                                            pc = Machine.CPU.PC - 2;
-                                        }
-                                        address = (uint)(pc + (short)ext1.Value);
+                                        address = (uint)((int)Machine.CPU.PC - pcDecrement + (short)ext1.Value);
                                         eaStr = FormatEffectiveAddress(address.Value);
                                     }
                                     break;
@@ -1078,7 +1076,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         byte disp = (byte)(ext1.Value & 0x00FF);
                                         byte indexRegNum = (byte)((ext1.Value & 0x7000) >> 12);
                                         char sz = (ext1.Value & 0x0800) == 0 ? 'W' : 'L';
-                                        uint baseAddress = (uint)((sbyte)disp + (int)CurrentInstructionAddress + 2);
+                                        // PC has been incremented past the extension word.  The definition of
+                                        // PC displacement uses the value of the extension word address as the PC value.
+                                        int pcDecrement = 2; // Assume source, PC just after ext1 or dest, PC just after ext1
+                                        if (eaType == EAType.Source && instruction.DestExtWord1 != null)
+                                        {
+                                            pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
+                                        }
+                                        uint baseAddress = (uint)((sbyte)disp + (int)Machine.CPU.PC - pcDecrement);
                                         eaStr = $"${baseAddress:x8}(PC,D{indexRegNum}.{sz})";
                                     }
                                     break;

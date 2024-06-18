@@ -694,16 +694,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     Debug.Assert(ext1.HasValue, "Required extension word is not available");
                                     if (ext1.HasValue)
                                     {
-                                        uint pcDecrement = 2; // Assume source, PC just after ext1 or dest, PC just after ext1
+                                        int pcDecrement = 2; // Assume source, PC just after ext1 or dest, PC just after ext1
                                         if (eaType == EAType.Source && instruction.DestExtWord1 != null)
                                         {
-                                            pcDecrement += 2;
-                                            if (instruction.DestExtWord2 != null)
-                                            {
-                                                pcDecrement += 2;
-                                            }
+                                            pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
                                         }
-
+                                    
                                         address = (uint)(Machine.CPU.PC - pcDecrement + (short)ext1.Value);
                                     }
                                     break;
@@ -721,14 +717,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         }
                                         // PC has been incremented past the extension word.  The definition of
                                         // PC displacement uses the value of the extension word address as the PC value.
-                                        uint pcDecrement = 2; // Assume source, PC just after ext1 or dest, PC just after ext1
+                                        int pcDecrement = 2; // Assume source, PC just after ext1 or dest, PC just after ext1
                                         if (eaType == EAType.Source && instruction.DestExtWord1 != null)
                                         {
-                                            pcDecrement += 2;
-                                            if (instruction.DestExtWord2 != null)
-                                            {
-                                                pcDecrement += 2;
-                                            }
+                                            pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
                                         }
                                         address = (uint)(Machine.CPU.PC - pcDecrement + (int)indexValue + (sbyte)disp);
                                     }
