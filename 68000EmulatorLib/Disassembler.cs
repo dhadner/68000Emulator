@@ -124,12 +124,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             public const int MaxInstructionLength = 10;
 
             /// <summary>
-            /// Number of bytes to allow in one DC.B directive.  A <see cref="NonExecutableSection"/>
-            /// is not limited in length and can consist of many non-executable data blocks.
-            /// </summary>
-            public const int MaxNonExecDataDisassemblyBlockSize = 4;
-
-            /// <summary>
             /// Gets or sets the <see cref="Machine"/> instance for which this <see cref="Disassembler"/> instance
             /// is handling the disassembly of instructions.
             /// </summary>
