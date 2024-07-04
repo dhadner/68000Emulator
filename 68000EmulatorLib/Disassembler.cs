@@ -165,10 +165,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             /// <param name="address"></param>
             /// <param name="length"></param>
-            public class NonExecSection(uint address, uint length)
+            /// <param name="elementSize">'A' auto (default), 'B' byte, 'W' word, 'L' long</param>
+            public class NonExecSection(uint address, uint length, char elementSize = 'A')
             {
-                public virtual uint Address { get; protected set; } = address;
-                public virtual uint Length { get; protected set; } = length;
+                public virtual uint Address { get; set; } = address;
+                public virtual uint Length { get; set; } = length;
+                public virtual char ElementSize { get; set; } = elementSize;
 
                 /// <summary>
                 /// Return true if the section contains at least one byte of the
@@ -338,30 +340,38 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 List<NonExecSection> sections = NonExecSections;
                 sections.Sort((a, b) => a.Address.CompareTo(b.Address));
 
-                bool combined;
+                bool adjusted;
 
-                // Keep cycling up through the list until we haven't combined any sections.
+                // Keep cycling up through the list until we haven't adjusted any sections.
                 do
                 {
-                    combined = false;
+                    adjusted = false;
 
                     for (int i = 0; i < sections.Count - 1; i++)
                     {
                         if (sections[i].Address + sections[i].Length > sections[i + 1].Address)
                         {
-                            combined = true;
+                            adjusted = true;
 
-                            // We have an overlap, so combine them.
-                            uint minAddress = Math.Min(sections[i].Address, sections[i + 1].Address);
-                            uint maxAddress = Math.Max(sections[i].Address + sections[i].Length, sections[i + 1].Address + sections[i + 1].Length);
-                            uint length = maxAddress - minAddress;
-                            NonExecSection merged = new(minAddress, length);
-                            sections[i + 1] = merged;
-                            sections.RemoveAt(i);
+                            // We have an overlap, so combine them if same size
+                            if (sections[i].ElementSize == sections[i + 1].ElementSize)
+                            {
+                                uint minAddress = Math.Min(sections[i].Address, sections[i + 1].Address);
+                                uint maxAddress = Math.Max(sections[i].Address + sections[i].Length, sections[i + 1].Address + sections[i + 1].Length);
+                                uint length = maxAddress - minAddress;
+                                NonExecSection merged = new(minAddress, length, sections[i].ElementSize);
+                                sections[i + 1] = merged;
+                                sections.RemoveAt(i);
+                            }
+                            else
+                            {
+                                // Make the first one shorter.
+                                sections[i].Length = sections[i + 1].Address - sections[i].Address;
+                            }
                             break;
                         }
                     }
-                } while (combined);
+                } while (adjusted);
                 NonExecSectionsByAddress.Clear();
                 foreach (NonExecSection section in NonExecSections)
                 {
@@ -378,11 +388,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </remarks>
             /// <param name="startAddress">The start effectiveAddress of the block of non-executable data.</param>
             /// <param name="length">The length (in bytes) of the block of non-executable data.</param>
-            public void SetNonExecutableRange(uint startAddress, uint length)
+            /// <param name="elementSize">'A' auto (default), 'B' byte, 'W' word, 'L' long</param>
+            public void SetNonExecutableRange(uint startAddress, uint length, char elementSize = 'A')
             {
                 
                 NormalizeSections();
-                NonExecSections.Add(new(startAddress, length));
+                ClearNonExecutableRange(startAddress, length);
+                NonExecSections.Add(new(startAddress, length, elementSize));
                 NormalizeSections();
             }
 
@@ -444,8 +456,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     {
                         // This section contains the range and must be split into two.
                         NonExecSections.Remove(section);
-                        NonExecSections.Add(new(section.Address, startAddress - section.Address));
-                        NonExecSections.Add(new(startAddress + length, nesMaxAddress - maxAddress));
+                        NonExecSections.Add(new(section.Address, startAddress - section.Address, section.ElementSize));
+                        NonExecSections.Add(new(startAddress + length, nesMaxAddress - maxAddress, section.ElementSize));
                     }
                     // CASE 3: Range to be [c]leared top extends up into the current [s]ection,
                     //         so the section must be recalculated to cut off the bottom.
@@ -459,7 +471,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         // The low portion of nes encroaches into the top of the range and so nes must be
                         // truncated.
                         NonExecSections.Remove(section);
-                        NonExecSections.Add(new(startAddress + length, nesMaxAddress - maxAddress));
+                        NonExecSections.Add(new(startAddress + length, nesMaxAddress - maxAddress, section.ElementSize));
                     }
                     // CASE 4: Range to be [c]leared bottom is less than current [s]ection top, so the
                     //         current section must be truncated on the top.
@@ -472,7 +484,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         // The high portion of nes encroaches into the low end of the range and so nes
                         // must be truncated.
                         NonExecSections.Remove(section);
-                        NonExecSections.Add(new(section.Address, startAddress - section.Address));
+                        NonExecSections.Add(new(section.Address, startAddress - section.Address, section.ElementSize));
                     }
                     else
                     {
@@ -520,7 +532,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         var nonExecSection = GetNonExecutableSection(CurrentAddress);
                         if (nonExecSection != null)
                         {
-                            uint len = Math.Min(nonExecSection.Address + nonExecSection.Length - CurrentAddress, MaxNonExecDataDisassemblyBlockSize);
+                            uint len = Math.Min(nonExecSection.Address + nonExecSection.Length - CurrentAddress, 4);
                             len = Math.Min(len, length - (CurrentAddress - startAddress));
                             result.Add(GetNonExecutableSectionRecord(CurrentAddress, len, nonExecSection));
                         }
@@ -551,7 +563,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns></returns>
             protected DisassemblyRecord GetNonExecutableSectionRecord(uint address, uint length, NonExecSection section)
             {
-                length = Math.Min(length, MaxNonExecDataDisassemblyBlockSize);
+                uint elementSize = section.ElementSize switch
+                {
+                    'A' => 4,
+                    'B' => 1,
+                    'W' => 2,
+                    'L' => 4,
+                    _ => 4,
+                };
+                length = Math.Min(length, elementSize);
 
                 // Length of NES that is contained in this record.
                 uint nesRecordLength = section.Length - (address - section.Address);
@@ -562,7 +582,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     // Can't use ReadNextByte() because NonExecutableDataDisassembly(...)
                     // will call it below and calling it here would result in double
-                    // incrementing CurrentAddress.
+                    // incrementing CurrentAddress.  Note that Machine.Memory can be 
+                    // overridden in derived classes to access memory-mapped I/O as well
+                    // (also applies to ReadNextByte() since it calls Machine.Memory.ReadByte(...),
+                    // - so I/O could be read twice).
                     machineCode[i] = Machine.Memory.ReadByte(address + i);
                 }
                 var assembly = NonExecutableDataDisassembly(length, address);
@@ -614,7 +637,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return GetNonExecutableSection(address) != null;
             }
 
-            static readonly byte[] _bytes = new byte[MaxNonExecDataDisassemblyBlockSize];
+            static readonly byte[] _bytes = new byte[4];
             static readonly StringBuilder _asciiBuilder = new();
 
             static string GetBytesAsString(byte[] array, uint length)
@@ -636,15 +659,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Returns a string containing a block of non-executable data.
+            /// Generate disassembly for a non-executable section.  Uses the element size
+            /// as much as possible, then fills in the end with smaller elements if necessary
             /// </summary>
-            /// <remarks>
-            /// Non-executable data is output in the disassembly using a DC.B directive.
-            /// Non-executable data sections are output in blocks of a maximum of 8 bytes (as set 
-            /// by MaxNonExecDataDisassemblyBlockSize).
-            /// </remarks>
-            /// <param name="section">Zero-based index of the non-executable section.</param>
-            /// <returns>A string containing the disassembled output for the block of non-executable data.</returns>
+            /// <param name="length">Must be <= 4</param>
+            /// <param name="startAddress"></param>
+            /// <param name="elementSize"></param>
+            /// <returns></returns>
             protected string NonExecutableDataDisassembly(uint length, uint startAddress)
             {
                 StringBuilder sb = new();
