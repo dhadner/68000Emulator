@@ -1116,10 +1116,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                                 size = OpSize.Long;
                                             }
                                         }
-                                        else
+                                        else if (opSize == OpSize.Word)
                                         {
                                             immVal = ext1.Value;
                                             eaStr = $"#${immVal:x4}";
+                                        }
+                                        else
+                                        {
+                                            immVal = ext1.Value;
+                                            eaStr = $"#${immVal:x2}";
                                         }
                                     }
                                     isMemory = false;
