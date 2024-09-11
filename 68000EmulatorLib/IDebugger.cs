@@ -25,5 +25,17 @@
         /// Callback to debugger on write access when Debugging.
         /// </summary>
         void DebugWriteAccess(uint address);
+
+        /// <summary>
+        /// Callback to debugger to allow UI events during long operations
+        /// like disassembling a large block of code.
+        /// </summary>
+        void DoEvents();
+
+        /// <summary>
+        /// Set to true by debugger to stop a long-running operation like
+        /// disassembling a large block of memory.
+        /// </summary>
+        bool Cancelling { get; }
     }
 }

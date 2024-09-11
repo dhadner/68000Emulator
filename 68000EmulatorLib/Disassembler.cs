@@ -1,9 +1,7 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Text;
-using System.Text.Json.Serialization;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -535,6 +533,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             (bool endOfData, uint address, byte[] bytes, string assembly, string? comment) = DisassembleAtCurrentAddress();
                             result.Add(new DisassemblyRecord(endOfData, address, bytes, assembly, comment));
                         }
+                        if (Machine.Debugger?.Cancelling == true) break;
                     }
                     return result;
                 }
