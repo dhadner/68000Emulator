@@ -285,11 +285,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Load from an S-Record file.
         /// </summary>
         /// <param name="sFile">S-Record executable file path</param>
-        /// <param name="clearBeforeLoad"><c>true</c> to clear all memory before loading</param>
+        /// <param name="patch"><c>true</c> to prevent clearing all memory before loading
+        /// and resetting memory limits and initial PC</param>
         /// <returns><c>null</c>if memory loaded successfully, error message if load error occurred</returns>
-        public string? LoadProgram(string sFile, bool clearBeforeLoad = true)
+        public string? LoadProgram(string sFile, bool patch = false)
         {
-            if (clearBeforeLoad)
+            if (!patch)
             {
                 Memory.Clear();
             }
@@ -297,7 +298,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             LoadingProgram = true;
             string? errMsg = loader.Load(sFile, out uint? startingAddress, out uint lowestAddress, out uint highestAddress);
             LoadingProgram = false;
-            if (errMsg == null)
+            if (!patch && errMsg == null)
             {
                 if (startingAddress.HasValue)
                 {
