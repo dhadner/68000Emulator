@@ -287,7 +287,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="sFile">S-Record executable file path</param>
         /// <param name="patch"><c>true</c> to prevent clearing all memory before loading
         /// and resetting memory limits and initial PC</param>
-        /// <returns><c>null</c>if memory loaded successfully, error message if load error occurred</returns>
+        /// <returns><c>null</c> if memory loaded successfully, error message if load error occurred</returns>
         public string? LoadProgram(string sFile, bool patch = false)
         {
             if (!patch)
