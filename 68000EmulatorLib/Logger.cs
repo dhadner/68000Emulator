@@ -51,6 +51,12 @@
             }
         }
 
+        /// <summary>
+        /// Log a message for the specified feature at the specified level.
+        /// </summary>
+        /// <param name="level"></param>
+        /// <param name="feature"></param>
+        /// <param name="message"></param>
         public static void Log(LogLevel level, string feature, string message)
         {
             if (level != LogLevel.None && level >= Level)
