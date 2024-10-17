@@ -1558,6 +1558,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sb.Append($"{AddressReg(regNum)}");
             }
 
+            /// <summary>
+            /// Branch Conditionally
+            /// </summary>
+            /// <param name="inst"></param>
+            /// <param name="sb"></param>
             protected void Bcc(Instruction inst, StringBuilder sb)
             {
                 sb.Append('B');
@@ -1577,6 +1582,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 OpSize size = OpSize.Word;
                 if (disp == 0)
                 {
+                    // 16-bit displacement, uses ExtWord1
                     if (inst.SourceExtWord1.HasValue)
                     {
                         // Byte displacement is zero so use the extension word value as a 16-bit displacement.
@@ -1644,6 +1650,60 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sb.Append(FormatEffectiveAddress(address));
             }
 
+            /// <summary>
+            /// Test Condition, Decrement, and Branch.
+            /// 
+            ///     If Condition False
+            ///         Then (Dn - 1 -> Dn; If Dn != -1 Then PC + dn -> PC)
+            ///         
+            /// Controls a loop of instructions. The parameters are a condition code, a data
+            /// register(counter), and a displacement value.The instruction first tests the condition for
+            /// termination; if it is true, no operation is performed.If the termination condition is not
+            /// true, the low-order 16 bits of the counter data register decrement by one.If the result
+            /// is – 1, execution continues with the next instruction.If the result is not equal to – 1,
+            /// execution continues at the location indicated by the current value of the program
+            /// counter plus the sign-extended 16-bit displacement. The value in the program counter
+            /// is the address of the instruction word of the DBcc instruction plus two. The
+            /// displacement is a twos complement integer that represents the relative distance in
+            /// bytes from the current program counter to the destination program counter.Condition
+            /// code cc specifies one of the following conditional tests (refer to Table 3-19 for more
+            /// information on these conditional tests):
+            /// 
+            ///     Mnemonic    Condition           Mnemonic    Condition
+            ///     ========    =========           ========    =========
+            ///     CC(HI)      Carry Clear         LS          Low or Same
+            ///     CS(LO)      Carry Set           LT          Less Than
+            ///     EQ          Equal               MI          Minus
+            ///     F           False               NE          Not Equal
+            ///     GE          Greater or Equal    PL          Plus
+            ///     GT          Greater Than        T           True
+            ///     HI          High                VC          Overflow Clear
+            ///     LE          Less or Equal       VS          Overflow Set
+            ///     
+            /// Condition Codes:
+            ///     Not affected.           
+            ///     
+            /// NOTE:
+            /// 
+            /// The terminating condition is similar to the UNTIL loop clauses of
+            /// high-level languages.For example: DBMI can be stated as
+            /// "decrement and branch until minus".
+            /// 
+            /// Most assemblers accept DBRA for DBF for use when only a
+            /// count terminates the loop (no condition is tested).
+            /// 
+            /// A program can enter a loop at the beginning or by branching to
+            /// the trailing DBcc instruction.Entering the loop at the beginning
+            /// is useful for indexed addressing modes and dynamically
+            /// specified bit operations.In this case, the control index count
+            /// must be one less than the desired number of loop executions.
+            /// However, when entering a loop by branching directly to the
+            /// trailing DBcc instruction, the control count should equal the loop
+            /// execution count.In this case, if a zero count occurs, the DBcc
+            /// instruction does not branch, and the main loop is not executed.
+            /// </summary>
+            /// <param name="inst"></param>
+            /// <param name="sb"></param>
             protected void DBcc(Instruction inst, StringBuilder sb)
             {
                 sb.Append("DB");
@@ -1665,6 +1725,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
+            /// <summary>
+            /// Set According to Condition.
+            /// Sets the byte to all ones if the condition is true, sets the 
+            /// byte to zero if false.
+            /// </summary>
+            /// <param name="inst"></param>
+            /// <param name="sb"></param>
             protected void Scc(Instruction inst, StringBuilder sb)
             {
                 sb.Append('S');
