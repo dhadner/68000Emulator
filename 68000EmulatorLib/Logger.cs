@@ -14,27 +14,18 @@
         public static event LogEventHandler? LogEvent;
 
         /// <summary>
-        /// Default level when calling <see cref="Log"/> without the
-        /// level argument.
-        /// </summary>
-        public static LogLevel DefaultLevel { get; set; } = LogLevel.Info;
-
-        /// <summary>
         /// Level at or above which logging occurs.
         /// </summary>
         public static LogLevel Level { get; set; } = LogLevel.Error;
 
         /// <summary>
-        /// Log a message at Information level.
+        /// Log a message at default level.
         /// </summary>
         /// <param name="message"></param>
         //[Conditional("DEBUG")]
         public static void Log(string message)
         {
-            if (Level != LogLevel.None && Level >= DefaultLevel)
-            {
-                LogEvent?.Invoke(new LogEventArgs(DefaultLevel, message));
-            }
+            LogEvent?.Invoke(new LogEventArgs(null, message));
         }
 
         /// <summary>
@@ -45,10 +36,7 @@
         //[Conditional("DEBUG")]
         public static void Log(LogLevel level, string message)
         {
-            if (level != LogLevel.None && level >= Level)
-            {
-                LogEvent?.Invoke(new LogEventArgs(level, message));
-            }
+            LogEvent?.Invoke(new LogEventArgs(level, message));
         }
 
         /// <summary>
@@ -59,23 +47,20 @@
         /// <param name="message"></param>
         public static void Log(LogLevel level, string feature, string message)
         {
-            if (level != LogLevel.None && level >= Level)
-            {
-                LogEvent?.Invoke(new LogEventArgs(level, message, feature));
-            }
+            LogEvent?.Invoke(new LogEventArgs(level, message, feature));
         }
     }
 
     public class LogEventArgs
     {
-        public LogEventArgs(LogLevel level, string message, string? feature = null)
+        public LogEventArgs(LogLevel? level, string message, string? feature = null)
         {
             Level = level;
             Message = message;
             Feature = feature;
         }
 
-        public LogLevel Level;
+        public LogLevel? Level;
         public string Message;
         public string? Feature;
     }
