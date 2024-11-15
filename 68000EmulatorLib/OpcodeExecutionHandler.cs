@@ -1490,7 +1490,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         Machine.CPU.OverflowFlag = true;
                         return null;
                     }
-                    var remainder = (int)(dRegVal % signedVal) & 0xFFF;
+                    var remainder = (int)(dRegVal % signedVal) & 0xFFFF;
                     var result = (res & 0xFFFF) | (remainder << 16);
                     Machine.CPU.WriteDataRegister(dRegNum, (uint)result);
                     SetFlags(inst.Info.HandlerID, OpSize.Word, (uint)res);
