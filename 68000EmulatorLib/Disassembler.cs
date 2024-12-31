@@ -229,7 +229,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 _handlers.Add(OpHandlerID.NOT, DST);
                 _handlers.Add(OpHandlerID.EXT, EXT);
                 _handlers.Add(OpHandlerID.SWAP, SWAP);
-                _handlers.Add(OpHandlerID.PEA, SRC);
+                _handlers.Add(OpHandlerID.PEA, PEA);
                 _handlers.Add(OpHandlerID.ILLEGAL, NOOPERANDS);
                 _handlers.Add(OpHandlerID.TST, DST);
                 _handlers.Add(OpHandlerID.TRAP, TRAP);
@@ -812,42 +812,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
                         assembly = sb.ToString();
                     }
-#if REORG
-                    // If we previously encroached on a non-executable section, we will
-                    // use ORG to reset the PC to the start of the non-executable section.
-                    // The next call to disassemble will be to the routine that
-                    // handles non-executable sections.
-                    if (reOrgInProgress)
-                    {
-                        StringBuilder orgBuilder = new();
-                        orgBuilder.Append("ORG");
-                        AppendTab(EAColumn, orgBuilder);
-                        orgBuilder.Append($"${reOrgAddress:x8}");
-                        CurrentAddress = reOrgAddress;
-                        reOrgInProgress = false;
-                        reOrgAddress = 0;
-                        return (endOfData, CurrentAddress, [], orgBuilder.ToString(), "");
-                    }
-                    else
-#endif
-                    {
-                        byte[] machineCode = codeBytes.ToArray();
-#if REORG
-                        NonExecSection? nonExecSection = null;
-                        uint nesCheckAddress = CurrentInstructionAddress + 2;
-                        while (nonExecSection == null && nesCheckAddress < CurrentAddress)
-                        {
-                            nonExecSection = GetNonExecutableSection(nesCheckAddress);
-                            nesCheckAddress += 2;
-                        }
-                        if (nonExecSection != null)
-                        {
-                            reOrgInProgress = true;
-                            reOrgAddress = nesCheckAddress - 2;
-                        }
-#endif
-                        return (endOfData, CurrentInstructionAddress, machineCode, assembly, Comment(CurrentInstructionAddress, machineCode, assembly));
-                    }
+
+                    byte[] machineCode = codeBytes.ToArray();
+                    return (endOfData, CurrentInstructionAddress, machineCode, assembly, Comment(CurrentInstructionAddress, machineCode, assembly, false));
                 }
                 finally
                 {
@@ -954,14 +921,35 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Format effective effectiveAddress.  Allows subclasses to show which I/O device is
-            /// being accessed, etc.
+            /// Return a formatted string representing the source or destination
+            /// expression that resolves to an effective address or offset
+            /// for clearer documentation in the disassembled code.
+            /// 
+            /// 68000 assembly language has either 0 or 1 constant values in the
+            /// source and 0 or 1 constant values in the destination.  Subclasses
+            /// can create dictionaries of source and detstination annotations/
+            /// expressions to substitute into the disassembly for additional
+            /// clarity.  For example, source value at address 420330 may be replaced 
+            /// in the subclass by 'RecordOrigin+FieldOffset1' (without the quotes) by 
+            /// looking up the annotations in a dictionary ordered by address and
+            /// containing entries for the source and/or destination expressions
+            /// to be used for the respective arguments.
             /// </summary>
-            /// <param name="effectiveAddress"></param>
-            /// <returns>effectiveAddress as a string</returns>
-            protected virtual string FormatEffectiveAddress(uint effectiveAddress)
+            /// <param name="address"></param>
+            /// <param name="defaultExpression"></param>
+            /// <param name="eaType"></param>
+            /// <returns>Base class returns address formatted as x8. Subclasses
+            /// can return strings representing constants, expressions, etc.</returns>
+            protected virtual string FormatExpression(uint address, string? defaultExpression = null, EAType? eaType = null)
             {
-                return $"${effectiveAddress:x8}";
+                if (defaultExpression != null)
+                {
+                    return defaultExpression;
+                }
+                else
+                {
+                    return $"${address:x8}";
+                }
             }
 
             /// <summary>
@@ -1015,11 +1003,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 {
                                     // HACK: Some external assemblers can't handle negative values efficiently -
                                     // they sign extend them and thus generate different code from what was disassembled here.
-                                    eaStr = $"({eaVal},{AddressReg(regNum)})";
+                                    eaStr = $"{FormatExpression(CurrentInstructionAddress, $"{eaVal}", eaType)}";
+                                    eaStr = $"({eaStr},{AddressReg(regNum)})";
                                 }
                                 else
                                 {
-                                    eaStr = $"(${eaVal:x4},{AddressReg(regNum)})";
+                                    eaStr = $"{FormatExpression(CurrentInstructionAddress, $"${eaVal:x4}", eaType)}";
+                                    eaStr = $"({eaStr},{AddressReg(regNum)})";
                                 }
                             }
                             break;
@@ -1033,13 +1023,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 sbyte eaDisp = (sbyte)disp;
                                 if (eaDisp < 0)
                                 {
-                                    // HACK: Some external assemblers can't handle negative values efficiently -
+                                    // HACK: Some external assemblers can't handle negative hex values efficiently -
                                     // they sign extend them and thus generate different code from what was disassembled here.
-                                    eaStr = $"({eaDisp},{AddressReg(regNum)},D{indexRegNum}.{sz})";
+                                    eaStr = $"{FormatExpression(CurrentInstructionAddress, $"{eaDisp}", eaType)}";
+                                    eaStr = $"({eaStr},{AddressReg(regNum)},D{indexRegNum}.{sz})";
                                 }
                                 else
                                 {
-                                    eaStr = $"(${eaDisp:x2},{AddressReg(regNum)},D{indexRegNum}.{sz})";
+                                    eaStr = $"{FormatExpression(CurrentInstructionAddress, $"${eaDisp:x2}", eaType)}";
+                                    eaStr = $"({eaStr},{AddressReg(regNum)},D{indexRegNum}.{sz})";
                                 }
                             }
                             break;
@@ -1051,7 +1043,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     if (ext1.HasValue)
                                     {
                                         address = ext1.Value | ((ext1.Value & 0x8000) == 0 ? 0x0 : 0xFFFF0000);
-                                        eaStr = FormatEffectiveAddress(address.Value);
+                                        eaStr = FormatExpression(address.Value);
                                     }
                                     break;
                                 case (byte)AddrMode.AbsLong:
@@ -1059,7 +1051,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     if (ext1.HasValue && ext2.HasValue)
                                     {
                                         address = (uint)((ext1.Value << 16) + ext2.Value);
-                                        eaStr = FormatEffectiveAddress(address.Value);
+                                        eaStr = FormatExpression(address.Value);
                                         size = OpSize.Long;
                                     }
                                     break;
@@ -1075,7 +1067,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                             pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
                                         }
                                         address = (uint)((int)Machine.CPU.PC - pcDecrement + (short)ext1.Value);
-                                        eaStr = FormatEffectiveAddress(address.Value);
+                                        eaStr = FormatExpression(address.Value);
                                     }
                                     break;
                                 case (byte)AddrMode.PCIndex:
@@ -1093,7 +1085,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                             pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
                                         }
                                         uint baseAddress = (uint)((sbyte)disp + (int)Machine.CPU.PC - pcDecrement);
-                                        eaStr = $"${baseAddress:x8}(PC,D{indexRegNum}.{sz})";
+                                        string baseAddressStr = FormatExpression(baseAddress);
+                                        eaStr = $"{baseAddressStr}(PC,D{indexRegNum}.{sz})";
                                     }
                                     break;
                                 case (byte)AddrMode.Immediate:
@@ -1106,19 +1099,19 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                             if (ext2.HasValue)
                                             {
                                                 immVal = (uint)((ext1.Value << 16) + ext2.Value);
-                                                eaStr = $"#${immVal:x8}";
+                                                eaStr = $"#{FormatExpression(CurrentInstructionAddress, $"${immVal:x8}", eaType)}";
                                                 size = OpSize.Long;
                                             }
                                         }
                                         else if (opSize == OpSize.Word)
                                         {
                                             immVal = ext1.Value;
-                                            eaStr = $"#${immVal:x4}";
+                                            eaStr = $"#{FormatExpression(CurrentInstructionAddress, $"${immVal:x4}", eaType)}";
                                         }
                                         else
                                         {
                                             immVal = ext1.Value;
-                                            eaStr = $"#${immVal:x2}";
+                                            eaStr = $"#{FormatExpression(CurrentInstructionAddress, $"${immVal:x2}", eaType)}";
                                         }
                                     }
                                     isMemory = false;
@@ -1230,16 +1223,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             //
             // ***************************
 
-            protected void SRCDST(Instruction inst, StringBuilder sb)
-            {
-                AppendMnemonic(inst, sb);
-                AppendTab(EAColumn, sb);
-                AppendEffectiveAddress(inst, EAType.Source, sb);
-                sb.Append(',');
-                AppendEffectiveAddress(inst, EAType.Destination, sb);
-            }
-
-            protected void SRC(Instruction inst, StringBuilder sb)
+            protected void PEA(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendSizeAndTab(inst, sb);
@@ -1601,7 +1585,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 AppendSizeAndTab(size, sb);
                 uint address = (uint)(pc + disp);
-                sb.Append(FormatEffectiveAddress(address));
+                sb.Append(FormatExpression(address));
             }
 
             protected void JMP_JSR(Instruction inst, StringBuilder sb)
@@ -1642,7 +1626,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 AppendSizeAndTab(size, sb);
                 uint address = (uint)(pc + disp);
-                sb.Append(FormatEffectiveAddress(address));
+                sb.Append(FormatExpression(address));
             }
 
             /// <summary>
@@ -1716,7 +1700,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     int disp = Helpers.SignExtendValue((uint)inst.SourceExtWord1, OpSize.Word) - 2;
                     uint address = (uint)(pc + disp);
-                    sb.Append($"D{dRegNum},{FormatEffectiveAddress(address)}");
+                    sb.Append($"D{dRegNum},{FormatExpression(address)}");
                 }
             }
 
