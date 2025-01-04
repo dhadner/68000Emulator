@@ -38,13 +38,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// is suitable for round-tripping through the VASM assembler.  Uses
                 /// only spaces, no tabs.</param>
                 /// <param name="comment"></param>
-                public DisassemblyRecord(bool endOfData, uint address, byte[] machineCode, string assembly, string? comment)
+                public DisassemblyRecord(bool endOfData, uint address, byte[] machineCode, string assembly, string? comment, bool isNES = false)
                 {
                     EndOfData = endOfData;
                     Address = address;
                     MachineCode = machineCode;
                     Assembly = assembly;
                     Comment = comment;
+                    IsNES = isNES;
                 }
 
                 /// <summary>
@@ -76,6 +77,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// method in that class.                
                 /// </summary>
                 public string? Comment { get; set; }
+
+                /// <summary>
+                /// True if this is part of a Non-Executable Section.
+                /// </summary>
+                public bool IsNES { get; private set; }
             }
 
             /// <summary>
@@ -527,7 +533,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         else
                         {
                             (bool endOfData, uint address, byte[] bytes, string assembly, string? comment) = DisassembleAtCurrentAddress();
-                            result.Add(new DisassemblyRecord(endOfData, address, bytes, assembly, comment));
+                            result.Add(new DisassemblyRecord(endOfData, address, bytes, assembly, comment, false));
                         }
                         if (Machine.Debugger?.Cancelling == true) break;
                     }
@@ -579,7 +585,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 var assembly = NonExecutableDataDisassembly(length, address);
                 string? comment = Comment(address, machineCode, assembly, true);
-                var record = new DisassemblyRecord(false, address, machineCode, assembly, comment);
+                var record = new DisassemblyRecord(false, address, machineCode, assembly, comment, true);
                 return record;
             }
 
