@@ -1,8 +1,10 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Reflection.Metadata.Ecma335;
 using System.Text;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -948,7 +950,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="eaType"></param>
             /// <returns>Base class returns address formatted as x8. Subclasses
             /// can return strings representing constants, expressions, etc.</returns>
-            protected virtual string FormatExpression(uint address, string? defaultExpression = null, EAType? eaType = null)
+            protected virtual string FormatExpression(uint address, string? defaultExpression = null, EAType? eaType = null, bool isImmediate = false)
             {
                 if (defaultExpression != null)
                 {
@@ -1111,7 +1113,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                             if (ext2.HasValue)
                                             {
                                                 immVal = (uint)((ext1.Value << 16) + ext2.Value);
-                                                expression = FormatExpression(CurrentInstructionAddress, $"${immVal:x8}", eaType);
+                                                expression = FormatExpression(CurrentInstructionAddress, $"${immVal:x8}", eaType, true);
                                                 eaStr = $"#{expression}";
                                                 size = OpSize.Long;
                                             }
@@ -1119,13 +1121,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         else if (opSize == OpSize.Word)
                                         {
                                             immVal = ext1.Value;
-                                            expression = FormatExpression(CurrentInstructionAddress, $"${immVal:x4}", eaType);
+                                            expression = FormatExpression(CurrentInstructionAddress, $"${immVal:x4}", eaType, true);
                                             eaStr = $"#{expression}"; ;
                                         }
                                         else
                                         {
                                             immVal = ext1.Value;
-                                            expression = FormatExpression(CurrentInstructionAddress, $"${immVal:x2}", eaType);
+                                            expression = FormatExpression(CurrentInstructionAddress, $"${immVal:x2}", eaType, true);
                                             eaStr = $"#{expression}"; ;
                                         }
                                     }
@@ -1266,7 +1268,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 if (HasSourceExtWord1(inst, sb))
                 {
                     ushort value = (ushort)(inst.SourceExtWord1!.Value & 0x001F);
-                    srcExpression = FormatExpression(CurrentInstructionAddress, $"${value:x2}", EAType.Source);
+                    srcExpression = FormatExpression(CurrentInstructionAddress, $"${value:x2}", EAType.Source, true);
                     sb.Append($"#{srcExpression},CCR");
                 }
                 return (srcExpression, null);
@@ -1284,7 +1286,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 if (inst.SourceExtWord1.HasValue)
                 {
                     ushort value = inst.SourceExtWord1.Value;
-                    srcExpression = FormatExpression(CurrentInstructionAddress, $"${value:x4}", EAType.Source);
+                    srcExpression = FormatExpression(CurrentInstructionAddress, $"${value:x4}", EAType.Source, true);
                     sb.Append($"#{srcExpression},SR");
                 }
                 return (srcExpression, null);
@@ -1330,15 +1332,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 uint? value = OpcodeExecutionHandler.GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
                 if (value.HasValue)
                 {
-                    srcExpression = FormatExpression(CurrentInstructionAddress, null, EAType.Source);
-                    string expression = srcExpression?? opSize switch
+                    string expression = opSize switch
                     {
                         OpSize.Byte => $"${value:x2}",
                         OpSize.Word => $"${value:x4}",
                         OpSize.Long => $"${value:x8}",
                         _ => "???"
                     };
-                    sb.Append($"{expression}");
+                    srcExpression = FormatExpression(CurrentInstructionAddress, expression, EAType.Source, true);
+                    sb.Append($"#{srcExpression}");
                     sb.Append(',');
                     dstExpression = AppendEffectiveAddress(inst, EAType.Destination, sb);
                 }
@@ -1524,7 +1526,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 AppendTab(EAColumn, sb);
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
                 int data = Helpers.SignExtendValue((uint)(inst.Opcode & 0x00FF), OpSize.Byte);
-                string? srcExpression = FormatExpression(CurrentInstructionAddress, $"{data}", EAType.Source);
+                string? srcExpression = FormatExpression(CurrentInstructionAddress, $"{data}", EAType.Source, true);
                 sb.Append($"#{srcExpression},D{dRegNum}");
 
                 return (srcExpression, null);
@@ -1549,7 +1551,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     _ => ""
                 };
 
-                string? srcExpression = FormatExpression(CurrentInstructionAddress, $"{addVal}", EAType.Source);
+                string? srcExpression = FormatExpression(CurrentInstructionAddress, $"{addVal}", EAType.Source, true);
 
                 // When being applied to an effectiveAddress register, we work with the entire 32-bit value regardless
                 // of the size that has been specified. This operation also doesn't affect the flags.
@@ -1581,7 +1583,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     byte regNum = (byte)(inst.Opcode & 0x0007);
                     int disp = Helpers.SignExtendValue((uint)inst.SourceExtWord1, OpSize.Word);
-                    dstExpression = FormatExpression(CurrentInstructionAddress, $"{disp}", EAType.Destination);
+                    dstExpression = FormatExpression(CurrentInstructionAddress, $"{disp}", EAType.Destination, true);
                     sb.Append($"{AddressReg(regNum)},#{dstExpression}");
                 }
                 return (null, dstExpression);
@@ -1846,7 +1848,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 string? srcExpression = null;
                 if (bitNum.HasValue)
                 {
-                    srcExpression = FormatExpression(CurrentInstructionAddress, $"{bitNum}", EAType.Source);
+                    srcExpression = FormatExpression(CurrentInstructionAddress, $"{bitNum}", EAType.Source, true);
                     sb.Append($"#{srcExpression}");
                 }
                 if (regNum.HasValue)
@@ -1885,7 +1887,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     else
                     {
                         int shiftAmt = shift != 0 ? shift : 8;
-                        srcExpression = FormatExpression(CurrentInstructionAddress, $"{shiftAmt}");
+                        srcExpression = FormatExpression(CurrentInstructionAddress, $"{shiftAmt}", EAType.Source, true);
                         sb.Append($"#{srcExpression}");
                     }
                     sb.Append(',');
@@ -2024,7 +2026,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 var data = inst.SourceExtWord1;
                 if (data.HasValue)
                 {
-                    srcExpression = FormatExpression(CurrentInstructionAddress, $"${data.Value:x4}", EAType.Source);
+                    srcExpression = FormatExpression(CurrentInstructionAddress, $"${data.Value:x4}", EAType.Source, true);
                     sb.Append($"#{srcExpression}");
                 }
 
@@ -2037,7 +2039,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 AppendTab(EAColumn, sb);
 
                 ushort vector = (ushort)(inst.Opcode & 0x000F);
-                sb.Append($"#{vector}");
+                string srcExpression = FormatExpression(CurrentInstructionAddress, $"#{vector}", EAType.Source, true);
+                sb.Append($"#{srcExpression}");
 
                 return (null, null);
             }
