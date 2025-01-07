@@ -1400,9 +1400,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="instruction"></param>
             /// <param name="eaType"></param>
             /// <param name="sb"></param>
-            protected string? AppendEffectiveAddress(Instruction instruction, EAType eaType, StringBuilder sb)
+            protected string? AppendEffectiveAddress(Instruction instruction, EAType eaType, StringBuilder sb, int? operandPos = null)
             {
-                (_, _, string effectiveAddress, string? expression) = ComputeEffectiveAddress(instruction, eaType);
+                (_, _, string effectiveAddress, string? expression) = ComputeEffectiveAddress(instruction, eaType, operandPos);
                 sb.Append(effectiveAddress);
                 return expression;
             }
@@ -1611,7 +1611,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         {
                             throw new ArgumentException("Label is null");
                         }
-                        opStr = GetLabelName(operand.Label.Address) ?? $"{operand.Label}";
+                        opStr = GetExpression(assemblyAddress, operand.OperandPos) ?? GetLabelName(operand.Label.Address) ?? $"{operand.Label}";
                         break;
                     default:
                         throw new ArgumentException($"{operand.Mode:x2} is not a valid operande mode");
@@ -1625,7 +1625,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="instruction">The <see cref="Instruction"/> instance.</param>
             /// <param name="eaType">The type of effective effectiveAddress to be evaluated (Source or Destination).</param>
             /// <returns>isMemory = true if effective effectiveAddress is memory, effective effectiveAddress as an assembler string</returns>
-            protected (bool isMemory, OpSize? size, string eaStr, string? expression) ComputeEffectiveAddress(Instruction instruction, EAType eaType)
+            protected (bool isMemory, OpSize? size, string eaStr, string? expression) ComputeEffectiveAddress(Instruction instruction, EAType eaType, int? operandPos = null)
             {
                 ushort? ea = eaType == EAType.Source ? instruction.SourceAddrMode : instruction.DestAddrMode;
                 ushort? ext1 = eaType == EAType.Source ? instruction.SourceExtWord1 : instruction.DestExtWord1;
@@ -1641,6 +1641,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 if (eaType == EAType.Destination)
                 {
                     pos = 1;
+                }
+                if (operandPos != null)
+                {
+                    pos = operandPos.Value;
                 }
                 if (ea.HasValue)
                 {
@@ -2161,7 +2165,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     else
                     {
                         // Source is mem, dest is reg (but EA is in dest field)
-                        srcExpression = AppendEffectiveAddress(inst, EAType.Destination, sb);
+                        srcExpression = AppendEffectiveAddress(inst, EAType.Destination, sb, 0);
                         sb.Append(',');
                         AppendRegisterList(regMask, false, sb);
                     }
