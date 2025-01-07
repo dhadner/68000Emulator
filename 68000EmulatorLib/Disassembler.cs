@@ -682,7 +682,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected List<NonExecSection> NonExecSections { get; set; } = new();
             protected Dictionary<uint, NonExecSection> NonExecSectionsByAddress { get; set; } = new();
 
-            protected delegate (string? srcExpression, string? dstExpression) DisassemblyHandler(Instruction inst, StringBuilder sb);
+            protected delegate void DisassemblyHandler(Instruction inst, StringBuilder sb);
             protected readonly Dictionary<OpHandlerID, DisassemblyHandler> _handlers = new();
             protected static readonly uint[] _bit = [ 0x00000001, 0x00000002, 0x00000004, 0x00000008, 0x00000010, 0x00000020, 0x00000040, 0x00000080,
                                                       0x00000100, 0x00000200, 0x00000400, 0x00000800, 0x00001000, 0x00002000, 0x00004000, 0x00008000,
@@ -1895,23 +1895,21 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             //
             // ***************************
 
-            protected (string? srcExpression, string? dstExpression) PEA(Instruction inst, StringBuilder sb)
+            protected void PEA(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendSizeAndTab(inst, sb);
-                string? srcExpression = AppendEffectiveAddress(inst, EAType.Source, sb);
-                return (srcExpression, null);
+                AppendEffectiveAddress(inst, EAType.Source, sb);
             }
 
-            protected (string? srcExpression, string? dstExpression) DST(Instruction inst, StringBuilder sb)
+            protected void DST(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendSizeAndTab(inst, sb);
-                string? dstExpression = AppendEffectiveAddress(inst, EAType.Destination, sb);
-                return (null, dstExpression);
+                AppendEffectiveAddress(inst, EAType.Destination, sb);
             }
 
-            protected (string? srcExpression, string? dstExpression) IMMEDtoCCR(Instruction inst, StringBuilder sb)
+            protected void IMMEDtoCCR(Instruction inst, StringBuilder sb)
             {
                 string mnemonic = Mnemonic(inst);
                 mnemonic = mnemonic[..^"toCCR".Length];
@@ -1926,10 +1924,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     srcExpression = FormatOperand(CurrentInstructionAddress, new Operand((byte)value, 0));
                     sb.Append($"#{srcExpression},CCR");
                 }
-                return (srcExpression, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) IMMEDtoSR(Instruction inst, StringBuilder sb)
+            protected void IMMEDtoSR(Instruction inst, StringBuilder sb)
             {
                 string mnemonic = Mnemonic(inst);
                 mnemonic = mnemonic[..^"toSR".Length];
@@ -1944,40 +1941,36 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     srcExpression = FormatOperand(CurrentInstructionAddress, new Operand(value, 0));
                     sb.Append($"#{srcExpression},SR");
                 }
-                return (srcExpression, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) MOVEtoSR(Instruction inst, StringBuilder sb)
+            protected void MOVEtoSR(Instruction inst, StringBuilder sb)
             {
                 sb.Append("MOVE");
                 AppendTab(EAColumn, sb);
 
                 string? srcExpression = AppendEffectiveAddress(inst, EAType.Source, sb);
                 sb.Append(",SR");
-                return (srcExpression, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) MOVEtoCCR(Instruction inst, StringBuilder sb)
+            protected void MOVEtoCCR(Instruction inst, StringBuilder sb)
             {
                 sb.Append("MOVE");
                 AppendTab(EAColumn, sb);
 
                 string? srcExpression = AppendEffectiveAddress(inst, EAType.Source, sb);
                 sb.Append(",CCR");
-                return (srcExpression, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) MOVEfromSR(Instruction inst, StringBuilder sb)
+            protected void MOVEfromSR(Instruction inst, StringBuilder sb)
             {
                 sb.Append("MOVE");
                 AppendTab(EAColumn, sb);
 
                 sb.Append("SR,");
                 string? dstExpression = AppendEffectiveAddress(inst, EAType.Destination, sb);
-                return (null, dstExpression);
             }
 
-            protected (string? srcExpression, string? dstExpression) IMMED_OP(Instruction inst, StringBuilder sb)
+            protected void IMMED_OP(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendSizeAndTab(inst, sb);
@@ -1999,10 +1992,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     sb.Append(',');
                     dstExpression = AppendEffectiveAddress(inst, EAType.Destination, sb);
                 }
-                return (srcExpression, dstExpression);
             }
 
-            protected (string? srcExpression, string? dstExpression) MULS_MULU_DIVU_DIVS(Instruction inst, StringBuilder sb)
+            protected void MULS_MULU_DIVU_DIVS(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 sb.Append(".W");
@@ -2012,10 +2004,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sb.Append(',');
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
                 sb.Append($"D{dRegNum}");
-                return (srcExpression, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) SUBX(Instruction inst, StringBuilder sb)
+            protected void SUBX(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendSizeAndTab(inst, sb);
@@ -2030,10 +2021,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     sb.Append($"D{srcReg},D{dstReg}");
                 }
-                return (null, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) ADD_SUB_OR_AND_EOR_CMP(Instruction inst, StringBuilder sb)
+            protected void ADD_SUB_OR_AND_EOR_CMP(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendSizeAndTab(inst, sb);
@@ -2053,10 +2043,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     sb.Append(',');
                     dstExpression = AppendEffectiveAddress(inst, EAType.Destination, sb);
                 }
-                return (srcExpression, dstExpression);
             }
 
-            protected (string? srcExpression, string? dstExpression) CMPM(Instruction inst, StringBuilder sb)
+            protected void CMPM(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendSizeAndTab(inst, sb);
@@ -2069,22 +2058,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sb.Append(")+,(A");
                 sb.Append(aDstRegNum);
                 sb.Append(")+");
-
-                return (null, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) MOVE(Instruction inst, StringBuilder sb)
+            protected void MOVE(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendSizeAndTab(inst, sb);
                 string? srcExpression = AppendEffectiveAddress(inst, EAType.Source, sb);
                 sb.Append(',');
                 string? dstExpression = AppendEffectiveAddress(inst, EAType.Destination, sb);
-
-                return (srcExpression, dstExpression);
             }
 
-            protected (string? srcExpression, string? dstExpression) MOVEA(Instruction inst, StringBuilder sb)
+            protected void MOVEA(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendSizeAndTab(inst, sb);
@@ -2094,11 +2079,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 int regNum = (inst.Opcode & 0x0E00) >> 9;
                 sb.Append($"{AddressReg(regNum)}");
-
-                return (srcExpression, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) MOVEP(Instruction inst, StringBuilder sb)
+            protected void MOVEP(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 OpSize size = (inst.Opcode & 0x0040) == 0 ? OpSize.Word : OpSize.Long;
@@ -2132,10 +2115,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     sb.Append("[SourceExtWord1 missing]");
                 }
-                return (srcExpression, dstExpression);
             }
 
-            protected (string? srcExpression, string? dstExpression) MOVEM(Instruction inst, StringBuilder sb)
+            protected void MOVEM(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 OpSize size = inst.Size ?? OpSize.Long;
@@ -2170,10 +2152,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         AppendRegisterList(regMask, false, sb);
                     }
                 }
-                return (srcExpression, dstExpression);
             }
 
-            protected (string? srcExpression, string? dstExpression) MOVEQ(Instruction inst, StringBuilder sb)
+            protected void MOVEQ(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 sb.Append(".L");
@@ -2182,11 +2163,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 int data = Helpers.SignExtendValue((uint)(inst.Opcode & 0x00FF), OpSize.Byte);
                 string? srcExpression = FormatOperand(CurrentInstructionAddress, new Operand(new QuickData(data), 0));
                 sb.Append($"#{srcExpression},D{dRegNum}");
-
-                return (srcExpression, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) ADDQ_SUBQ(Instruction inst, StringBuilder sb)
+            protected void ADDQ_SUBQ(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
 
@@ -2205,7 +2184,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     _ => ""
                 };
 
-                string? srcExpression = FormatOperand(CurrentInstructionAddress, new Operand(addVal, 0));
+                string? srcExpression = FormatOperand(CurrentInstructionAddress, new Operand(new QuickData(addVal), 0));
 
                 // When being applied to an effectiveAddress register, we work with the entire 32-bit value regardless
                 // of the size that has been specified. This operation also doesn't affect the flags.
@@ -2224,10 +2203,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     sb.Append($"#{srcExpression},");
                     AppendEffectiveAddress(inst, EAType.Destination, sb);
                 }
-                return (srcExpression, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) LINK(Instruction inst, StringBuilder sb)
+            protected void LINK(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendTab(EAColumn, sb);
@@ -2240,18 +2218,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     dstExpression = FormatOperand(CurrentInstructionAddress, new Operand(disp, 1));
                     sb.Append($"{AddressReg(regNum)},#{dstExpression}");
                 }
-                return (null, dstExpression);
             }
 
-            protected (string? srcExpression, string? dstExpression) UNLK(Instruction inst, StringBuilder sb)
+            protected void UNLK(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendTab(EAColumn, sb);
 
                 byte regNum = (byte)(inst.Opcode & 0x0007);
                 sb.Append($"{AddressReg(regNum)}");
-
-                return (null, null);
             }
 
             /// <summary>
@@ -2259,7 +2234,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             /// <param name="inst"></param>
             /// <param name="sb"></param>
-            protected (string? srcExpression, string? dstExpression) Bcc(Instruction inst, StringBuilder sb)
+            protected void Bcc(Instruction inst, StringBuilder sb)
             {
                 sb.Append('B');
                 Condition cond = (Condition)((inst.Opcode & 0x0F00) >> 8);
@@ -2303,20 +2278,16 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 AppendSizeAndTab(size, sb);
                 uint address = (uint)(pc + disp);
                 sb.Append(FormatOperand(CurrentInstructionAddress, new Operand(new Label(address), 1)));
-
-                return (null, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) JMP_JSR(Instruction inst, StringBuilder sb)
+            protected void JMP_JSR(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendTab(EAColumn, sb);
                 AppendEffectiveAddress(inst, EAType.Source, sb);
-
-                return (null, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) BRA_BSR(Instruction inst, StringBuilder sb)
+            protected void BRA_BSR(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 uint pc = Machine.CPU.PC;
@@ -2349,8 +2320,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 uint address = (uint)(pc + disp);
                 string srcExpression = FormatOperand(CurrentInstructionAddress, new Operand(new Label(address), 0));
                 sb.Append(srcExpression);
-
-                return (srcExpression, null);
             }
 
             /// <summary>
@@ -2407,7 +2376,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             /// <param name="inst"></param>
             /// <param name="sb"></param>
-            protected (string? srcExpression, string? dstExpression) DBcc(Instruction inst, StringBuilder sb)
+            protected void DBcc(Instruction inst, StringBuilder sb)
             {
                 sb.Append("DB");
                 Condition cond = (Condition)((inst.Opcode & 0x0F00) >> 8);
@@ -2431,8 +2400,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     sb.Append($"ERROR: Missing inst.SourceExtWord1");
                 }
-
-                return (null, dstExpression);
             }
 
             /// <summary>
@@ -2442,7 +2409,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             /// <param name="inst"></param>
             /// <param name="sb"></param>
-            protected (string? srcExpression, string? dstExpression) Scc(Instruction inst, StringBuilder sb)
+            protected void Scc(Instruction inst, StringBuilder sb)
             {
                 sb.Append('S');
                 Condition cond = (Condition)((inst.Opcode & 0x0F00) >> 8);
@@ -2450,11 +2417,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sb.Append(".B"); // Size is always byte
                 AppendTab(EAColumn, sb);
                 string? srcExpression = AppendEffectiveAddress(inst, EAType.Destination, sb);
-
-                return (srcExpression, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) ADDA_SUBA_CMPA(Instruction inst, StringBuilder sb)
+            protected void ADDA_SUBA_CMPA(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendSizeAndTab(inst, sb);
@@ -2463,11 +2428,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sb.Append(',');
                 int regNum = (inst.Opcode & 0x0E00) >> 9;
                 sb.Append($"{AddressReg(regNum)}");
-
-                return (srcExpression, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) BTST_BCHG_BCLR_BSET(Instruction inst, StringBuilder sb)
+            protected void BTST_BCHG_BCLR_BSET(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
 
@@ -2517,11 +2480,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 sb.Append(',');
                 string? dstExpression = AppendEffectiveAddress(inst, EAType.Destination, sb);
-
-                return (srcExpression, dstExpression);
             }
 
-            protected (string? srcExpression, string? dstExpression) ASL_ASR_LSL_LSR_ROL_ROR_ROXL_ROXR(Instruction inst, StringBuilder sb)
+            protected void ASL_ASR_LSL_LSR_ROL_ROR_ROXL_ROXR(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendSizeAndTab(inst, sb);
@@ -2553,11 +2514,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     sb.Append(',');
                     sb.Append($"D{dRegNum}");
                 }
-
-                return (srcExpression, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) LEA(Instruction inst, StringBuilder sb)
+            protected void LEA(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 (_, OpSize? size, string effectiveAddress, string? srcExpression) = ComputeEffectiveAddress(inst, EAType.Source);
@@ -2573,11 +2532,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 int regNum = (inst.Opcode & 0x0E00) >> 9;
                 sb.Append(',');
                 sb.Append($"{AddressReg(regNum)}");
-
-                return (srcExpression, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) EXT(Instruction inst, StringBuilder sb)
+            protected void EXT(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 OpSize size = (inst.Opcode & 0x0040) == 0 ? OpSize.Word : OpSize.Long;
@@ -2592,22 +2549,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 byte regNum = (byte)(inst.Opcode & 0x0007);
                 sb.Append($"D{regNum}");
-
-                return (null, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) SWAP(Instruction inst, StringBuilder sb)
+            protected void SWAP(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendTab(EAColumn, sb);
 
                 byte regNum = (byte)(inst.Opcode & 0x0007);
                 sb.Append($"D{regNum}");
-
-                return (null, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) MOVEUSP(Instruction inst, StringBuilder sb)
+            protected void MOVEUSP(Instruction inst, StringBuilder sb)
             {
                 sb.Append("MOVE");
                 AppendTab(EAColumn, sb);
@@ -2621,11 +2574,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     sb.Append($"USP,{AddressReg(regNum)}");
                 }
-
-                return (null, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) ABCD_SBCD(Instruction inst, StringBuilder sb)
+            protected void ABCD_SBCD(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendTab(EAColumn, sb);
@@ -2643,11 +2594,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     // Working with memory addresses, so predecrement both effectiveAddress registers by 1 byte.
                     sb.Append($"-({AddressReg(rSrc)}),-({AddressReg(rDest)})");
                 }
-
-                return (null, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) EXG(Instruction inst, StringBuilder sb)
+            protected void EXG(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 sb.Append(".L");
@@ -2673,11 +2622,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         //Debug.Assert(false, "Invalid operating mode for EXG instruction.");
                         break;
                 }
-
-                return (null, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) STOP(Instruction inst, StringBuilder sb)
+            protected void STOP(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendTab(EAColumn, sb);
@@ -2689,11 +2636,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     srcExpression = FormatOperand(CurrentInstructionAddress, new Operand(data.Value, 0));
                     sb.Append($"#{srcExpression}");
                 }
-
-                return (srcExpression, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) TRAP(Instruction inst, StringBuilder sb)
+            protected void TRAP(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendTab(EAColumn, sb);
@@ -2701,11 +2646,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 ushort vector = (ushort)(inst.Opcode & 0x000F);
                 string srcExpression = FormatOperand(CurrentInstructionAddress, new Operand(vector, 0));
                 sb.Append($"#{srcExpression}");
-
-                return (null, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) CHK(Instruction inst, StringBuilder sb)
+            protected void CHK(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendSizeAndTab(inst, sb);
@@ -2714,11 +2657,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 int regNum = (inst.Opcode & 0x0E00) >> 9;
                 sb.Append(',');
                 sb.Append($"D{regNum}");
-
-                return (srcExpression, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) ADDX(Instruction inst, StringBuilder sb)
+            protected void ADDX(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 AppendSizeAndTab(inst, sb);
@@ -2734,32 +2675,24 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     sb.Append($"-({AddressReg(rX)}),-({AddressReg(rY)})");
                 }
-
-                return (null, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) NOOPERANDS(Instruction inst, StringBuilder sb)
+            protected void NOOPERANDS(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
-
-                return (null, null);
             }
 
-            protected (string? srcExpression, string? dstExpression) NONE(Instruction inst, StringBuilder sb)
+            protected void NONE(Instruction inst, StringBuilder sb)
             {
                 AppendMnemonic(inst, sb);
                 sb.Append(" ???");
-
-                return (null, null);
             }
 
-            protected virtual (string? srcExpression, string? dstExpression) LINEA(Instruction inst, StringBuilder sb)
+            protected virtual void LINEA(Instruction inst, StringBuilder sb)
             {
                 sb.Append($"LINEA");
                 AppendTab(EAColumn, sb);
                 sb.Append($"${(ushort)(inst.Opcode & 0x0fff):x3}");
-
-                return (null, null);
             }
 
         }
