@@ -727,7 +727,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 _handlers.Add(OpHandlerID.MOVEtoCCR, MOVEtoCCR);
                 _handlers.Add(OpHandlerID.MOVEtoSR, MOVEtoSR);
                 _handlers.Add(OpHandlerID.NEGX, DST);
-                _handlers.Add(OpHandlerID.CLR, DST);
+                _handlers.Add(OpHandlerID.CLR, CLR);
                 _handlers.Add(OpHandlerID.NEG, DST);
                 _handlers.Add(OpHandlerID.NOT, DST);
                 _handlers.Add(OpHandlerID.EXT, EXT);
@@ -1405,9 +1405,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="instruction"></param>
             /// <param name="eaType"></param>
             /// <param name="sb"></param>
-            protected void AppendEffectiveAddress(Instruction instruction, EAType eaType, StringBuilder sb, int? operandPos)
+            protected void AppendEffectiveAddress(Instruction instruction, EAType eaType, StringBuilder sb, int? operandPos, string? format = null)
             {
-                (_, _, string effectiveAddress) = ComputeEffectiveAddress(instruction, eaType, operandPos);
+                (_, _, string effectiveAddress) = ComputeEffectiveAddress(instruction, eaType, operandPos, format);
                 sb.Append(effectiveAddress);
             }
 
@@ -1713,7 +1713,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="instruction">The <see cref="Instruction"/> instance.</param>
             /// <param name="eaType">The type of effective effectiveAddress to be evaluated (Source or Destination).</param>
             /// <returns>isMemory = true if effective effectiveAddress is memory, effective effectiveAddress as an assembler string</returns>
-            protected (bool isMemory, OpSize? size, string eaStr) ComputeEffectiveAddress(Instruction instruction, EAType eaType, int? operandPos = null)
+            protected (bool isMemory, OpSize? size, string eaStr) ComputeEffectiveAddress(Instruction instruction, EAType eaType, int? operandPos = null, string? format = null)
             {
                 ushort? ea = eaType == EAType.Source ? instruction.SourceAddrMode : instruction.DestAddrMode;
                 ushort? ext1 = eaType == EAType.Source ? instruction.SourceExtWord1 : instruction.DestExtWord1;
@@ -1767,11 +1767,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 {
                                     // HACK: Some external assemblers can't handle negative values efficiently -
                                     // they sign extend them and thus generate different code from what was disassembled here.
-                                    eaStr = FormatOperand(InstructionAddress, new Operand(AddressRegisters[regNum], eaVal, pos));
+                                    eaStr = FormatOperand(InstructionAddress, new Operand(AddressRegisters[regNum], eaVal, pos, format));
                                 }
                                 else
                                 {
-                                    eaStr = FormatOperand(InstructionAddress, new Operand(AddressRegisters[regNum], eaVal, pos));
+                                    eaStr = FormatOperand(InstructionAddress, new Operand(AddressRegisters[regNum], eaVal, pos, format));
                                 }
                             }
                             break;
@@ -1782,7 +1782,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 byte disp = (byte)(ext1.Value & 0x00FF);
                                 byte indexRegNum = (byte)((ext1.Value & 0x7000) >> 12);
                                 OpSize sz = (ext1.Value & 0x0800) == 0 ? OpSize.Word : OpSize.Long;
-                                eaStr = FormatOperand(InstructionAddress, new Operand(AddressRegisters[regNum], DataRegisters[indexRegNum], sz, (sbyte)disp, pos));
+                                eaStr = FormatOperand(InstructionAddress, new Operand(AddressRegisters[regNum], DataRegisters[indexRegNum], sz, (sbyte)disp, pos, null, format));
                             }
                             break;
                         case 0x0038:
@@ -1793,7 +1793,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     if (ext1.HasValue)
                                     {
                                         address = ext1.Value | ((ext1.Value & 0x8000) == 0 ? 0x0 : 0xFFFF0000);
-                                        eaStr = FormatOperand(InstructionAddress, new Operand(new Label(address.Value), pos));
+                                        eaStr = FormatOperand(InstructionAddress, new Operand(new Label(address.Value), pos, format));
                                     }
                                     break;
                                 case (byte)AddrMode.AbsLong:
@@ -1801,7 +1801,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     if (ext1.HasValue && ext2.HasValue)
                                     {
                                         address = (uint)((ext1.Value << 16) + ext2.Value);
-                                        eaStr = FormatOperand(InstructionAddress, new Operand(new Label(address.Value), pos));
+                                        eaStr = FormatOperand(InstructionAddress, new Operand(new Label(address.Value), pos, format));
                                         size = OpSize.Long;
                                     }
                                     break;
@@ -1817,7 +1817,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                             pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
                                         }
                                         address = (uint)((int)Machine.CPU.PC - pcDecrement + (short)ext1.Value);
-                                        eaStr = FormatOperand(InstructionAddress, new Operand(new Label(address.Value), pos));
+                                        eaStr = FormatOperand(InstructionAddress, new Operand(new Label(address.Value), pos, format));
                                     }
                                     break;
                                 case (byte)AddrMode.PCIndex:
@@ -1835,7 +1835,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                             pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
                                         }
                                         uint baseAddress = (uint)((sbyte)disp + (int)Machine.CPU.PC - pcDecrement);
-                                        eaStr = FormatOperand(InstructionAddress, new Operand(PC, baseAddress, pos, opSize));
+                                        eaStr = FormatOperand(InstructionAddress, new Operand(PC, baseAddress, pos, opSize, format));
                                         eaStr = $"{eaStr}(PC,D{indexRegNum}.{sz})";
                                     }
                                     break;
@@ -1849,7 +1849,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                             if (ext2.HasValue)
                                             {
                                                 immVal = (uint)((ext1.Value << 16) + ext2.Value);
-                                                eaStr = FormatOperand(InstructionAddress, new Operand(immVal!.Value, pos));
+                                                eaStr = FormatOperand(InstructionAddress, new Operand(immVal!.Value, pos, format));
                                                 eaStr = $"#{eaStr}";
                                                 size = OpSize.Long;
                                             }
@@ -1857,13 +1857,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         else if (opSize == OpSize.Word)
                                         {
                                             immVal = ext1.Value;
-                                            eaStr = FormatOperand(InstructionAddress, new Operand((ushort)immVal!.Value, pos));
+                                            eaStr = FormatOperand(InstructionAddress, new Operand((ushort)immVal!.Value, pos, format));
                                             eaStr = $"#{eaStr}";
                                         }
                                         else
                                         {
                                             immVal = ext1.Value;
-                                            eaStr = FormatOperand(InstructionAddress, new Operand((byte)immVal!.Value, pos));
+                                            eaStr = FormatOperand(InstructionAddress, new Operand((byte)immVal!.Value, pos, format));
                                             eaStr = $"#{eaStr}";
                                         }
                                     }
@@ -1936,6 +1936,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 AppendMnemonic(inst, sb);
                 AppendSizeAndTab(inst, sb);
                 AppendEffectiveAddress(inst, EAType.Source, sb, 0);
+            }
+
+            protected void CLR(Instruction inst, StringBuilder sb)
+            {
+                AppendMnemonic(inst, sb);
+                AppendSizeAndTab(inst, sb);
+                AppendEffectiveAddress(inst, EAType.Destination, sb, 0);
             }
 
             protected void DST(Instruction inst, StringBuilder sb)
