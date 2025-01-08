@@ -21,6 +21,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         public class Disassembler
         {
+            /// <summary>
+            /// Operand addressing modes used as hints for disassembly.
+            /// </summary>
             public enum Mode : byte
             {
                 DataRegister = AddrMode.DataRegister,       // Dn
@@ -42,11 +45,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 Immediate = AddrMode.Immediate,             // #<data>
 
-                RegList = 0xf0,                             // MOVEM An,(d0-d7/a0-a7)
+                RegList = 0xf0,                             // MOVEM An,d0-d7/a0-a7
                 Quick = 0xf1,                               // #<data>
                 Label = 0xf2,                               // <label>
             }
 
+
+            /// <summary>
+            /// MOVEM register list.
+            /// </summary>
             public class RegisterList
             {
                 public static RegisterList Make(ushort regMask, bool preDec = false) => new RegisterList(regMask, preDec);
@@ -54,20 +61,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     this.preDec = preDec;
                     this.regMask = regMask;
-                    for (int i = 0; i < 8; i++)
-                    {
-                        if ((regMask & (1 << i)) != 0)
-                        {
-                            DataRegisters.Add(new DataRegister(_reg[i]));
-                        }
-                    }
-                    for (int i = 8; i < 15; i++)
-                    {
-                        if ((regMask & (1 << i)) != 0)
-                        {
-                            AddressRegisters.Add(new AddressRegister(_reg[i]));
-                        }
-                    }
                 }
 
                 ushort regMask;
@@ -76,9 +69,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public bool PreDec => preDec;
                 public ushort RegMask => regMask;
 
-                public string AsString()
+                public void AppendRegisterList(StringBuilder sb)
                 {
-                    StringBuilder sb = new();
                     int? startReg = null;
                     int? lastReg = null;
                     int range = 0;
@@ -124,16 +116,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             lastReg = null;
                         }
                     }
-                    return sb.ToString();
                 }
 
                 public override string ToString()
                 {
-                    return AsString();
+                    StringBuilder sb = new();
+                    AppendRegisterList(sb);
+                    return sb.ToString();
                 }
-
-                public List<DataRegister> DataRegisters { get; private set; } = new();
-                public List<AddressRegister> AddressRegisters { get; private set; } = new();
             }
 
             public class Displacement : ImmediateData
@@ -261,6 +251,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
+                public Operand(RegisterList regList, int pos, OpSize? opSize = null)
+                {
+                    Mode = Mode.RegList;
+                    RegisterList = regList;
+                    OperandPos = pos;
+                    OperandSize = opSize;
+                }
+
                 public Operand(AddressRegister addressRegister, ushort displacement, int pos, string? format = null)
                 {
                     Mode = Mode.AddressDisp;
@@ -296,14 +294,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Mode = mode;
                     AddressRegister = addressRegister;
                     OperandPos = pos;
-                }
-
-                public Operand(RegisterList registerList, int pos, OpSize? opSize)
-                {
-                    Mode = Mode.RegList;
-                    RegisterList = registerList;
-                    OperandPos = pos;
-                    OperandSize = opSize;
                 }
 
                 public Operand(Label label, int pos, string? format = null)
@@ -1913,54 +1903,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="regMask">Register mask</param>
             /// <param name="preDec">Determines which way to read the register mask</param>
             /// <param name="sb"></param>
-            protected void AppendRegisterList(ushort regMask, bool preDec, StringBuilder sb)
+            protected void AppendRegisterList(ushort regMask, bool preDec, int pos, StringBuilder sb)
             {
-                int? startReg = null;
-                int? lastReg = null;
-                int range = 0;
-                uint[] bits = preDec ? _rbit : _bit;
-                int offset = preDec ? 16 : 0;
-                for (int n = 0; n < 16; n++)
-                {
-                    int bit = n + offset;
-                    if ((regMask & bits[bit]) == bits[bit])
-                    {
-                        if (!startReg.HasValue)
-                        {
-                            startReg = n;
-                            if (range > 0)
-                            {
-                                sb.Append('/');
-                            }
-                            range++;
-                            sb.Append(_reg[n]);
-                        }
-                        lastReg = n;
-                        if (n == 15 && (startReg.Value != lastReg.Value))
-                        {
-                            sb.Append('-');
-                            sb.Append(_reg[n]);
-                        }
-                    }
-                    else
-                    {
-                        // Skip this register, emit previous range if any
-                        if (startReg.HasValue)
-                        {
-                            if (lastReg.HasValue)
-                            {
-                                if (lastReg.Value != startReg.Value)
-                                {
-                                    sb.Append('-');
-                                    sb.Append(_reg[lastReg.Value]);
-                                }
-                            }
-                        }
-                        startReg = null;
-                        lastReg = null;
-
-                    }
-                }
+                sb.Append(FormatOperand(InstructionAddress, new Operand(new RegisterList(regMask, preDec), pos)));                
             }
 
             /// <summary>
@@ -2215,11 +2160,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         if (((inst.Opcode >> 3) & 0x0007) == 0x0004)
                         {
                             // Predecrement mode
-                            AppendRegisterList(regMask, true, sb);
+                            AppendRegisterList(regMask, true, 0, sb);
                         }
                         else
                         {
-                            AppendRegisterList(regMask, false, sb);
+                            AppendRegisterList(regMask, false, 0, sb);
                         }
                         sb.Append(',');
                         AppendEffectiveAddress(inst, EAType.Destination, sb);
@@ -2229,7 +2174,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         // Source is mem, dest is reg (but EA is in dest field)
                         AppendEffectiveAddress(inst, EAType.Destination, sb, 0);
                         sb.Append(',');
-                        AppendRegisterList(regMask, false, sb);
+                        AppendRegisterList(regMask, false, 1, sb);
                     }
                 }
             }
