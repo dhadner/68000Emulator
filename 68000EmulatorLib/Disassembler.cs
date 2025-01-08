@@ -1504,10 +1504,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             {
                                 disp = string.Format(operand.Format, operand.Displacement.Value);
                             }
+                            else if (operand.Displacement.Value < 0)
+                            {
+                                disp = $"{operand.Displacement.Value}";
+                            }
                             else
                             {
                                 disp = $"${operand.Displacement.Value:x4}";
-                            }
+                            }                          
                         }
                         opStr = $"({disp},{operand.AddressRegister})";
                         break;
