@@ -2891,22 +2891,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         case Mode.Immediate:             // #<data>
                             return Format == null ? $"#{Data}" : string.Format(Format, Data?.Value);
                         case Mode.RegList:                             // MOVEM An,d0-d7/a0-a7
-                            return RegisterList?.ToString();
+                            return $"{RegisterList}";
                         case Mode.Quick:                               // #<data>
                             return $"#{QuickData}";
                         case Mode.Label:                               // <label>
-                            return Label?.ToString();
+                            return $"{Label}";
                         case Mode.RegisterDirect:
                             if (CCR != null)
                             {
-                                return CCR.ToString();
+                                return $"{CCR}";
                             }
                             else if (SR != null){
-                                return SR.ToString();
+                                return $"{SR}";
                             }
                             else if (PC != null)
                             {
-                                return PC.ToString();
+                                return $"{PC}";
                             }
                             else
                             {
