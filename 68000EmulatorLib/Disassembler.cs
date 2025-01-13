@@ -1716,7 +1716,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sb.AppendComma();
 
                 int regNum = (inst.Opcode & 0x0E00) >> 9;
-                op.Operands.Add(new(AddressRegisters[regNum], Mode.Address, 1));
+                op.Operands.Add(new(AddressRegisters[regNum], Mode.AddressRegister, 1));
                 sb.Append($"{AddressReg(regNum)}");
 
                 return op;
@@ -1859,7 +1859,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     sb.Append(sz);
                     sb.AppendTab(EAColumn);
                     sb.Append($"#{srcExpression},");
-                    op.Operands.Add(new(AddressRegisters[regNum], Mode.Address, 1));
+                    op.Operands.Add(new(AddressRegisters[regNum], Mode.AddressRegister, 1));
                     sb.Append($"{AddressReg(regNum)}");
                 }
                 else
@@ -1882,7 +1882,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 if (inst.SourceExtWord1.HasValue)
                 {
                     byte regNum = (byte)(inst.Opcode & 0x0007);
-                    op.Operands.Add(new(AddressRegisters[regNum], Mode.Address, 0));
+                    op.Operands.Add(new(AddressRegisters[regNum], Mode.AddressRegister, 0));
                     int disp = Helpers.SignExtendValue((uint)inst.SourceExtWord1, OpSize.Word);
                     op.Operands.Add(new Operand(disp, 1));
                     string dst = FormatOperand(InstructionAddress, op.Operands[1]);
@@ -1898,7 +1898,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sb.AppendTab(EAColumn);
 
                 byte regNum = (byte)(inst.Opcode & 0x0007);
-                op.Operands.Add(new(AddressRegisters[regNum], Mode.Address, 0));
+                op.Operands.Add(new(AddressRegisters[regNum], Mode.AddressRegister, 0));
                 sb.Append(op.Operands[0]);
 
                 return op;
@@ -2120,7 +2120,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 op.Operands.Add(AppendEffectiveAddress(inst, EAType.Source, sb, 0));
                 sb.AppendComma();
                 int regNum = (inst.Opcode & 0x0E00) >> 9;
-                op.Operands.Add(new(AddressRegisters[regNum], Mode.Address, 1));
+                op.Operands.Add(new(AddressRegisters[regNum], Mode.AddressRegister, 1));
                 sb.Append($"{AddressReg(regNum)}");
 
                 return op;
@@ -2286,14 +2286,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 byte regNum = (byte)(inst.Opcode & 0x0007);
                 if ((inst.Opcode & 0x0008) == 0)
                 {
-                    op.Operands.Add(new(AddressRegisters[regNum], Mode.Address, 0));
+                    op.Operands.Add(new(AddressRegisters[regNum], Mode.AddressRegister, 0));
                     op.Operands.Add(new(USP, Mode.Address, 1));
                     sb.Append($"{AddressReg(regNum)},USP");
                 }
                 else
                 {
                     op.Operands.Add(new(USP, Mode.Address, 0));
-                    op.Operands.Add(new(AddressRegisters[regNum], Mode.Address, 1));
+                    op.Operands.Add(new(AddressRegisters[regNum], Mode.AddressRegister, 1));
                     sb.Append($"USP,{AddressReg(regNum)}");
                 }
                 return op;
@@ -2346,17 +2346,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         //sb.Append($"D{rY},D{rX}");
                         break;
                     case 0x09:      // Address Register <-> Address Register
-                        op.Operands.Add(new(AddressRegisters[rY], Mode.Address, 0));
+                        op.Operands.Add(new(AddressRegisters[rY], Mode.AddressRegister, 0));
                         sb.Append(op.Operands[0]);
                         sb.Append(',');
-                        op.Operands.Add(new(AddressRegisters[rX], Mode.Address, 1));
+                        op.Operands.Add(new(AddressRegisters[rX], Mode.AddressRegister, 1));
                         sb.Append(op.Operands[1]);
                         //sb.Append($"{AddressReg(rY)},{AddressReg(rX)}");
                         break;
                     case 0x11:      // Data Register <-> Address Register
                         op.Operands.Add(AppendDataRegister(rY, sb, 0));
                         sb.Append(',');
-                        op.Operands.Add(new(AddressRegisters[rX], Mode.Address, 1));
+                        op.Operands.Add(new(AddressRegisters[rX], Mode.AddressRegister, 1));
                         sb.Append(op.Operands[1]);
                         //sb.Append($"D{rY},{AddressReg(rX)}");
                         break;
@@ -2448,8 +2448,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 Operation op = new(InstructionAddress, "LINEA");
                 sb.Append($"LINEA");
                 sb.AppendTab(EAColumn);
-                op.Operands.Add(new((ushort)(inst.Opcode & 0x0fff), 0, "{0:x3}"));
-                sb.Append($"${(ushort)(inst.Opcode & 0x0fff):x3}");
+                op.Operands.Add(new((ushort)(inst.Opcode & 0x0fff), 0, "${0:x3}"));
+                sb.Append(op.Operands[0]);
+                // sb.Append($"${(ushort)(inst.Opcode & 0x0fff):x3}");
                 return op;
             }
 
@@ -2866,11 +2867,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     switch (Mode)
                     {
                         case Mode.DataRegister:       // Dn
-                            return DataRegister?.ToString();
+                            return $"{DataRegister}";
                         case Mode.AddressRegister: // An
-                            return AddressRegister?.ToString();
-                        case Mode.Address:                 // (An)
                             return $"{AddressRegister}";
+                        case Mode.Address:                 // (An)
+                            return $"({AddressRegister})";
                         case Mode.AddressPostInc:   // (An)+
                             return $"({AddressRegister})+";
                         case Mode.AddressPreDec:     // -(An)
@@ -2888,7 +2889,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         case Mode.PCIndex:                 // (d8,PC,Xn)
                             return $"{Displacement}(PC,{DataRegister})";
                         case Mode.Immediate:             // #<data>
-                            return $"#{Data}";
+                            return Format == null ? $"#{Data}" : string.Format(Format, Data?.Value);
                         case Mode.RegList:                             // MOVEM An,d0-d7/a0-a7
                             return RegisterList?.ToString();
                         case Mode.Quick:                               // #<data>
