@@ -504,7 +504,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Assert.Single(list);
             var record = list[0];
 
-            string assembly = record.Assembly.RemoveMutipleWhiteSpaces();
+            string assembly = record.AssemblyLine.RemoveMutipleWhiteSpaces();
 
             string[] disassembly = assembly.Split(' ');
             Assert.True(disassembly.Length == 1 || disassembly.Length == 2);
