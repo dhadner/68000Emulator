@@ -2775,17 +2775,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
-                public Operand(ProgramCounter pc, DataRegister dataRegister, uint address, int pos, OpSize? opSize, string? format = null)
-                {
-                    Mode = Mode.PCIndex;
-                    PC = pc;
-                    DataRegister = dataRegister;
-                    Displacement = new Displacement(address);
-                    Pos = pos;
-                    OperandSize = opSize;
-                    Format = format;
-                }
-
                 public Operand(AddressRegister addressRegster, DataRegister indexRegister, OpSize indexSize, sbyte displacement, int pos, OpSize? opSize = null, string? format = null)
                 {
                     Mode = Mode.AddressIndex;
