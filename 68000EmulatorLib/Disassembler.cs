@@ -3059,7 +3059,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public OpSize? Size { get; set; }
                 public byte[] MachineCode { get; set; }
                 public string Assembly { get; set; }
-                public string? Comment { get; set; }
                 public OperandList Operands { get; set; }
             }
 
@@ -3096,7 +3095,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     {
                         if (!firstPass)
                         {
-                            sb.AppendComma();
+                            sb.Append(',');
                         }
                         else
                         {
@@ -3117,201 +3116,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 public Operation(uint address, string name, OpSize? size = null) : base(address, name, size) { }
             }
-
-            public static bool IsDirective(string token)
-            {
-                return DirectiveInfoList.ContainsKey(token);
-            }
-
-            public static bool IsOperation(string token)
-            {
-                return OpInfoList.ContainsKey(token);
-            }
-
-            public static readonly Dictionary<string, OperationOrDirectiveInfo> DirectiveInfoList = new(StringComparer.OrdinalIgnoreCase)
-            {
-                // Assembler Directive Operand Counts
-
-                // Directives
-
-                {"EQU", new(1, 1, false) },     // Equate                     
-                {"DC", new(1, 256, true)},      // Define constant                
-                {"DS", new(1, 1, true)},        // Define storage        
-                {"ORG", new(1, 1, false)},      // Origin                     
-                {"END", new(0, 1, false)},      // End - may include label or starting address                       
-                {"INCLUDE", new(1, 1, false)},  // Include file               
-                {"MACRO", new(0, 256, false)},  // Macro definition           
-                {"ENDM", new(0, 0, false)},     // End macro                 
-            };
-
-            public class OperationOrDirectiveInfo
-            {
-                /// <summary>
-                /// Create an instances of <see cref="OperationOrDirectiveInfo"/>.
-                /// </summary>
-                /// <param name="minArgs">Minimum required number of operands</param>
-                /// <param name="maxArgs">Maximum allowed number of operands.</param>
-                /// <param name="allowsSize">True if size (.B, .W, .L) is allowed</param>
-                public OperationOrDirectiveInfo(int minArgs, int? maxArgs = null, bool allowsSize = false)
-                {
-                    MinArgs = minArgs;
-                    MaxArgs = maxArgs ?? minArgs;
-                    AllowsSize = allowsSize;
-                }
-
-                public int MinArgs { get; init; }
-                public int MaxArgs { get; init; }
-                public bool AllowsSize { get; init; }
-            }
-
-            private static readonly Dictionary<string, OperationOrDirectiveInfo> OpInfoList = new(StringComparer.OrdinalIgnoreCase)
-            {
-                // Motorola 68000 Instructions and Operand Counts
-
-                // Data Movement Instructions
-    
-                {"MOVE", new(2, 2, true)},    // Move data                  
-                {"MOVEA", new(2, 2, true)},   // Move address               
-                {"MOVEQ", new(2, 2, true)},   // Move quick immediate to Dn 
-                {"MOVEM", new(2, 2, true)},   // Move multiple registers
-                {"MOVEP", new(2, 2, true)},   // Move peripheral data
-                {"EXG", new(2, 2, false)},    // Exchange registers
-                {"SWAP", new(1, 1, false)},   // Swap register words
-                {"PEA", new(1, 1, false)},    // Push effective address
-                {"LEA", new(2, 2, false)},    // Load effective address
-                {"LINK", new(2, 2, false)},   // Link and allocate
-                {"UNLK", new(1, 1, false)},   // Unlink
-                {"EXT", new(1, 1, true)},     // Sign extend
-            
-                // Arithmetic Instructions
-            
-                {"ADD", new(2, 2, true)},     // Add
-                {"ADDA", new(2, 2, true)},    // Add address
-                {"ADDI", new(2, 2, true)},    // Add immediate
-                {"ADDQ", new(2, 2, true)},    // Add quick immediate
-                {"SUB", new(2, 2, true)},     // Subtract
-                {"SUBA", new(2, 2, true)},    // Subtract address
-                {"SUBI", new(2, 2, true)},    // Subtract immediate
-                {"SUBQ", new(2, 2, true)},    // Subtract quick immediate
-                {"MULS", new(2, 2, true)},    // Multiply signed
-                {"MULU", new(2, 2, true)},    // Multiply unsigned
-                {"DIVS", new(2, 2, true)},    // Divide signed
-                {"DIVU", new(2, 2, true)},    // Divide unsigned
-                {"NEG", new(1, 1, true)},     // Negate
-                {"NEGX", new(1, 1, true)},    // Negate with extend
-                {"CLR", new(1, 1, true)},     // Clear
-                {"CMP", new(2, 2, true)},     // Compare
-                {"CMPA", new(2, 2, true)},    // Compare address
-                {"CMPI", new(2, 2, true)},    // Compare immediate
-                {"CMPM", new(2, 2, true)},    // Compare memory-to-memory
-                {"TST", new(1, 1, true)},     // Test
-                {"CHK", new(2, 2, true)},     // Check against bounds
-            
-                // Logical Instructions
-            
-                {"AND", new(2, 2, true)},     // Logical AND
-                {"ANDI", new(2, 2, true)},    // Logical AND immediate
-                {"OR", new(2, 2, true)},      // Logical OR
-                {"ORI", new(2, 2, true)},     // Logical OR immediate
-                {"EOR", new(2, 2, true)},     // Exclusive OR
-                {"EORI", new(2, 2, true)},    // Exclusive OR immediate
-                {"NOT", new(1, 1, true)},     // Logical NOT
-            
-                // Shift and Rotate Instructions
-                //
-                // Shift and rotate instructions can use either immediate
-                // values or data registers to specify the shift count.
-                // They can have one or two operands.
-            
-                {"ASL", new(1, 2, true)},     // Arithmetic shift left
-                {"ASR", new(1, 2, true)},     // Arithmetic shift right
-                {"LSL", new(1, 2, true)},     // Logical shift left
-                {"LSR", new(1, 2, true)},     // Logical shift right
-                {"ROL", new(1, 2, true)},     // Rotate left
-                {"ROR", new(1, 2, true)},     // Rotate right
-                {"ROXL", new(1, 2, true)},    // Rotate with extend left
-                {"ROXR", new(1, 2, true)},    // Rotate with extend right
-            
-                // Bit Manipulation Instructions
-            
-                {"BTST", new(2, 2, true)},    // Test bit
-                {"BCLR", new(2, 2, true)},    // Clear bit
-                {"BCHG", new(2, 2, true)},    // Complement bit
-                {"BSET", new(2, 2, true)},    // Set bit
-            
-                // Program Control Instructions
-            
-                {"BSR", new(1, 1, false)},    // Branch to subroutine
-                {"BRA", new(1, 1, false)},    // Branch always
-                {"BHI", new(1, 1, false)},    // Branch if (Higher)
-                {"BLS", new(1, 1, false)},    // Branch if (Lower or same)
-                {"BCC", new(1, 1, false)},    // Branch if (Carry clear)
-                {"BCS", new(1, 1, false)},    // Branch if (Carry set)
-                {"BHS", new(1, 1, false)},    // Branch if (Higher or same)
-                {"BLO", new(1, 1, false)},    // Branch if (Lower)
-                {"BNE", new(1, 1, false)},    // Branch if (Not equal)
-                {"BEQ", new(1, 1, false)},    // Branch if (Equal)
-                {"BVC", new(1, 1, false)},    // Branch if (Overflow clear)
-                {"BVS", new(1, 1, false)},    // Branch if (Overflow set)
-                {"BPL", new(1, 1, false)},    // Branch if (Plus)
-                {"BMI", new(1, 1, false)},    // Branch if (Minus)
-                {"BGE", new(1, 1, false)},    // Branch if (Greater or equal)
-                {"BLT", new(1, 1, false)},    // Branch if (Less than)
-                {"BGT", new(1, 1, false)},    // Branch if (Greater than)
-                {"BLE", new(1, 1, false)},    // Branch if (Less or equal)
-                {"DBRA", new(2, 2, false)},   // Decrement and branch (Always)
-                {"DBHI", new(2, 2, false)},   // Decrement and branch if (Higher)
-                {"DBLS", new(2, 2, false)},   // Decrement and branch if (Lower or same)
-                {"DBCC", new(2, 2, false)},   // Decrement and branch if (Carry clear)
-                {"DBCS", new(2, 2, false)},   // Decrement and branch if (Carry set)
-                {"DBHS", new(2, 2, false)},   // Decrement and branch if (Higher or same)
-                {"DBLO", new(2, 2, false)},   // Decrement and branch if (Lower)
-                {"DBNE", new(2, 2, false)},   // Decrement and branch if (Not equal)
-                {"DBEQ", new(2, 2, false)},   // Decrement and branch if (Equal)
-                {"DBVC", new(2, 2, false)},   // Decrement and branch if (Overflow clear)
-                {"DBVS", new(2, 2, false)},   // Decrement and branch if (Overflow set)
-                {"DBPL", new(2, 2, false)},   // Decrement and branch if (Plus)
-                {"DBMI", new(2, 2, false)},   // Decrement and branch if (Minus)
-                {"DBGE", new(2, 2, false)},   // Decrement and branch if (Greater or equal)
-                {"DBLT", new(2, 2, false)},   // Decrement and branch if (Less than)
-                {"DBGT", new(2, 2, false)},   // Decrement and branch if (Greater than)
-                {"DBLE", new(2, 2, false)},   // Decrement and branch if (Less or equal)
-                {"JMP", new(1, 1, false)},    // Jump
-                {"JSR", new(1, 1, false)},    // Jump to subroutine
-                {"RTS", new(0, 0, false)},    // Return from subroutine
-                {"RTR", new(0, 0, false)},    // Return and restore condition codes
-                {"RTE", new(0, 0, false)},    // Return from exception
-                {"TRAP", new(1, 1, false)},   // Trap
-                {"TRAPV", new(0, 0, false)},  // Trap on overflow
-                {"STOP", new(1, 1, false)},   // Stop processor
-                {"RESET", new(0, 0, false)},  // Reset external devices
-                {"ILLEGAL", new(0, 0, false)},// Illegal instruction
-                {"NOP", new(0, 0, false)},    // No operation
-                {"BKPT", new(1, 1, false)},   // Breakpoint
-            
-                // Miscellaneous Instructions
-            
-                {"TAS", new(1, 1, true)},     // Test and set
-                {"SRA", new(1, 1, true)},     // Set if (Always)
-                {"SHI", new(1, 1, true)},     // Set if (Higher)
-                {"SLS", new(1, 1, true)},     // Set if (Lower or same)
-                {"SCC", new(1, 1, true)},     // Set if (Carry clear)
-                {"SCS", new(1, 1, true)},     // Set if (Carry set)
-                {"SHS", new(1, 1, true)},     // Set if (Higher or same)
-                {"SLO", new(1, 1, true)},     // Set if (Lower)
-                {"SNE", new(1, 1, true)},     // Set if (Not equal)
-                {"SEQ", new(1, 1, true)},     // Set if (Equal)
-                {"SVC", new(1, 1, true)},     // Set if (Overflow clear)
-                {"SVS", new(1, 1, true)},     // Set if (Overflow set)
-                {"SPL", new(1, 1, true)},     // Set if (Plus)
-                {"SMI", new(1, 1, true)},     // Set if (Minus)
-                {"SGE", new(1, 1, true)},     // Set if (Greater or equal)
-                {"SLT", new(1, 1, true)},     // Set if (Less than)
-                {"SGT", new(1, 1, true)},     // Set if (Greater than)
-                {"SLE", new(1, 1, true)},     // Set if (Less or equal)
-            };
-
-
         }
     }
 
@@ -3329,16 +3133,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 sb.Append(' ');
             } while (sb.Length < tabStop);
-        }
-
-        /// <summary>
-        /// Append a comma to the string.  Typically used to separate
-        /// operands.
-        /// </summary>
-        /// <param name="sb"></param>
-        public static void AppendComma(this StringBuilder sb)
-        {
-            sb.Append(',');
         }
     }
 
