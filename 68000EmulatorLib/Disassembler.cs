@@ -1019,6 +1019,28 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 string? disp;
                 switch (operand.Mode)
                 {
+                    case Mode.RegisterDirect:
+                        if (operand.CCR != null)
+                        {
+                            opStr = $"{CCR}";
+                        }
+                        else if (operand.SR != null)
+                        {
+                            opStr = $"{SR}";
+                        }
+                        else if (operand.PC != null)
+                        {
+                            opStr = $"{PC}";
+                        }
+                        else
+                        {
+                            opStr = "ILLEGAL REGISTER";
+                        }
+                        break;
+                    case Mode.Illegal:                      // Illegal instruction mode
+                    default:
+                        opStr = "ILLEGAL REGISTER";
+                        break;
                     case Mode.DataRegister:
                         if (operand.DataRegister == null)
                         {
@@ -1299,8 +1321,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
                         opStr = disp;
                         break;
-                    default:
-                        throw new ArgumentException($"{operand.Mode:x2} is not a valid operande mode");
                 }
                 if (opStr.StartsWith("##"))
                 {
@@ -1636,6 +1656,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 op.Operands.Add(GetEffectiveAddressOperand(inst, EAType.Source));
                 op.Operands.Add(new(CCR, Mode.RegisterDirect));
+
                 sb.Append(op.Operands);
                 return op;
             }
@@ -2860,18 +2881,20 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
-                public Operand(ConditionCodeRegister ccr, Mode mode, string? format = null)
-                {
-                    Mode = mode;
-                    CCR = ccr;
-                    Format = format;
-                }
                 public Operand(StatusRegister sr, Mode mode, string? format = null)
                 {
                     Mode = mode;
                     SR = sr;
                     Format = format;
                 }
+
+                public Operand(ConditionCodeRegister ccr, Mode mode, string? format = null)
+                {
+                    Mode = mode;
+                    CCR = ccr;
+                    Format = format;
+                }
+
 
                 private static Operation dummyOp = new(0, "DUMMY OP TO PREVENT COMPILER WARNINGS");
 
@@ -2909,107 +2932,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// <returns></returns>
                 public override string? ToString()
                 {
-                    string? value = null;
-                    switch (Mode)
-                    {
-                        case Mode.DataRegister:                 // Dn
-                            value = $"{DataRegister}";
-                            break;
-                        case Mode.AddressRegister:              // An
-                            value = $"{AddressRegister}";
-                            break;
-                        case Mode.Address:                      // (An)
-                            value = $"({AddressRegister})";
-                            break;
-                        case Mode.AddressPostInc:               // (An)+
-                            value = $"({AddressRegister})+";
-                            break;
-                        case Mode.AddressPreDec:                // -(An)
-                            value = $"-({AddressRegister})";
-                            break;
-                        case Mode.AddressDisp:                  // (d16,An)
-                            value = CurrentDisassembler?.FormatOperand(Op.Address, this) ?? $"({Displacement},{AddressRegister})";
-                            break;
-                        case Mode.AddressIndex:                 // (d8,An,Xn)
-                            value = CurrentDisassembler?.FormatOperand(Op.Address, this) ?? $"({Displacement},{AddressRegister},{IndexRegister}.W)";
-                            break;
-                        case Mode.AbsShort:                     // (xxx).W
-                            value = CurrentDisassembler?.FormatOperand(Op.Address, this) ?? $"({Displacement}).W";
-                            break;
-                        case Mode.AbsLong:                      // (xxx).L
-                            value = CurrentDisassembler?.FormatOperand(Op.Address, this) ?? $"({Displacement}).L";
-                            break;
-                        case Mode.PCDisp:                       // (d16,PC)
-                            value = CurrentDisassembler?.FormatOperand(Op.Address, this) ?? $"({Displacement},PC)";
-                            break;
-                        case Mode.PCIndex:                      // (d8,PC,Xn)
-                            value = CurrentDisassembler?.FormatOperand(Op.Address, this) ?? $"{Displacement}(PC,{DataRegister})";
-                            break;
-                        case Mode.Immediate:                    // #<data>
-                            value = CurrentDisassembler?.FormatOperand(Op.Address, this);
-                            if (value == null)
-                            {
-                                value = (Format != null) ? string.Format(Format, Data?.Value) : $"{Data}";
-                            }
-                            if (Op.Name != "LINEA")
-                            {
-                                if (!value.StartsWith('#'))
-                                {
-                                    value = $"#{value}";
-                                }
-                            }
-                            else
-                            {
-                                if (value.StartsWith('#'))
-                                {
-                                    int breakme = 0;
-                                }
-                            }
-                            break; ;
-                        case Mode.RegList:                      // MOVEM An,d0-d7/a0-a7
-                            value = $"{RegisterList}";
-                            break;
-                        case Mode.Quick:                        // #<data>
-                            value = CurrentDisassembler?.FormatOperand(Op.Address, this);
-                            if (value == null)
-                            {
-                                value = $"{QuickData}";
-                            }
-                            if (!value.StartsWith('#'))
-                            {
-                                value = $"#{value}";
-                            }
-                            break; ;
-                        case Mode.Label:                        // <label>
-                            value = CurrentDisassembler?.FormatOperand(Op.Address, this) ?? $"{Label}";
-                            break;
-                        case Mode.RegisterDirect:
-                            if (CCR != null)
-                            {
-                                value = $"{CCR}";
-                            }
-                            else if (SR != null){
-                                value = $"{SR}";
-                            }
-                            else if (PC != null)
-                            {
-                                value = $"{PC}";
-                            }
-                            else
-                            {
-                                value = "ILLEGAL REGISTER";
-                            }
-                            break;
-                        case Mode.Illegal:                      // Illegal instruction mode
-                        default:
-                            value = "ILLEGAL REGISTER";
-                            break;
-                    }
-                    if (value.StartsWith("##"))
-                    {
-                        var breakme = 0;
-                    }
-                    return value;
+                    return CurrentDisassembler?.FormatOperand(Op.Address, this);
                 }
             }
 
@@ -3093,9 +3016,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
-            public class Register
+            public class ControlRegister
             {
-                internal Register(string name)
+                internal ControlRegister(string name)
                 {
                     Name = name;
                 }
@@ -3107,28 +3030,19 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
-            public class ProgramCounter : Register
+            public class ProgramCounter : ControlRegister
             {
                 internal ProgramCounter() : base("PC") { }
             }
-            public class StatusRegister : Register
+
+            public class StatusRegister : ControlRegister
             {
                 internal StatusRegister() : base("SR") { }
             }
 
-            public class ConditionCodeRegister
+            public class ConditionCodeRegister : ControlRegister
             {
-                public ConditionCodeRegister()
-                {
-                    Name = "CCR";
-                }
-
-                public string Name { get; set; }
-
-                public override string ToString()
-                {
-                    return Name;
-                }
+                public ConditionCodeRegister() : base("CCR") { }
             }
 
             public class DataRegister
