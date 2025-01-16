@@ -2873,6 +2873,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
+            /// <summary>
+            /// Represents immediate data in an operand.
+            /// </summary>
             public class ImmediateData
             {
                 public ImmediateData(uint value)
@@ -2938,13 +2941,16 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
+            /// <summary>
+            /// Label address.  Hint to disassembler that a subclass may
+            /// want to replace the label address in an operand with a symbol.
+            /// </summary>
             public class Label
             {
                 public Label(uint address)
                 {
                     Address = address;
                 }
-                public static Label Make(uint address) => new(address);
                 public uint Address { get; private set; }
 
                 public override string? ToString()
@@ -2953,12 +2959,30 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
+
+            //////////////////////////////////////////////////////////////////////////
+            // Register names.
+            //
+            // Registers are given their own classes simply to hold the name of
+            // the register and allow easy initialization of the operand so that
+            // the correct mode (e.g., Mode.AddressIndex) is set in the operand
+            // by the constructor without having to pass another parameter into
+            // the constructor.
+            //////////////////////////////////////////////////////////////////////////
+
+            /// <summary>
+            /// Base class for control registers (SR, CCR, PC).
+            /// </summary>
             public class ControlRegister
             {
                 internal ControlRegister(string name)
                 {
                     Name = name;
                 }
+
+                /// <summary>
+                /// Name of the register - i.e., "SR", "CCR", or "PC".
+                /// </summary>
                 public string Name { get; private set; }
 
                 public override string ToString()
@@ -2967,21 +2991,33 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
+            /// <summary>
+            /// PC name.
+            /// </summary>
             public class ProgramCounter : ControlRegister
             {
                 internal ProgramCounter() : base("PC") { }
             }
 
+            /// <summary>
+            /// SR name.
+            /// </summary>
             public class StatusRegister : ControlRegister
             {
                 internal StatusRegister() : base("SR") { }
             }
 
+            /// <summary>
+            /// CCR name.
+            /// </summary>
             public class ConditionCodeRegister : ControlRegister
             {
                 public ConditionCodeRegister() : base("CCR") { }
             }
 
+            /// <summary>
+            /// Data register name.
+            /// </summary>
             public class DataRegister
             {
                 public DataRegister(string name)
@@ -2997,6 +3033,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
+            /// <summary>
+            /// Address register name.
+            /// </summary>
             public class AddressRegister
             {
                 public AddressRegister(string name)
@@ -3012,10 +3051,24 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
+            /// <summary>
+            /// CCR name.
+            /// </summary>
             public static readonly ConditionCodeRegister CCR = new();
+
+            /// <summary>
+            /// SR name.
+            /// </summary>
             public static readonly StatusRegister SR = new();
+
+            /// <summary>
+            /// PC name.
+            /// </summary>
             public static readonly ProgramCounter PC = new();
 
+            /// <summary>
+            /// Address register names.
+            /// </summary>
             public static readonly AddressRegister[] AddressRegisters =
             [
                 new AddressRegister("A0"),
@@ -3029,8 +3082,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 new AddressRegister("USP")
             ];
 
+            /// <summary>
+            /// USP register name (alias for for the MOVEtoUSP and 
+            /// MOVEfromUSP instructions.
+            /// </summary>
             public AddressRegister USP = AddressRegisters[8];
 
+            /// <summary>
+            /// Data register names.
+            /// </summary>
             public static readonly DataRegister[] DataRegisters =
             [
                 new DataRegister("D0"),
@@ -3043,8 +3103,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 new DataRegister("D7")
             ];
 
+            /// <summary>
+            /// Base class for directives (e.g., "DC.W") and operations (e.g., "MOVE").
+            /// </summary>
             public class DirectiveOrOperation
             {
+                /// <summary>
+                /// Create an instance.
+                /// </summary>
+                /// <param name="address"></param>
+                /// <param name="name"></param>
+                /// <param name="size"></param>
                 public DirectiveOrOperation(uint address, string name, OpSize? size = null)
                 {
                     Address = address;
@@ -3054,23 +3123,68 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     MachineCode = [];
                     Assembly = "";
                 }
+
+                /// <summary>
+                /// 32-bit address.
+                /// </summary>
                 public uint Address { get; private set; }
+
+                /// <summary>
+                /// Directive or Operation name, e.g., "DC.W", "MOVE", "EXG", etc.
+                /// </summary>
                 public string Name { get; set; }
+
+                /// <summary>
+                /// Size (<see cref="OpSize"/>) of the operation if not default (usually Opsize.Word).
+                /// </summary>
                 public OpSize? Size { get; set; }
+
+                /// <summary>
+                /// Memory bytes for this operation or directive.
+                /// </summary>
                 public byte[] MachineCode { get; set; }
+
+                /// <summary>
+                /// Assembler text for this operation or directive including operands but
+                /// not including comments.
+                /// </summary>
                 public string Assembly { get; set; }
+
+                /// <summary>
+                /// Operands for this directives or operation.  Typically 0-2 operands
+                /// (no operands, src/dst only, or src,dst).  For directives like
+                /// "DC.B" there may be a long list of operands.
+                /// </summary>
                 public OperandList Operands { get; set; }
             }
 
+            /// <summary>
+            /// List of operands.  Can be zero, one or two if used with Operations,
+            /// or can be more if used with Directives.
+            /// </summary>
             public class OperandList : List<Operand>
             {
+                /// <summary>
+                /// Create an instance of the class.
+                /// </summary>
+                /// <param name="op"></param>
                 public OperandList(DirectiveOrOperation op) 
                 {
                     Op = op;
                 }
 
+                /// <summary>
+                /// Parent Operation or Directive.
+                /// </summary>
                 public DirectiveOrOperation Op { get; private set; }
 
+                /// <summary>
+                /// Append an Operand to the list of operands, setting
+                /// the parent Directive or Operation and the operand
+                /// position (0-based).
+                /// </summary>
+                /// <param name="operand"></param>
+                /// <returns></returns>
                 public new Operand Add(Operand operand)
                 {
                     operand.Op = Op;
@@ -3107,11 +3221,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
+            /// <summary>
+            /// Directive (e.g., "DC.W").
+            /// </summary>
             public class Directive : DirectiveOrOperation
             {
                 public Directive(uint address, string name, OpSize? size) : base(address, name, size) { }
             }
 
+            /// <summary>
+            /// Operation (e.g., "MOVE").
+            /// </summary>
             public class Operation : DirectiveOrOperation
             {
                 public Operation(uint address, string name, OpSize? size = null) : base(address, name, size) { }
@@ -3119,6 +3239,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
     }
 
+    /// <summary>
+    /// Convenience extensions.
+    /// </summary>
     public static partial class Extensions
     {
         /// <summary>
