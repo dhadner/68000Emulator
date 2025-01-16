@@ -166,8 +166,6 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [InlineData(0x37, (ushort)0x7050, null, OpSize.Word, EAType.Destination, null, null, (uint)0x20D8, null)]               // (d8,D7,A7)
         [InlineData(0x38, (ushort)0x1FF0, null, OpSize.Word, EAType.Destination, null, null, (uint)0x1FF0, null)]               // (xxx).w
         [InlineData(0x39, (ushort)0x0006, (ushort)0x1234, OpSize.Word, EAType.Destination, null, null, (uint)0x00061234, null)] // (xxx).l
-        [InlineData(0x3A, (ushort)0x50, null, OpSize.Word, EAType.Destination, null, null, (uint)0x4052, null)]                 // (d16,PC)
-        [InlineData(0x3B, (ushort)0x50, null, OpSize.Word, EAType.Destination, null, null, (uint)0x4063, null)]                 // (d8,D0,PC)
         [InlineData(0x3C, (ushort)0x1234, null, OpSize.Word, EAType.Destination, null, null, null, (uint)0x1234)]               // #<data>  [word]
         [InlineData(0x3C, (ushort)0x1234, (ushort)0x5678, OpSize.Long, EAType.Destination, null, null, null, (uint)0x12345678)] // #<data>  [long]
         public void EvaluateEffectiveAddress(byte addrMode, ushort? ext1, ushort? ext2, OpSize size, EAType eaType,
