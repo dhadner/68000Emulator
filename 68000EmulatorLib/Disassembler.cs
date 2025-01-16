@@ -2468,48 +2468,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             // Support for documentation
             //////////////////////////////////////////////////////////////////////////
 
-            public class ParsedAssembly
-            {
-                public ParsedAssembly(Operation operation, string assembly, string? comment = null)
-                {
-                    Assembly = assembly;
-                    Comment = comment;
-                    _directiveOrOperation = operation;
-                }
-
-                public ParsedAssembly(Directive directive, string assembly, string? comment = null)
-                {
-                    Assembly = assembly;
-                    Comment = comment;
-                    _directiveOrOperation = directive;
-                }
-
-                public uint Address => _directiveOrOperation.Address;
-                public string Assembly { get; private set; }
-                public string? Comment { get; set; }
-
-                protected DirectiveOrOperation _directiveOrOperation;
-                public List<Operand>? Operands => _directiveOrOperation.Operands;
-            }
-
-            public class ParsedDirective : ParsedAssembly
-            {
-                public ParsedDirective(Directive directive, string assembly, string? comment = null) : base(directive, assembly, comment)
-                {
-                }
-
-                public Directive Dir => (Directive)_directiveOrOperation;
-            }
-
-            public class ParsedOperation : ParsedAssembly
-            {
-                public ParsedOperation(Operation operation, string assembly, string? comment = null) : base(operation, assembly, comment)
-                {
-                }
-
-                public Operation Op => (Operation)_directiveOrOperation;
-            }
-
             /// <summary>
             /// Operand addressing modes used as hints for disassembly.
             /// </summary>
@@ -2541,7 +2499,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 Illegal,                                     // Illegal instruction mode
                 RegisterDirect
             }
-
 
             /// <summary>
             /// MOVEM register list.
@@ -2618,6 +2575,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
+            /// <summary>
+            /// Class the represents an operand's displacement value.
+            /// </summary>
             public class Displacement : ImmediateData
             {
                 public Displacement(uint value) : base(value) { }
@@ -2644,6 +2604,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
+            /// <summary>
+            /// Class that represents a quick immediate value for one of the
+            /// quick operations (e.g., MOVEQ, ADDQ, etc.).
+            /// </summary>
             public class QuickData : ImmediateData
             {
                 public QuickData(uint value) : base(value) { }
@@ -2671,6 +2635,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             public class Operand
             {
+                /// <summary>
+                /// Create illegal operand.
+                /// </summary>
                 public Operand()
                 {
                     Mode = Mode.Illegal;
@@ -2694,15 +2661,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     AddressRegister = addressRegister;
                 }
 
-                public Operand(AddressRegister addressRegister, Mode mode, ushort displacement, string? format = null)
-                {
-                    if (mode != Mode.AddressDisp) throw new ArgumentException("Bad mode");
-                    Mode = Mode.AddressDisp;
-                    AddressRegister = addressRegister;
-                    Displacement = new Displacement(displacement);
-                    Format = format;
-                }
-
+                /// <summary>
+                /// Create AddressDisp operand.
+                /// </summary>
+                /// <param name="addressRegister"></param>
+                /// <param name="mode"></param>
+                /// <param name="displacement"></param>
+                /// <param name="format"></param>
+                /// <exception cref="ArgumentException"></exception>
                 public Operand(AddressRegister addressRegister, Mode mode, short displacement, string? format = null)
                 {
                     if (mode != Mode.AddressDisp) throw new ArgumentException("Bad mode");
@@ -2712,6 +2678,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
+                /// <summary>
+                /// Create DataRegister operand.
+                /// </summary>
+                /// <param name="dataRegister"></param>
+                /// <param name="opSize"></param>
+                /// <param name="format"></param>
                 public Operand(DataRegister dataRegister, OpSize? opSize = null, string? format = null)
                 {
                     Mode = Mode.DataRegister;
@@ -2720,6 +2692,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
+                /// <summary>
+                /// Create Immediate uint data operand.
+                /// </summary>
+                /// <param name="data"></param>
+                /// <param name="format"></param>
                 public Operand(uint data, string? format = null)
                 {
                     Mode = Mode.Immediate;
@@ -2728,6 +2705,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
+                /// <summary>
+                /// Create Immediate int data operand.
+                /// </summary>
+                /// <param name="data"></param>
+                /// <param name="format"></param>
                 public Operand(int data, string? format = null)
                 {
                     Mode = Mode.Immediate;
@@ -2736,6 +2718,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
+                /// <summary>
+                /// Create Immediate ushort data operand.
+                /// </summary>
+                /// <param name="data"></param>
+                /// <param name="format"></param>
                 public Operand(ushort data, string? format = null)
                 {
                     Mode = Mode.Immediate;
@@ -2744,6 +2731,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
+                /// <summary>
+                /// Create Immediate short data operand.
+                /// </summary>
+                /// <param name="data"></param>
+                /// <param name="format"></param>
                 public Operand(short data, string? format = null)
                 {
                     Mode = Mode.Immediate;
@@ -2752,6 +2744,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
+                /// <summary>
+                /// Create Immediate signed byte data operand.
+                /// </summary>
+                /// <param name="data"></param>
+                /// <param name="format"></param>
                 public Operand(sbyte data, string? format = null)
                 {
                     Mode = Mode.Immediate;
@@ -2760,6 +2757,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
+                /// <summary>
+                /// Create Immediate unsigned byte data operand.
+                /// </summary>
+                /// <param name="data"></param>
+                /// <param name="format"></param>
                 public Operand(byte data, string? format = null)
                 {
                     Mode = Mode.Immediate;
@@ -2768,6 +2770,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
+                /// <summary>
+                /// Create RegList operand for MOVEM instruction.
+                /// </summary>
+                /// <param name="regList"></param>
+                /// <param name="opSize"></param>
                 public Operand(RegisterList regList, OpSize? opSize = null)
                 {
                     Mode = Mode.RegList;
@@ -2775,6 +2782,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Size = opSize;
                 }
 
+                /// <summary>
+                /// Create Label operand.  This is used as a hint for subclasses
+                /// who may want to replace the Label.Address with a symbol in
+                /// the disassembly string.
+                /// </summary>
+                /// <param name="label"></param>
+                /// <param name="format"></param>
                 public Operand(Label label, string? format = null)
                 {
                     Mode = Mode.Label;
@@ -2782,6 +2796,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
+                /// <summary>
+                /// Create PCDisp operand. Typically not used - Label is 
+                /// generally used instead to allow symbols.
+                /// </summary>
+                /// <param name="pc"></param>
+                /// <param name="address"></param>
+                /// <param name="opSize"></param>
+                /// <param name="format"></param>
                 public Operand(ProgramCounter pc, uint address, OpSize? opSize, string? format = null)
                 {
                     Mode = Mode.PCDisp;
@@ -2791,6 +2813,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
+                /// <summary>
+                /// Create PCIndex operand.
+                /// </summary>
+                /// <param name="pc"></param>
+                /// <param name="index"></param>
+                /// <param name="address"></param>
+                /// <param name="opSize"></param>
+                /// <param name="format"></param>
                 public Operand(ProgramCounter pc, DataRegister index, uint address, OpSize? opSize, string? format = null)
                 {
                     Mode = Mode.PCIndex;
@@ -2801,6 +2831,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
+                /// <summary>
+                /// Create an AddressIndex operand.
+                /// </summary>
+                /// <param name="addressRegster"></param>
+                /// <param name="indexRegister"></param>
+                /// <param name="indexSize"></param>
+                /// <param name="displacement"></param>
+                /// <param name="opSize"></param>
+                /// <param name="format"></param>
                 public Operand(AddressRegister addressRegster, DataRegister indexRegister, OpSize indexSize, sbyte displacement, OpSize? opSize = null, string? format = null)
                 {
                     Mode = Mode.AddressIndex;
@@ -2812,6 +2851,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
+                /// <summary>
+                /// Create QuickData operand for MOVEQ, etc.
+                /// </summary>
+                /// <param name="quickData"></param>
+                /// <param name="format"></param>
                 public Operand(QuickData quickData, string? format = null)
                 {
                     Mode = Mode.Quick;
@@ -2819,6 +2863,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
+                /// <summary>
+                /// Create an SR operand for use with MOVEtoSR, etc.
+                /// </summary>
+                /// <param name="sr"></param>
+                /// <param name="mode"></param>
+                /// <param name="format"></param>
                 public Operand(StatusRegister sr, Mode mode, string? format = null)
                 {
                     Mode = mode;
@@ -2826,6 +2876,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
+                /// <summary>
+                /// Create a CCR operand for use with MOVEtoCCR, etc.
+                /// </summary>
+                /// <param name="ccr"></param>
+                /// <param name="mode"></param>
+                /// <param name="format"></param>
                 public Operand(ConditionCodeRegister ccr, Mode mode, string? format = null)
                 {
                     Mode = mode;
@@ -2833,7 +2889,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Format = format;
                 }
 
-
+                /// <summary>
+                /// Dummy operand to prevent compiler warnings when the <see cref="Op"/>
+                /// property is not initialized in the constructor.  The <see cref="Op"/>
+                /// property is set by the <see cref="OperandList.Add(Operand op)"/> method.
+                /// </summary>
                 private static readonly Operation dummyOp = new(0, "DUMMY OP TO PREVENT COMPILER WARNINGS");
 
                 /// <summary>
@@ -2874,7 +2934,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Represents immediate data in an operand.
+            /// Represents immediate data in an operand.  Handles
+            /// all sizes and signed and unsigned.
             /// </summary>
             public class ImmediateData
             {
@@ -2947,10 +3008,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             public class Label
             {
+                /// <summary>
+                /// Create an instance.
+                /// </summary>
+                /// <param name="address"></param>
                 public Label(uint address)
                 {
                     Address = address;
                 }
+
+                /// <summary>
+                /// 32-bit address.
+                /// </summary>
                 public uint Address { get; private set; }
 
                 public override string? ToString()
@@ -3004,6 +3073,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             public class StatusRegister : ControlRegister
             {
+                /// <summary>
+                /// Create an instance.
+                /// </summary>
                 internal StatusRegister() : base("SR") { }
             }
 
@@ -3012,6 +3084,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             public class ConditionCodeRegister : ControlRegister
             {
+                /// <summary>
+                /// Create an instance.
+                /// </summary>
                 public ConditionCodeRegister() : base("CCR") { }
             }
 
@@ -3020,11 +3095,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             public class DataRegister
             {
+                /// <summary>
+                /// Create an instance.
+                /// </summary>
+                /// <param name="name"></param>
                 public DataRegister(string name)
                 {
                     Name = name;
                 }
 
+                /// <summary>
+                /// Register name, e.g. "D2", "D7".
+                /// </summary>
                 public string Name { get; set; }
 
                 public override string ToString()
@@ -3043,6 +3125,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Name = name;
                 }
 
+                /// <summary>
+                /// Register name, e.g., "A3", "SP".
+                /// </summary>
                 public string Name { get; set; }
 
                 public override string ToString()
