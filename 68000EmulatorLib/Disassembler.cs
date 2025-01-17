@@ -623,7 +623,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     dir.MachineCode[i] = Machine.Memory.ReadByte(address + i);
                 }
 
-                dir.Assembly = NonExecutableDataDisassembly(length, address);
+                NonExecutableDataDisassembly(dir, length, address);
                 var record = new DisassemblyRecord(false, dir);
                 return record;
             }
@@ -696,11 +696,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Generate disassembly for a non-executable section.  Uses the element size
             /// as much as possible, then fills in the end with smaller elements if necessary
             /// </summary>
+            /// <param name="dir"></param>
             /// <param name="length">Must be <= 4</param>
             /// <param name="startAddress"></param>
             /// <param name="elementSize"></param>
             /// <returns></returns>
-            protected string NonExecutableDataDisassembly(uint length, uint startAddress)
+            protected void NonExecutableDataDisassembly(Directive dir, uint length, uint startAddress)
             {
                 StringBuilder sb = new();
                 string dc;
@@ -730,6 +731,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         _bytes[i] = value;
                         val = (ushort)((val << 8) | value);
                     }
+
+                    dir.Operands.Add(new(val));
                     sb.Append($"${val:x4}        '{GetBytesAsString(_bytes, length)}'");
                 }
                 else if (length == 4)
@@ -743,6 +746,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         val = (val << 8) | value;
                     }
 
+                    dir.Operands.Add(new(val));
                     sb.Append($"${val:x8}    '{GetBytesAsString(_bytes, length)}'");
                 }
                 else
@@ -756,11 +760,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         {
                             sb.Append(',');
                         }
+
+                        dir.Operands.Add(new(value));
                         sb.Append($"${value:x2}");
                     }
+
                     sb.Append($"  '{GetBytesAsString(_bytes, length)}'");
                 }
-                return sb.ToString();
+                dir.Assembly = sb.ToString();
             }
 
             bool _disassembling = false;
@@ -1038,11 +1045,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             throw new ArgumentException("Displacement is null");
                         }
                         disp = GetExpression(assemblyAddress, operand.Pos);
-                        if (disp != null)
-                        {
-                            operand.Expression = new Expression(1, disp);
-                        }
-                        else
+                        if (disp == null)
                         {
                             if (operand.Format != null)
                             {
@@ -1058,7 +1061,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             }
                         }
 
-                        opStr = $"({disp},{operand.AddressRegister})";
+                        operand.Expression = new Expression(1, disp);
+                        opStr = $"{disp}({operand.AddressRegister})";
                         break;
                     case Mode.AddressIndex:
                         if (operand.Displacement == null)
@@ -1075,11 +1079,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
                         char sz = operand.IndexSize == OpSize.Long ? 'L' : 'W';
                         disp = GetExpression(assemblyAddress, operand.Pos);
-                        if (disp != null)
-                        {
-                            operand.Expression = new Expression(1, disp);
-                        }
-                        else
+                        if (disp == null)
                         {
                             if (operand.Format != null)
                             {
@@ -1095,6 +1095,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             }
                         }
 
+                        operand.Expression = new Expression(1, disp);
                         opStr = $"({disp},{operand.AddressRegister},{operand.IndexRegister}.{sz})";
                         break;
                     case Mode.AbsShort:
@@ -1103,11 +1104,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             throw new ArgumentException("Displacement is null");
                         }
                         disp = GetExpression(assemblyAddress, operand.Pos);
-                        if (disp != null)
-                        {
-                            operand.Expression = new Expression(1, disp);
-                        }
-                        else
+                        if (disp == null)
                         {
                             if (operand.Format != null)
                             {
@@ -1119,6 +1116,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             }
                         }
 
+                        operand.Expression = new Expression(1, disp);
                         opStr = $"({disp}).W";
                         break;
                     case Mode.AbsLong:
@@ -1127,11 +1125,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             throw new ArgumentException("Displacement is null");
                         }
                         disp = GetExpression(assemblyAddress, operand.Pos);
-                        if (disp != null)
-                        {
-                            operand.Expression = new Expression(1, disp);
-                        }
-                        else
+                        if (disp == null)
                         {
                             if (operand.Format != null)
                             {
@@ -1143,6 +1137,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             }
                         }
 
+                        operand.Expression = new Expression(1, disp);
                         opStr = $"({disp}).L";
                         break;
                     case Mode.PCDisp:
@@ -1155,11 +1150,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             throw new ArgumentException("Displacement is null");
                         }
                         disp = GetExpression(assemblyAddress, operand.Pos);
-                        if (disp != null)
-                        {
-                            operand.Expression = new Expression(0, disp);
-                        }
-                        else
+                        if (disp == null)
                         {
                             if (operand.Format != null)
                             {
@@ -1171,6 +1162,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             }
                         }
 
+                        operand.Expression = new Expression(0, disp);
                         opStr = disp;
                         break;
                     case Mode.PCIndex:
@@ -1187,11 +1179,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             throw new ArgumentException("Displacement is null");
                         }
                         disp = GetExpression(assemblyAddress, operand.Pos);
-                        if (disp != null)
-                        {
-                            operand.Expression = new Expression(0, disp);
-                        }
-                        else
+                        if (disp == null)
                         {
                             if (operand.Format != null)
                             {
@@ -1216,6 +1204,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             opStr = $"{disp}({operand.PC.Name},{operand.IndexRegister}.W)";
                         }
 
+                        operand.Expression = new Expression(0, disp);
                         break;
                     case Mode.Immediate:
                         if (operand.Data == null)
@@ -1224,11 +1213,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
 
                         disp = GetExpression(assemblyAddress, operand.Pos);
-                        if (disp != null)
-                        {
-                            operand.Expression = new Expression(1, disp);
-                        }
-                        else
+                        if (disp == null)
                         {
                             if (operand.Format != null)
                             {
@@ -1239,21 +1224,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 disp = $"{operand.Data}";
                             }
                         }
-                        if (disp.StartsWith('#'))
+
+                        if (operand.Op.Name != "LINEA" && operand.Op.Name != "DC")
                         {
-                            opStr = disp;
-                        }
-                        else
-                        {
-                            if (operand.Op.Name != "LINEA")
-                            {
+                            operand.Expression = new Expression(1, disp);
                                 opStr = $"#{disp}";
                             }
                             else
                             {
+                            operand.Expression = new Expression(0, disp);
                                 opStr = disp;
                             }
-                        }
+                        
                         break;
                     case Mode.RegList:
                         if (operand.RegisterList == null)
@@ -1269,11 +1251,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             throw new ArgumentException("QuickData is null");
                         }
                         disp = GetExpression(assemblyAddress, operand.Pos);
-                        if (disp != null)
-                        {
-                            operand.Expression = new Expression(1, disp);
-                        }
-                        else
+                        if (disp == null)
                         {
                             if (operand.Format != null)
                             {
@@ -1286,12 +1264,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
                         if (disp.StartsWith('#'))
                         {
-                            opStr = disp;
+                            disp = disp[1..];
                         }
-                        else
-                        {
+
+                        operand.Expression = new Expression(0, disp);
                             opStr = $"#{disp}";
-                        }
                         break;
                     case Mode.Label:
                         if (operand.Label == null)
@@ -1299,24 +1276,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             throw new ArgumentException("Label is null");
                         }
                         disp = GetExpression(assemblyAddress, operand.Pos) ?? GetLabelName(operand.Label.Address);
-                        if (disp != null)
-                        {
-                            operand.Expression = new Expression(0, disp);
-                        }
-                        else if (disp == null && operand.Format != null)
+                        if (disp == null && operand.Format != null)
                         {
                             disp = string.Format(operand.Format, operand.Label.Address);
                         }
                         else disp ??= $"{operand.Label}";
 
-                        if (operand.Size != null && operand.Size == OpSize.Long)
+                        operand.Expression = new Expression(0, disp);
+                        if (operand.Size == OpSize.Long)
                         {
                             disp = $"({disp}).L";
-                            if (operand.Expression != null)
-                            {
                                 operand.Expression.StartCol = 1;
                             }
-                        }
                         opStr = disp;
                         break;
                 }
