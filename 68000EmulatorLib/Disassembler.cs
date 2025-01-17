@@ -210,7 +210,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                                        0x00000080, 0x00000040, 0x00000020, 0x00000010, 0x00000008, 0x00000004, 0x00000002, 0x00000001 ];
             protected static readonly string[] _reg = [ "D0","D1","D2","D3","D4","D5","D6","D7",
                                                         "A0","A1","A2","A3","A4","A5","A6","A7" ];
-            
+
             /// <summary>
             /// Latest disassembler instance on top of stack.
             /// </summary>
@@ -587,7 +587,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 uint elementSize;
                 OpSize size;
                 directive = "DC";
-                switch (section.ElementSize) {
+                switch (section.ElementSize)
+                {
                     case 'A':
                     case 'L':
                     default:
@@ -902,7 +903,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     OpSize.Long => ".L",
                     _ => ".W"
                 };
-                sb.Append(sSize);
+                if (size != null)
+                {
+                    sb.Append(sSize);
+                }
                 sb.AppendTab(EAColumn);
                 return size ?? OpSize.Word;
             }
@@ -1228,14 +1232,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         if (operand.Op.Name != "LINEA" && operand.Op.Name != "DC")
                         {
                             operand.Expression = new Expression(1, disp);
-                                opStr = $"#{disp}";
-                            }
-                            else
-                            {
+                            opStr = $"#{disp}";
+                        }
+                        else
+                        {
                             operand.Expression = new Expression(0, disp);
-                                opStr = disp;
-                            }
-                        
+                            opStr = disp;
+                        }
+
                         break;
                     case Mode.RegList:
                         if (operand.RegisterList == null)
@@ -1268,7 +1272,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
 
                         operand.Expression = new Expression(0, disp);
-                            opStr = $"#{disp}";
+                        opStr = $"#{disp}";
                         break;
                     case Mode.Label:
                         if (operand.Label == null)
@@ -1286,8 +1290,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         if (operand.Size == OpSize.Long)
                         {
                             disp = $"({disp}).L";
-                                operand.Expression.StartCol = 1;
-                            }
+                            operand.Expression.StartCol = 1;
+                        }
                         opStr = disp;
                         break;
                 }
@@ -1321,7 +1325,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     switch (ea & 0x0038)
                     {
                         case (byte)AddrMode.DataRegister:
-                            operand = new(DataRegisters[regNum],opSize);
+                            operand = new(DataRegisters[regNum], opSize);
                             isMemory = false;
                             break;
                         case (byte)AddrMode.AddressRegister:
@@ -1414,7 +1418,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         {
                                             pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
                                         }
-                                        
+
                                         uint baseAddress = (uint)((sbyte)disp + (int)Machine.CPU.PC - pcDecrement);
                                         operand = new(PC, DataRegisters[indexRegNum], baseAddress, sz);
                                     }
@@ -1715,7 +1719,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 op.Operands.Add(new(AddressRegisters[aSrcRegNum], Mode.AddressPostInc));
                 op.Operands.Add(new(AddressRegisters[aDstRegNum], Mode.AddressPostInc));
-                
+
                 sb.Append(op.Operands);
                 return op;
             }
@@ -2305,7 +2309,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 else
                 {
-                    op.Operands.Add(new(USP, Mode.AddressRegister));           
+                    op.Operands.Add(new(USP, Mode.AddressRegister));
                     op.Operands.Add(new(AddressRegisters[regNum], Mode.AddressRegister));
                     //sb.Append($"USP,{AddressReg(regNum)}");
                 }
@@ -2665,7 +2669,553 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// </summary>
                 public string Text { get; set; }
             }
-            
+
+            /// <summary>
+            /// AddressRegisterOperand class.
+            /// </summary>
+            public class AddressRegisterOperand : Operand
+            {
+                public AddressRegisterOperand(AddressRegister addressRegister, string? format = null) : base(format)
+                {
+                    AddressRegister = addressRegister;
+                    Mode = Mode.AddressRegister;
+                }
+                public AddressRegisterOperand(int addressRegNum) : this(AddressRegisters[addressRegNum]) { }
+
+                public AddressRegister AddressRegister { get; set; }
+
+                /// <summary>
+                /// Format the operand disassembly display and for the assembler.
+                /// </summary>
+                /// <returns>Operand string suitable for an assembler.</returns>
+                public override string? ToString()
+                {
+                    return $"{AddressRegister}";
+                }
+            }
+
+            /// <summary>
+            /// AddressOperand class.
+            /// </summary>
+            public class AddressOperand : Operand
+            {
+                public AddressOperand(AddressRegister addressRegister)
+                {
+                    AddressRegister = addressRegister;
+                    Mode = Mode.Address;
+                }
+                public AddressOperand(int addressRegNum) : this(AddressRegisters[addressRegNum]) { }
+
+                public AddressRegister AddressRegister { get; set; }
+
+                /// <summary>
+                /// Format the operand disassembly display and for the assembler.
+                /// </summary>
+                /// <returns>Operand string suitable for an assembler.</returns>
+                public override string? ToString()
+                {
+                    return $"({AddressRegister})";
+                }
+            }
+
+            /// <summary>
+            /// AddressPostIncOperand class.
+            /// </summary>
+            public class AddressPostIncOperand : Operand
+            {
+                public AddressPostIncOperand(AddressRegister addressRegister) : base()
+                {
+                    AddressRegister = addressRegister;
+                    Mode = Mode.AddressPostInc;
+                }
+                public AddressPostIncOperand(int addressRegNum) : this(AddressRegisters[addressRegNum]) { }
+
+                public AddressRegister AddressRegister { get; set; }
+
+                /// <summary>
+                /// Format the operand disassembly display and for the assembler.
+                /// </summary>
+                /// <returns>Operand string suitable for an assembler.</returns>
+                public override string? ToString()
+                {
+                    return $"({AddressRegister})+";
+                }
+            }
+
+            /// <summary>
+            /// AddressPreDecOperand class.
+            /// </summary>
+            public class AddressPreDecOperand : Operand
+            {
+                public AddressPreDecOperand(AddressRegister addressRegister)
+                {
+                    AddressRegister = addressRegister;
+                    Mode = Mode.AddressPreDec;
+                }
+
+                public AddressPreDecOperand(int addressRegNum) : this(AddressRegisters[addressRegNum]) { }
+
+                public AddressRegister AddressRegister { get; set; }
+
+                /// <summary>
+                /// Format the operand disassembly display and for the assembler.
+                /// </summary>
+                /// <returns>Operand string suitable for an assembler.</returns>
+                public override string? ToString()
+                {
+                    return $"-({AddressRegister})";
+                }
+            }
+
+            /// <summary>
+            /// AddressDispOperand class.
+            /// </summary>
+            public class AddressDispOperand : Operand
+            {
+                public AddressDispOperand(AddressRegister addressRegister, Displacement displacement, string? format = null) : base(format)
+                {
+                    AddressRegister = addressRegister;
+                    Displacement = displacement;
+                    Mode = Mode.AddressDisp;
+                }
+
+                public AddressDispOperand(int addressRegNum, short disp, string? format) : this(AddressRegisters[addressRegNum], new Displacement(disp), format) { }
+
+                public AddressRegister AddressRegister { get; set; }
+                public Displacement Displacement { get; set; }
+
+                /// <summary>
+                /// Format the operand disassembly display and for the assembler.
+                /// </summary>
+                /// <returns>Operand string suitable for an assembler.</returns>
+                public override string? ToString()
+                {
+                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos);
+                    if (disp == null)
+                    {
+                        if (Format != null)
+                        {
+                            disp = string.Format(Format, Displacement.Value);
+                        }
+                        else if (Displacement.Value < 0)
+                        {
+                            disp = $"{Displacement.Value}";
+                        }
+                        else
+                        {
+                            disp = $"${Displacement.Value:x4}";
+                        }
+                    }
+
+                    Expression = new Expression(1, disp);
+                    return $"{disp}({AddressRegister})";
+                }
+            }
+
+            /// <summary>
+            /// AddressIndexOperand class.
+            /// </summary>
+            public class AddressIndexOperand : Operand
+            {
+                public AddressIndexOperand(AddressRegister addressRegister, DataRegister indexRegister, OpSize indexSize, Displacement displacement, string? format = null) : base(format)
+                {
+                    AddressRegister = addressRegister;
+                    IndexRegister = indexRegister;
+                    Displacement = displacement;
+                    IndexSize = indexSize;
+                    Mode = Mode.AddressIndex;
+                }
+
+                public AddressIndexOperand(int addressRegNum, int dataRegNum, OpSize indexSize, sbyte disp, string? format) : this(AddressRegisters[addressRegNum], DataRegisters[dataRegNum], indexSize, new Displacement(disp), format) { }
+                
+                public AddressRegister AddressRegister { get; set; }
+                public DataRegister IndexRegister { get; set; }
+                public Displacement Displacement { get; set; }
+                public OpSize? IndexSize { get; set; }
+
+                /// <summary>
+                /// Format the operand disassembly display and for the assembler.
+                /// </summary>
+                /// <returns>Operand string suitable for an assembler.</returns>
+                public override string? ToString()
+                {
+                    char sz = IndexSize == OpSize.Long ? 'L' : 'W';
+                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos);
+                    if (disp == null)
+                    {
+                        if (Format != null)
+                        {
+                            disp = string.Format(Format, Displacement.Value);
+                        }
+                        else if (Displacement.Value <= 0)
+                        {
+                            disp = $"{Displacement.Value}";
+                        }
+                        else
+                        {
+                            disp = $"${Displacement.Value:x2}";
+                        }
+                    }
+
+                    Expression = new Expression(1, disp);
+                    return $"({disp},{AddressRegister},{IndexRegister}.{sz})";
+
+                }
+            }
+
+            public class AbsShortOperand : Operand
+            {
+                public AbsShortOperand(Displacement displacement, string? format = null) : base(format)
+                {
+                    Displacement = displacement;
+                    Mode = Mode.AbsShort;
+                }
+
+                public AbsShortOperand(ushort value, string? format = null) : this(new Displacement(value), format) { }
+
+                public AbsShortOperand(short value, string? format = null) : this(new Displacement(value), format) { } 
+
+                public Displacement Displacement { get; set; }
+
+                public override string? ToString()
+                {
+                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos);
+                    if (disp == null)
+                    {
+                        if (Format != null)
+                        {
+                            disp = string.Format(Format, Displacement.Value);
+                        }
+                        else
+                        {
+                            disp = $"{Displacement}";
+                        }
+                    }
+
+                    Expression = new Expression(1, disp);
+                    return $"({disp}).W";
+                }
+            }
+
+            public class AbsLongOperand : Operand
+            {
+                public AbsLongOperand(Displacement displacement, string? format = null) : base(format)
+                {
+                    Displacement = displacement;
+                    Mode = Mode.AbsLong;
+                }
+                public AbsLongOperand(uint value, string? format = null) : this(new Displacement(value), format) { }
+                public AbsLongOperand(int value, string? format = null) : this(new Displacement(value), format) { }
+
+                public Displacement Displacement { get; set; }
+
+                public override string? ToString()
+                {
+                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos);
+                    if (disp == null)
+                    {
+                        if (Format != null)
+                        {
+                            disp = string.Format(Format, Displacement.Value);
+                        }
+                        else
+                        {
+                            disp = $"{Displacement}";
+                        }
+                    }
+
+                    Expression = new Expression(1, disp);
+                    return $"({disp}).L";
+                }
+            }
+
+            public class DataRegisterOperand : Operand
+            {
+                public DataRegisterOperand(DataRegister dataRegister)
+                {
+                    DataRegister = dataRegister;
+                    Mode = Mode.DataRegister;
+                }
+
+                public DataRegisterOperand(int regNum) : this(DataRegisters[regNum]) { }
+
+                public DataRegister DataRegister { get; set; }
+
+                /// <summary>
+                /// Format the operand disassembly display and for the assembler.
+                /// </summary>
+                /// <returns>Operand string suitable for an assembler.</returns>
+                public override string? ToString()
+                {
+                    return $"{DataRegister}";
+                }
+            }
+
+            public class ImmediateOperand : Operand
+            {
+                public ImmediateOperand(ImmediateData data, string? format = null) : base(format)
+                {
+                    Data = data;
+                    Mode = Mode.Immediate;
+                }
+                public ImmediateOperand(byte value, string? format) : this(new ImmediateData(value), format) { }
+                public ImmediateOperand(sbyte value, string? format) : this(new ImmediateData(value), format) { }
+                public ImmediateOperand(ushort value, string? format) : this(new ImmediateData(value), format) { }
+                public ImmediateOperand(short value, string? format) : this(new ImmediateData(value), format) { }
+                public ImmediateOperand(uint value, string? format) : this(new ImmediateData(value), format) { }
+                public ImmediateOperand(int value, string? format) : this(new ImmediateData(value), format) { }
+
+                public ImmediateData Data { get; set; }
+
+                /// <summary>
+                /// Format the operand disassembly display and for the assembler.
+                /// </summary>
+                /// <returns>Operand string suitable for an assembler.</returns>
+                public override string? ToString()
+                {
+                    string? opStr;
+                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos);
+                    if (disp == null)
+                    {
+                        if (Format != null)
+                        {
+                            disp = string.Format(Format, Data.Value);
+                        }
+                        else
+                        {
+                            disp = Data.ToString();
+                        }
+                    }
+
+                    if (Op.Name != "LINEA" && Op.Name != "DC")
+                    {
+                        Expression = new Expression(1, disp!);
+                        opStr = $"#{disp}";
+                    }
+                    else
+                    {
+                        Expression = new Expression(0, disp!);
+                        opStr = disp;
+                    }
+
+                    return opStr;
+                }
+            }
+
+            public class RegListOperand : Operand
+            {
+                public RegListOperand(RegisterList registerList, string? format = null) : base(format)
+                {
+                    RegisterList = registerList;
+                    Mode = Mode.RegList;
+                }
+
+                public RegisterList RegisterList { get; set; }
+
+                /// <summary>
+                /// Format the operand disassembly display and for the assembler.
+                /// </summary>
+                /// <returns>Operand string suitable for an assembler.</returns>
+                public override string? ToString()
+                {
+                    return RegisterList.ToString();
+                }
+            }
+
+            public class LabelOperand : Operand
+            {
+                public LabelOperand(Label label, string? format = null) : base(format)
+                {
+                    Label = label;
+                    Mode = Mode.Label;
+                }
+
+                public LabelOperand(uint address, string? format = null) : this(new Label(address), format) { }
+
+                public Label Label { get; set; }
+
+                /// <summary>
+                /// Format the operand disassembly display and for the assembler.
+                /// </summary>
+                /// <returns>Operand string suitable for an assembler.</returns>
+                public override string? ToString()
+                {
+                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos) ?? CurrentDisassembler?.GetLabelName(Label.Address);
+                    if (disp == null && Format != null)
+                    {
+                        disp = string.Format(Format, Label.Address);
+                    }
+                    else disp ??= $"{Label}";
+
+                    Expression = new Expression(0, disp);
+                    if (Size == OpSize.Long)
+                    {
+                        disp = $"({disp}).L";
+                        Expression.StartCol = 1;
+                    }
+                    return disp;
+                }
+            }
+
+            /// <summary>
+            /// Not used - use LabelOperand instead to allow symbolic references to be used
+            /// by subclasses.
+            /// </summary>
+            public class PCDispOperand : Operand
+            {
+                public PCDispOperand(Displacement displacement, string? format = null) : base(format)
+                {
+                    Displacement = displacement;
+                    Mode = Mode.PCDisp;
+                }
+
+                public PCDispOperand(uint address, string? format = null) : this(new Displacement(address), format) { }
+
+                public Displacement Displacement { get; set; }
+
+                /// <summary>
+                /// Format the operand disassembly display and for the assembler.
+                /// </summary>
+                /// <returns>Operand string suitable for an assembler.</returns>
+                public override string? ToString()
+                {
+                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos);
+                    if (disp == null)
+                    {
+                        if (Format != null)
+                        {
+                            disp = string.Format(Format, Displacement.Value);
+                        }
+                        else
+                        {
+                            disp = $"{Displacement}";
+                        }
+                    }
+
+                    Expression = new Expression(0, disp);
+                    return disp;
+                }
+            }
+
+            public class PCIndexOperand : Operand
+            {
+                public PCIndexOperand(DataRegister indexRegister, Displacement displacement, OpSize size, string? format = null) : base(format)
+                {
+                    IndexRegister = indexRegister;
+                    Displacement = displacement;
+                    Size = size;
+                    Mode = Mode.PCIndex;
+                }
+
+                public PCIndexOperand(int indexRegNum, Displacement displacement, OpSize size, string? format = null) : this(DataRegisters[indexRegNum], displacement, size, format) { }
+                public PCIndexOperand(int indexRegNum, uint address, OpSize size, string? format = null) : this(DataRegisters[indexRegNum], new Displacement(address), size, format) { }
+                
+                public DataRegister IndexRegister { get; set; }
+                public Displacement Displacement { get; set; }
+
+                /// <summary>
+                /// Format the operand disassembly display and for the assembler.
+                /// </summary>
+                /// <returns>Operand string suitable for an assembler.</returns>
+                public override string? ToString()
+                {
+                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos);
+                    if (disp == null)
+                    {
+                        if (Format != null)
+                        {
+                            disp = string.Format(Format, Displacement.Value);
+                        }
+                        else if (Displacement.Value <= 100)
+                        {
+                            disp = $"{Displacement.Value}";
+                        }
+                        else
+                        {
+                            disp = $"${Displacement.Value:x2}";
+                        }
+                    }
+                    OpSize? size = Size;
+                    string opStr;
+                    if (size == OpSize.Long)
+                    {
+                        opStr = $"{disp}(PC,{IndexRegister}.L)";
+                    }
+                    else
+                    {
+                        opStr = $"{disp}(PC,{IndexRegister}.W)";
+                    }
+
+                    Expression = new Expression(0, disp);
+                    return opStr;
+                }
+            }
+
+            public class QuickOperand : Operand
+            {
+                public QuickOperand(QuickData quickData, string? format = null)
+                {
+                    QuickData = quickData;
+                    Mode = Mode.Quick;
+                }
+
+                public QuickData QuickData { get; set; }
+
+                /// <summary>
+                /// Format the operand disassembly display and for the assembler.
+                /// </summary>
+                /// <returns>Operand string suitable for an assembler.</returns>
+                public override string? ToString()
+                {
+                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos);
+                    if (disp == null)
+                    {
+                        if (Format != null)
+                        {
+                            disp = string.Format(Format, QuickData.Value);
+                        }
+                        else
+                        {
+                            disp = $"{QuickData}";
+                        }
+                    }
+                    if (disp.StartsWith('#'))
+                    {
+                        disp = disp[1..];
+                    }
+
+                    Expression = new Expression(0, disp);
+                    return $"#{disp}";
+                }
+            }
+
+            public class CCROperand : Operand
+            {
+                public CCROperand()
+                {
+                    Mode = Mode.RegisterDirect;
+                }
+
+                public override string ToString()
+                {
+                    return "CCR";
+                }
+            }
+
+            public class SROperand : Operand
+            {
+                public SROperand()
+                {
+                    Mode = Mode.RegisterDirect;
+                }
+
+                public override string ToString()
+                {
+                    return "SR";
+                }
+
+            }
+
             /// <summary>
             /// Represents an operand for either a Directive or an Operation.
             /// 
@@ -2677,11 +3227,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             public class Operand
             {
-                /// <summary>
-                /// Create illegal operand.
-                /// </summary>
-                public Operand()
+                public Operand(string? format = null)
                 {
+                    Format = format;
                     Mode = Mode.Illegal;
                 }
 
@@ -3302,7 +3850,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// Create an instance of the class.
                 /// </summary>
                 /// <param name="op"></param>
-                public OperandList(DirectiveOrOperation op) 
+                public OperandList(DirectiveOrOperation op)
                 {
                     Op = op;
                 }
@@ -3356,7 +3904,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Directive (e.g., "DC.W").
+            /// Directive (e.g., "DC").
             /// </summary>
             public class Directive : DirectiveOrOperation
             {
