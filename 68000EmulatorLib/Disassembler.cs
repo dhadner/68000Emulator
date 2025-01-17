@@ -117,7 +117,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Column where the effective address (source,dest) text starts.
+            /// Column where the effective address (source,dest) text starts,
+            /// where the mnemonic (e.g., "DC.W", "MOVEM") starts in column 0.
             /// </summary>
             public const int EAColumn = 8;
 
@@ -585,21 +586,19 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 string directive;
                 uint elementSize;
                 OpSize size;
+                directive = "DC";
                 switch (section.ElementSize) {
                     case 'A':
                     case 'L':
                     default:
-                        directive = "DC.L";
                         elementSize = 4;
                         size = OpSize.Long;
                         break;
                     case 'W':
-                        directive = "DC.W";
                         elementSize = 2;
                         size = OpSize.Word;
                         break;
                     case 'B':
-                        directive = "DC.B";
                         elementSize = 1;
                         size = OpSize.Byte;
                         break;
@@ -743,6 +742,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         _bytes[i] = value;
                         val = (val << 8) | value;
                     }
+
                     sb.Append($"${val:x8}    '{GetBytesAsString(_bytes, length)}'");
                 }
                 else
@@ -887,7 +887,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             /// <param name="size"></param>
             /// <param name="sb"></param>
-            protected static OpSize AppendSizeAndTab(OpSize? size, StringBuilder sb)
+            public static OpSize AppendSizeAndTab(OpSize? size, StringBuilder sb)
             {
                 string sSize = size switch
                 {
@@ -1038,7 +1038,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             throw new ArgumentException("Displacement is null");
                         }
                         disp = GetExpression(assemblyAddress, operand.Pos);
-                        if (disp == null)
+                        if (disp != null)
+                        {
+                            operand.Expression = new Expression(1, disp);
+                        }
+                        else
                         {
                             if (operand.Format != null)
                             {
@@ -1071,7 +1075,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
                         char sz = operand.IndexSize == OpSize.Long ? 'L' : 'W';
                         disp = GetExpression(assemblyAddress, operand.Pos);
-                        if (disp == null)
+                        if (disp != null)
+                        {
+                            operand.Expression = new Expression(1, disp);
+                        }
+                        else
                         {
                             if (operand.Format != null)
                             {
@@ -1095,7 +1103,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             throw new ArgumentException("Displacement is null");
                         }
                         disp = GetExpression(assemblyAddress, operand.Pos);
-                        if (disp == null)
+                        if (disp != null)
+                        {
+                            operand.Expression = new Expression(1, disp);
+                        }
+                        else
                         {
                             if (operand.Format != null)
                             {
@@ -1115,7 +1127,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             throw new ArgumentException("Displacement is null");
                         }
                         disp = GetExpression(assemblyAddress, operand.Pos);
-                        if (disp == null)
+                        if (disp != null)
+                        {
+                            operand.Expression = new Expression(1, disp);
+                        }
+                        else
                         {
                             if (operand.Format != null)
                             {
@@ -1139,7 +1155,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             throw new ArgumentException("Displacement is null");
                         }
                         disp = GetExpression(assemblyAddress, operand.Pos);
-                        if (disp == null)
+                        if (disp != null)
+                        {
+                            operand.Expression = new Expression(0, disp);
+                        }
+                        else
                         {
                             if (operand.Format != null)
                             {
@@ -1167,7 +1187,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             throw new ArgumentException("Displacement is null");
                         }
                         disp = GetExpression(assemblyAddress, operand.Pos);
-                        if (disp == null)
+                        if (disp != null)
+                        {
+                            operand.Expression = new Expression(0, disp);
+                        }
+                        else
                         {
                             if (operand.Format != null)
                             {
@@ -1200,7 +1224,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
 
                         disp = GetExpression(assemblyAddress, operand.Pos);
-                        if (disp == null)
+                        if (disp != null)
+                        {
+                            operand.Expression = new Expression(1, disp);
+                        }
+                        else
                         {
                             if (operand.Format != null)
                             {
@@ -1241,7 +1269,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             throw new ArgumentException("QuickData is null");
                         }
                         disp = GetExpression(assemblyAddress, operand.Pos);
-                        if (disp == null)
+                        if (disp != null)
+                        {
+                            operand.Expression = new Expression(1, disp);
+                        }
+                        else
                         {
                             if (operand.Format != null)
                             {
@@ -1267,7 +1299,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             throw new ArgumentException("Label is null");
                         }
                         disp = GetExpression(assemblyAddress, operand.Pos) ?? GetLabelName(operand.Label.Address);
-                        if (disp == null && operand.Format != null)
+                        if (disp != null)
+                        {
+                            operand.Expression = new Expression(0, disp);
+                        }
+                        else if (disp == null && operand.Format != null)
                         {
                             disp = string.Format(operand.Format, operand.Label.Address);
                         }
@@ -1276,8 +1312,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         if (operand.Size != null && operand.Size == OpSize.Long)
                         {
                             disp = $"({disp}).L";
+                            if (operand.Expression != null)
+                            {
+                                operand.Expression.StartCol = 1;
+                            }
                         }
-
                         opStr = disp;
                         break;
                 }
@@ -2623,6 +2662,38 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
+            /// <summary>
+            /// Contains a text expression or symbolic value that
+            /// may be part of some operands.  The StartCol is based
+            /// on the specific formatting of that operand, e.g.,
+            /// "(MyValue).L" has a StartCol of 1, whereas 
+            /// "MyValue(A0,D1.W)" has a StartCol of 0.
+            /// </summary>
+            public class Expression
+            {
+                /// <summary>
+                /// Create an instance.
+                /// </summary>
+                /// <param name="startCol"></param>
+                /// <param name="text"></param>
+                public Expression(int startCol, string text)
+                {
+                    StartCol = startCol;
+                    Text = text;
+                }
+
+                /// <summary>
+                /// Starting column (0-based) from the beginning of the
+                /// operand text.
+                /// </summary>
+                public int StartCol { get; set; }
+
+                /// <summary>
+                /// Expression or symbol, e.g., "MyStart+1", "BufferSize",
+                /// etc.
+                /// </summary>
+                public string Text { get; set; }
+            }
             
             /// <summary>
             /// Represents an operand for either a Directive or an Operation.
@@ -2919,6 +2990,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public string? Format { get; set; }
                 public int Pos { get; set; } = 0;
                 public Mode Mode { get; set; }
+
+                /// <summary>
+                /// Optional expression that can represent an immediate
+                /// value or displacement for this operand.  May be defined by 
+                /// an EQU for example.
+                /// </summary>
+                public Expression? Expression { get; set; }
 
                 /// <summary>
                 /// Format the operand disassembly display and for the assembler.
@@ -3341,6 +3419,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 sb.Append(' ');
             } while (sb.Length < tabStop);
+        }
+
+        /// <summary>
+        /// Append spaces up to the tab stop.  Guaranteed at least
+        /// one space.
+        /// </summary>
+        /// <param name="sb"></param>
+        /// <param name="tabStop"></param>
+        public static void AppendSizeAndTab(this StringBuilder sb, OpSize? size)
+        {
+            Machine.Disassembler.AppendSizeAndTab(size, sb);
         }
     }
 
