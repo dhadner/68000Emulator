@@ -2903,6 +2903,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public Operand(string? format = null)
                 {
                     Format = format;
+                    _op = dummyOp;
                 }
 
                 /// <summary>
@@ -2912,30 +2913,72 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// </summary>
                 private static readonly Operation dummyOp = new(0, "DUMMY OP TO PREVENT COMPILER WARNINGS");
 
+                protected DirectiveOrOperation _op;
+
                 /// <summary>
                 /// The directive or operation that this operand is associated with.
                 /// Set when the Operand is added to the OperandList in the Operation
                 /// object.
                 /// </summary>
-                public DirectiveOrOperation Op { get; set; } = dummyOp;
+                public DirectiveOrOperation Op 
+                { 
+                    get { return _op; } 
+                    set { _op = value; _text = null; } 
+                }
+
                 public bool IsMemory { get; set; } = false;
-                public OpSize? Size { get; set; }
-                public string? Format { get; set; }
+
+                OpSize? _size;
+                public OpSize? Size 
+                {
+                    get { return _size; } 
+                    set { _size = value; _text = null; } 
+                }
+
+                protected string? _format;
+                public string? Format
+                {
+                    get { return _format; }
+                    set { _format = value; _text = null; } 
+                }
+
                 public int Pos { get; set; } = 0;
 
+                protected string? _text;
+                public string Text
+                {
+                    get
+                    {
+                        if (_text == null)
+                        {
+                            _text = ToString();
+                        }
+                        return _text ?? "ERROR";
+                    }
+                    protected set
+                    {
+                        _text = value;
+                    }
+                }
+
+                protected Expression? _expression;
                 /// <summary>
                 /// Optional expression that can represent an immediate
                 /// value or displacement for this operand.  May be defined by 
                 /// an EQU for example.
                 /// </summary>
-                public Expression? Expression { get; set; }
+                public Expression? Expression
+                {
+                    get { return _expression; }
+                    set { _expression = value; _text = null; }
+                }
             }
 
-            /// <summary>
-            /// Represents immediate data in an operand.  Handles
-            /// all sizes and signed and unsigned.
-            /// </summary>
-            public class ImmediateData
+/// <summary>
+/// Represents immediate data in an operand.  Handles
+/// all sizes and signed and unsigned.
+/// </summary>
+public class ImmediateData
             {
                 public ImmediateData(uint value)
                 {
