@@ -2859,7 +2859,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         disp = disp[1..];
                     }
 
-                    Expression = new Expression(this, 0, disp);
+                    Expression = new Expression(this, 1, disp);
                     return $"#{disp}";
                 }
             }
