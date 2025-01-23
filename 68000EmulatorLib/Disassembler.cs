@@ -936,11 +936,58 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return op.IsMemory;
             }
 
+            /// <summary>
+            /// Subclasses can override and return a label for this address.
+            /// 
+            /// The disassembly will use this label rather than the absolute
+            /// address passed in.  If the subclass returns <c>null</c>, the
+            /// disassembly will show the absolute address instead.
+            /// </summary>
+            /// <param name="address"></param>
+            /// <returns></returns>
             protected virtual string? GetLabelName(uint address)
             {
                 return null;
             }
 
+            /// <summary>
+            /// Subclasses can override this to return a symbolic expression for 
+            /// the expression at this address and operand position.
+            /// 
+            /// Operand position:
+            ///     0 = source
+            ///     1 = dest
+            ///     more if a directive like <c>DC.B  $23,$45,$ea,$8f</c>, 
+            ///                               which has 4 operands numbered 0-3
+            ///                               
+            /// An expression is a (possibly symbolic) string that is legal in
+            /// assembler and that resolves to the constant value in the op code
+            /// operand (other than register references).
+            /// 
+            /// For example, in the assembly line
+            ///   <c>MOVE.B  $e8,$08(A0,D2.W)</c>
+            ///   
+            /// the operation has two operands: <c>$e8</c> and <c>$08(A0,D2.W)</c>.  
+            /// The source operand has the expression <c>$e8</c> that can be replaced
+            /// by this function with a symbolic expression.  For example, if
+            /// the following EQU is in the code, 
+            /// 
+            /// <c>MouseOffset  EQU  $08+$e0</c>
+            /// 
+            /// then, if the above MOVE.B operation is at address <c>$00400234</c>, the
+            /// subclass might return the expression <c>MouseOffset</c> in response to the
+            /// call:
+            /// 
+            /// <c>string? expression = GetExpression($00400234, 0); // Address = $00400234, </c>
+            /// <c>                                                  // operand position = 0 (source)</c>
+            /// 
+            /// The disassembly will now use <c>MouseOffset</c> rather than <c>$e8</c> to make for
+            /// easier understanding.
+            /// 
+            /// </summary>
+            /// <param name="address"></param>
+            /// <param name="operandPos"></param>
+            /// <returns></returns>
             protected virtual string? GetExpression(uint address, int operandPos)
             {
                 return null;
@@ -2277,11 +2324,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// </summary>
                 /// <param name="startCol"></param>
                 /// <param name="text"></param>
-                public Expression(int startCol, string text)
+                public Expression(Operand operand, int startCol, string text)
                 {
+                    Operand = operand;
                     StartCol = startCol;
                     Text = text;
                 }
+
+                /// <summary>
+                /// Operand containing this expression.
+                /// </summary>
+                public Operand Operand { get; set; }
 
                 /// <summary>
                 /// Starting column (0-based) from the beginning of the
@@ -2428,7 +2481,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
                     }
 
-                    Expression = new Expression(1, disp);
+                    Expression = new Expression(this, 1, disp);
                     return $"{disp}({AddressRegister})";
                 }
             }
@@ -2477,7 +2530,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
                     }
 
-                    Expression = new Expression(1, disp);
+                    Expression = new Expression(this, 1, disp);
                     return $"({disp},{AddressRegister},{IndexRegister}.{sz})";
 
                 }
@@ -2511,7 +2564,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
                     }
 
-                    Expression = new Expression(1, disp);
+                    Expression = new Expression(this, 1, disp);
                     return $"({disp}).W";
                 }
             }
@@ -2542,7 +2595,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
                     }
 
-                    Expression = new Expression(1, disp);
+                    Expression = new Expression(this, 1, disp);
                     return $"({disp}).L";
                 }
             }
@@ -2607,12 +2660,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                     if (Op.Name != "LINEA" && Op.Name != "DC")
                     {
-                        Expression = new Expression(1, disp!);
+                        Expression = new Expression(this, 1, disp!);
                         opStr = $"#{disp}";
                     }
                     else
                     {
-                        Expression = new Expression(0, disp!);
+                        Expression = new Expression(this, 0, disp!);
                         opStr = disp;
                     }
 
@@ -2665,7 +2718,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                     else disp ??= $"{Label}";
 
-                    Expression = new Expression(0, disp);
+                    Expression = new Expression(this, 0, disp);
                     if (Size == OpSize.Long)
                     {
                         disp = $"({disp}).L";
@@ -2709,7 +2762,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
                     }
 
-                    Expression = new Expression(0, disp);
+                    Expression = new Expression(this, 0, disp);
                     return disp;
                 }
             }
@@ -2762,7 +2815,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         opStr = $"{disp}(PC,{IndexRegister}.W)";
                     }
 
-                    Expression = new Expression(0, disp);
+                    Expression = new Expression(this, 0, disp);
                     return opStr;
                 }
             }
@@ -2806,7 +2859,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         disp = disp[1..];
                     }
 
-                    Expression = new Expression(0, disp);
+                    Expression = new Expression(this, 0, disp);
                     return $"#{disp}";
                 }
             }
@@ -3134,7 +3187,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             ];
 
             /// <summary>
-            /// Base class for directives (e.g., "DC.W") and operations (e.g., "MOVE").
+            /// Base class for directives (e.g., "DC", "EQU") and operations (e.g., "MOVE", "JMP").
             /// </summary>
             public class DirectiveOrOperation
             {
@@ -3160,7 +3213,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public uint Address { get; private set; }
 
                 /// <summary>
-                /// Directive or Operation name, e.g., "DC.W", "MOVE", "EXG", etc.
+                /// Directive or Operation name, e.g., "DC", "MOVE", "EXG", etc.
                 /// </summary>
                 public string Name { get; set; }
 
@@ -3186,6 +3239,36 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// "DC.B" there may be a long list of operands.
                 /// </summary>
                 public OperandList Operands { get; set; }
+
+                /// <summary>
+                /// Get the Expression at the specified column,
+                /// starting from 0 as the first column of the
+                /// operation mnemonic.
+                /// 
+                /// Return null if the position is out of range
+                /// or there is no expression under that column.
+                ///
+                public Expression? GetExpressionAtColumn(int assyStartColumn, int column)
+                {
+                    StringBuilder sb = new();
+                    sb.Append(Name);
+                    sb.AppendSizeAndTab(Size);
+                    int start = sb.Length + assyStartColumn;
+
+                    foreach (Operand op in Operands)
+                    {
+                        if (op.Expression != null)
+                        {
+                            int opStart = start + op.Expression.StartCol;
+                            if (opStart >= column && column <= opStart + op.Expression.Text.Length)
+                            {
+                                return op.Expression;
+                            }
+                            start = opStart + op.Expression.Text.Length + 1; // comma after
+                        }
+                    }
+                    return null;
+                }
             }
 
             /// <summary>
