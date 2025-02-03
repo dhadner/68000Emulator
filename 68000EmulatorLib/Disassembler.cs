@@ -2531,7 +2531,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
 
                     Expression = new Expression(this, 1, disp);
-                    return $"({disp},{AddressRegister},{IndexRegister}.{sz})";
+                    return $"{disp}({AddressRegister},{IndexRegister}.{sz})";
 
                 }
             }
