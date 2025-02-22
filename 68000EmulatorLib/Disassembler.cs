@@ -2514,6 +2514,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     char sz = IndexSize == OpSize.Long ? 'L' : 'W';
                     string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos);
+                    int column = 0;
                     if (disp == null)
                     {
                         if (Format != null)
@@ -2523,6 +2524,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         else if (Displacement.Value <= 0)
                         {
                             disp = $"{Displacement.Value}";
+
                         }
                         else
                         {
@@ -2530,7 +2532,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
                     }
 
-                    Expression = new Expression(this, 1, disp);
+                    Expression = new Expression(this, column, disp);
                     return $"{disp}({AddressRegister},{IndexRegister}.{sz})";
 
                 }
@@ -2974,11 +2976,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
-/// <summary>
-/// Represents immediate data in an operand.  Handles
-/// all sizes and signed and unsigned.
-/// </summary>
-public class ImmediateData
+            /// <summary>
+            /// Represents immediate data in an operand.  Handles
+            /// all sizes and signed and unsigned.
+            /// </summary>
+            public class ImmediateData
             {
                 public ImmediateData(uint value)
                 {
