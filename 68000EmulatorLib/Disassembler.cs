@@ -164,11 +164,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="address"></param>
             /// <param name="length"></param>
             /// <param name="elementSize">'A' auto (default), 'B' byte, 'W' word, 'L' long</param>
-            public class NonExecSection(uint address, uint length, char elementSize = 'A')
+            public class NonExecSection(uint address, uint length, OpSize elementSize = OpSize.Byte, uint itemsPerLine = 1)
             {
                 public virtual uint Address { get; set; } = address;
                 public virtual uint Length { get; set; } = length;
-                public virtual char ElementSize { get; set; } = elementSize;
+                public virtual OpSize ElementSize { get; set; } = elementSize;
+                public virtual uint ItemsPerLine { get; set; } = Math.Min(MaxNESBytesPerRecord, Math.Max(1, itemsPerLine));
 
                 /// <summary>
                 /// Return true if the section contains at least one byte of the
@@ -194,7 +195,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             ///       DC.W $0001,$0002
             ///       DC.L $00000001
             /// </summay>
-            public const int MaxNESBytesPerRecord = 4;
+            public const int MaxNESBytesPerRecord = 32;
             protected List<NonExecSection> NonExecSections { get; set; } = [];
             protected Dictionary<uint, NonExecSection> NonExecSectionsByAddress { get; set; } = [];
 
@@ -406,13 +407,16 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </remarks>
             /// <param name="startAddress">The start effectiveAddress of the block of non-executable data.</param>
             /// <param name="length">The length (in bytes) of the block of non-executable data.</param>
-            /// <param name="elementSize">'A' auto (default), 'B' byte, 'W' word, 'L' long</param>
-            public void SetNonExecutableRange(uint startAddress, uint length, char elementSize = 'A')
+            /// <param name="elementSize">OpSize (B, L, W)</param>
+            public void SetNonExecutableRange(uint startAddress, uint length, OpSize elementSize = OpSize.Byte, uint itemsPerLine = 1)
             {
-
+                if (itemsPerLine > MaxNESBytesPerRecord)
+                {
+                    throw new ArgumentException($"itemsPerLine must be no more than MaxNESBytesPerRecord {MaxNESBytesPerRecord}");
+                }
                 NormalizeSections();
                 ClearNonExecutableRange(startAddress, length);
-                NonExecSections.Add(new(startAddress, length, elementSize));
+                NonExecSections.Add(new(startAddress, length, elementSize, itemsPerLine));
                 NormalizeSections();
             }
 
@@ -521,6 +525,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 NonExecSectionsByAddress.Clear();
             }
 
+            public uint OpSizeToBytes(OpSize size)
+            {
+                return size switch
+                {
+                    OpSize.Byte => 1,
+                    OpSize.Word => 2,
+                    OpSize.Long => 4,
+                    _ => 1
+                };
+            }
+
             /// <summary>
             /// Perform a full disassembly of the specified block of memory.
             /// </summary>
@@ -537,6 +552,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 try
                 {
+                    // Set machine parameters for this disassembler machine
                     Disassembling = true;
                     Machine.CPU.PC = startAddress;
                     StartAddress = startAddress;
@@ -545,14 +561,21 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     int count = 0;
 
                     List<DisassemblyRecord> result = [];
+
+                    // When Length is exceeded, loop exits because IsEndOfData goes true.
                     while (!IsEndOfData && count++ < maxCount)
                     {
                         var nonExecSection = GetNonExecutableSection(CurrentAddress);
                         if (nonExecSection != null)
                         {
+                            uint size = OpSizeToBytes(nonExecSection.ElementSize);
+
                             // Disassemble part of a non-executable section
-                            uint len = Math.Min(nonExecSection.Address + nonExecSection.Length - CurrentAddress, MaxNESBytesPerRecord);
+                            uint maxLen = size * nonExecSection.ItemsPerLine;
+                            uint len = Math.Min(nonExecSection.Address + nonExecSection.Length - CurrentAddress, maxLen);
                             len = Math.Min(len, length - (CurrentAddress - startAddress));
+
+                            // Updates CurrentAddress when reading memory using ReadNextByte().
                             result.Add(GetNonExecutableSectionRecord(CurrentAddress, len, nonExecSection));
                         }
                         else
@@ -583,30 +606,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns></returns>
             protected DisassemblyRecord GetNonExecutableSectionRecord(uint address, uint length, NonExecSection section)
             {
-                string directive;
-                uint elementSize;
-                OpSize size;
-                directive = "DC";
-                switch (section.ElementSize)
+                uint elementSize = OpSizeToBytes(section.ElementSize);
+                
+                Directive dir = new(address, "DC", section.ElementSize);
+                if (elementSize > length)
                 {
-                    case 'A':
-                    case 'L':
-                    default:
-                        elementSize = 4;
-                        size = OpSize.Long;
-                        break;
-                    case 'W':
-                        elementSize = 2;
-                        size = OpSize.Word;
-                        break;
-                    case 'B':
-                        elementSize = 1;
-                        size = OpSize.Byte;
-                        break;
+                    if (length == 2)
+                    {
+                        dir.Size = OpSize.Word;
+                    }
+                    else
+                    {
+                        dir.Size = OpSize.Byte;
+                    }
                 }
-                Directive dir = new(address, directive, size);
 
-                length = Math.Min(length, elementSize);
+                length = Math.Min(length, elementSize * section.ItemsPerLine);
 
                 // Length of NES that is contained in this record.
                 uint nesRecordLength = section.Length - (address - section.Address);
@@ -694,27 +709,38 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Generate disassembly for a non-executable section.  Uses the element size
-            /// as much as possible, then fills in the end with smaller elements if necessary
+            /// Generate a line of disassembly for (part of) a non-executable section.
             /// </summary>
             /// <param name="dir"></param>
             /// <param name="length">Must be <= 4</param>
             /// <param name="startAddress"></param>
-            /// <param name="elementSize"></param>
             /// <returns></returns>
             protected void NonExecutableDataDisassembly(Directive dir, uint length, uint startAddress)
             {
                 StringBuilder sb = new();
-                string dc;
-                if (length == 2)
+                if (dir.Size != OpSize.Byte && dir.Size != OpSize.Word && dir.Size != OpSize.Long)
                 {
-                    dc = "DC.W";
+                    dir.Assembly = $"[ERROR] NonExecutableDataDisassembly called with incompatible size: {dir.Size}";
+                    return;
                 }
-                else if (length == 4)
+                uint itemSize = dir.Size switch { OpSize.Byte => 1, OpSize.Word => 2, OpSize.Long => 4, _ => 1 };
+                uint items = Math.Max(1, length / itemSize);
+                uint remainder = length % itemSize;
+                if (remainder != 0)
+                {
+                    dir.Assembly = $"[ERROR] NonExecutableDataDisassembly called with incompatible length for {dir.Size}: {length}";
+                    return;
+                }
+                string dc;
+                if (dir.Size == OpSize.Long)
                 {
                     dc = "DC.L";
                 }
-                else
+                else if (dir.Size == OpSize.Word)
+                {
+                    dc = "DC.W";
+                }
+                else  // (dir.Size == OpSize.Byte)
                 {
                     dc = "DC.B";
                 }
@@ -722,52 +748,41 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sb.AppendTab(EAColumn);
                 Array.Clear(_bytes);
 
-                if (length == 2)
+                for (int i = 0; i < items; i++)
                 {
-                    ushort val = 0;
-                    for (int i = 0; i < length; i++)
+                    if (i > 0)
                     {
-                        if (IsEndOfData) { break; }
-                        byte value = ReadNextByte();
-                        _bytes[i] = value;
-                        val = (ushort)((val << 8) | value);
+                        sb.Append(',');
                     }
-
-                    dir.Operands.Add(new ImmediateOperand(val));
-                    sb.Append($"${val:x4}        '{GetBytesAsString(_bytes, length)}'");
-                }
-                else if (length == 4)
-                {
                     uint val = 0;
-                    for (int i = 0; i < length; i++)
+                    for (int j = 0; j < itemSize; j++)
                     {
                         if (IsEndOfData) { break; }
                         byte value = ReadNextByte();
-                        _bytes[i] = value;
+                        _bytes[i * itemSize + j] = value;
                         val = (val << 8) | value;
                     }
-
-                    dir.Operands.Add(new ImmediateOperand(val));
-                    sb.Append($"${val:x8}    '{GetBytesAsString(_bytes, length)}'");
-                }
-                else
-                {
-                    for (int i = 0; i < length; i++)
+                    ImmediateOperand op;
+                    switch (dir.Size)
                     {
-                        if (IsEndOfData) { break; }
-                        byte value = ReadNextByte();
-                        _bytes[i] = value;
-                        if (i > 0)
-                        {
-                            sb.Append(',');
-                        }
-
-                        dir.Operands.Add(new ImmediateOperand(value));
-                        sb.Append($"${value:x2}");
+                        case OpSize.Byte:
+                            op = new ImmediateOperand((byte)val);
+                            break;
+                        case OpSize.Word:
+                            op = new ImmediateOperand((ushort)val);
+                            break;
+                        case OpSize.Long:
+                            op = new ImmediateOperand(val);
+                            break;
+                        default:
+                            op = new ImmediateOperand(val);
+                            break;
                     }
+                    dir.Operands.Add(op);
+                    sb.Append(op);
+                }               
 
-                    sb.Append($"  '{GetBytesAsString(_bytes, length)}'");
-                }
+                sb.Append($"    '{GetBytesAsString(_bytes, length)}'");
                 dir.Assembly = sb.ToString();
             }
 
