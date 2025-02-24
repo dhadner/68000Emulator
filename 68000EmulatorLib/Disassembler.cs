@@ -196,6 +196,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             ///       DC.L $00000001
             /// </summay>
             public const int MaxNESBytesPerRecord = 32;
+            public const int MaxNESItemsPerRecord = 8;
             protected List<NonExecSection> NonExecSections { get; set; } = [];
             protected Dictionary<uint, NonExecSection> NonExecSectionsByAddress { get; set; } = [];
 
