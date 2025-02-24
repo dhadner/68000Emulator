@@ -525,7 +525,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 NonExecSectionsByAddress.Clear();
             }
 
-            public uint OpSizeToBytes(OpSize size)
+            public static uint OpSizeToBytes(OpSize size)
             {
                 return size switch
                 {
