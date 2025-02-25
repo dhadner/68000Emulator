@@ -164,12 +164,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="address"></param>
             /// <param name="length"></param>
             /// <param name="elementSize">'A' auto (default), 'B' byte, 'W' word, 'L' long</param>
-            public class NonExecSection(uint address, uint length, OpSize elementSize = OpSize.Byte, uint itemsPerLine = 1)
+            public class NonExecSection(uint address, uint length, OpSize elementSize = OpSize.Byte, uint itemsPerLine = 1, uint displayRadix = 16)
             {
                 public virtual uint Address { get; set; } = address;
                 public virtual uint Length { get; set; } = length;
                 public virtual OpSize ElementSize { get; set; } = elementSize;
                 public virtual uint ItemsPerLine { get; set; } = Math.Min(MaxNESBytesPerRecord, Math.Max(1, itemsPerLine));
+                public virtual uint DisplayRadix { get; set; } = (uint)(displayRadix == 2 ? 2 : displayRadix == 10 ? 10 : 16);
 
                 /// <summary>
                 /// Return true if the section contains at least one byte of the
@@ -379,7 +380,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 uint minAddress = Math.Min(sections[i].Address, sections[i + 1].Address);
                                 uint maxAddress = Math.Max(sections[i].Address + sections[i].Length, sections[i + 1].Address + sections[i + 1].Length);
                                 uint length = maxAddress - minAddress;
-                                NonExecSection merged = new(minAddress, length, sections[i].ElementSize);
+                                NonExecSection merged = new(minAddress, length, sections[i].ElementSize, sections[i].DisplayRadix);
                                 sections[i + 1] = merged;
                                 sections.RemoveAt(i);
                             }
@@ -409,7 +410,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="startAddress">The start effectiveAddress of the block of non-executable data.</param>
             /// <param name="length">The length (in bytes) of the block of non-executable data.</param>
             /// <param name="elementSize">OpSize (B, L, W)</param>
-            public void SetNonExecutableRange(uint startAddress, uint length, OpSize elementSize = OpSize.Byte, uint itemsPerLine = 1)
+            public void SetNonExecutableRange(uint startAddress, uint length, OpSize elementSize = OpSize.Byte, uint itemsPerLine = 1, uint displayRadix = 16)
             {
                 if (itemsPerLine > MaxNESBytesPerRecord)
                 {
@@ -417,7 +418,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 NormalizeSections();
                 ClearNonExecutableRange(startAddress, length);
-                NonExecSections.Add(new(startAddress, length, elementSize, itemsPerLine));
+                NonExecSections.Add(new(startAddress, length, elementSize, itemsPerLine, displayRadix));
                 NormalizeSections();
             }
 
@@ -479,8 +480,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     {
                         // This section contains the range and must be split into two.
                         NonExecSections.Remove(section);
-                        NonExecSections.Add(new(section.Address, startAddress - section.Address, section.ElementSize));
-                        NonExecSections.Add(new(startAddress + length, nesMaxAddress - maxAddress, section.ElementSize));
+                        NonExecSections.Add(new(section.Address, startAddress - section.Address, section.ElementSize, section.DisplayRadix));
+                        NonExecSections.Add(new(startAddress + length, nesMaxAddress - maxAddress, section.ElementSize, section.DisplayRadix));
                     }
                     // CASE 3: Range to be [c]leared top extends up into the current [s]ection,
                     //         so the section must be recalculated to cut off the bottom.
@@ -494,7 +495,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         // The low portion of nes encroaches into the top of the range and so nes must be
                         // truncated.
                         NonExecSections.Remove(section);
-                        NonExecSections.Add(new(startAddress + length, nesMaxAddress - maxAddress, section.ElementSize));
+                        NonExecSections.Add(new(startAddress + length, nesMaxAddress - maxAddress, section.ElementSize, section.DisplayRadix));
                     }
                     // CASE 4: Range to be [c]leared bottom is less than current [s]ection top, so the
                     //         current section must be truncated on the top.
@@ -507,7 +508,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         // The high portion of nes encroaches into the low end of the range and so nes
                         // must be truncated.
                         NonExecSections.Remove(section);
-                        NonExecSections.Add(new(section.Address, startAddress - section.Address, section.ElementSize));
+                        NonExecSections.Add(new(section.Address, startAddress - section.Address, section.ElementSize, section.DisplayRadix));
                     }
                     else
                     {
@@ -640,7 +641,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     dir.MachineCode[i] = Machine.Memory.ReadByte(address + i);
                 }
 
-                NonExecutableDataDisassembly(dir, length, address);
+                NonExecutableDataDisassembly(dir, length, address, section.DisplayRadix);
                 var record = new DisassemblyRecord(false, dir);
                 return record;
             }
@@ -715,8 +716,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="dir"></param>
             /// <param name="length">Must be <= 4</param>
             /// <param name="startAddress"></param>
+            /// <param name="radix"></param>
             /// <returns></returns>
-            protected void NonExecutableDataDisassembly(Directive dir, uint length, uint startAddress)
+            protected void NonExecutableDataDisassembly(Directive dir, uint length, uint startAddress, uint radix)
             {
                 StringBuilder sb = new();
                 if (dir.Size != OpSize.Byte && dir.Size != OpSize.Word && dir.Size != OpSize.Long)
@@ -725,6 +727,19 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     return;
                 }
                 uint itemSize = dir.Size switch { OpSize.Byte => 1, OpSize.Word => 2, OpSize.Long => 4, _ => 1 };
+                string? format = null;
+                if (radix == 2)
+                {
+                    format = itemSize == 1 ? "%{0:B8}" : itemSize == 2 ? "%{0:B16}" : "%{0:B32}";
+                }
+                else if (radix == 10)
+                {
+                    format = "{0}";
+                }
+                else
+                {
+                    format = itemSize == 1 ? "${0:x2}" : itemSize == 2 ? "${0:x4}" : "${0:x8}";
+                }
                 uint items = Math.Max(1, length / itemSize);
                 uint remainder = length % itemSize;
                 if (remainder != 0)
@@ -764,19 +779,20 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         val = (val << 8) | value;
                     }
                     ImmediateOperand op;
+
                     switch (dir.Size)
                     {
                         case OpSize.Byte:
-                            op = new ImmediateOperand((byte)val);
+                            op = new ImmediateOperand((byte)val, format);
                             break;
                         case OpSize.Word:
-                            op = new ImmediateOperand((ushort)val);
+                            op = new ImmediateOperand((ushort)val, format);
                             break;
                         case OpSize.Long:
-                            op = new ImmediateOperand(val);
+                            op = new ImmediateOperand(val, format);
                             break;
                         default:
-                            op = new ImmediateOperand(val);
+                            op = new ImmediateOperand(val, format);
                             break;
                     }
                     dir.Operands.Add(op);
