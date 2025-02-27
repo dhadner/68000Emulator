@@ -17,12 +17,14 @@
         bool Disassembling { get; set; }
 
         /// <summary>
-        /// Callback to debugger on read access when Debugging.
+        /// Callback to debugger on read access when Debugging.  Useful for implementing
+        /// watchpoints in the debugger.
         /// </summary>
         void DebugReadAccess(uint address);
 
         /// <summary>
-        /// Callback to debugger on write access when Debugging.
+        /// Callback to debugger on write access when Debugging.  Useful for implementing
+        /// watchpoints in the debugger.
         /// </summary>
         void DebugWriteAccess(uint address);
 

@@ -375,7 +375,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Register to Memory functionality for the MOVEM instruction (for all but predecrement addressing mode).
+            /// Register to Memory functionality for the MOVEM instruction (for all but pre-decrement addressing mode).
             /// </summary>
             /// <param name="regMask">16-bit register mask.</param>
             /// <param name="address">Address at which to start writing register values.</param>
@@ -416,7 +416,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Register to Memory functionality for the MOVEM instruction (for predecrement addressing mode).
+            /// Register to Memory functionality for the MOVEM instruction (for pre-decrement addressing mode).
             /// </summary>
             /// <param name="regMask">16-bit register mask.</param>
             /// <param name="address">Address at which to start writing register values.</param>
@@ -424,7 +424,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns>The address at which the transfer completed.</returns>
             private uint MOVEM_RegToMemPreDec(ushort regMask, uint address, OpSize size)
             {
-                // Increment address because it has already been predecremented once prior to calling this method.
+                // Increment address because it has already been pre-decremented once prior to calling this method.
                 address += (uint)(size == OpSize.Long ? 4 : 2);
                 for (int n = 0; n < 16; n++)
                 {
@@ -502,7 +502,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 else if (address.HasValue)
                 {
-                    if (Machine.Debugger != null && Machine.Debugger.Debugging)
+                    if (Machine.Debugger?.Debugging == true)
                     {
                         Machine.Debugger.DebugReadAccess(address.Value);
                     }
@@ -545,7 +545,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 else if (address.HasValue)
                 {
-                    if (Machine.Debugger != null && Machine.Debugger.Debugging)
+                    if (Machine.Debugger?.Debugging == true)
                     {
                         Machine.Debugger.DebugWriteAccess(address.Value);
                     }
@@ -1322,8 +1322,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 var value = ReadEAValue(inst, EAType.Destination, true);
                 if (value.HasValue)
                 {
-                    int cond = (inst.Opcode & 0x0F00) >> 8;
-                    if (Machine.CPU.EvaluateCondition((Condition)cond))
+                    int condition = (inst.Opcode & 0x0F00) >> 8;
+                    if (Machine.CPU.EvaluateCondition((Condition)condition))
                     {
                         WriteEAValue(inst, 0x000000FF, EAType.Destination);
                     }
@@ -1337,8 +1337,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? DBcc(Instruction inst)
             {
-                int cond = (inst.Opcode & 0x0F00) >> 8;
-                if (!Machine.CPU.EvaluateCondition((Condition)cond))
+                int condition = (inst.Opcode & 0x0F00) >> 8;
+                if (!Machine.CPU.EvaluateCondition((Condition)condition))
                 {
                     int dRegNum = inst.Opcode & 0x0007;
                     uint dRegVal = Machine.CPU.ReadDataRegister(dRegNum);
@@ -1411,8 +1411,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? Bcc(Instruction inst)
             {
-                int cond = (inst.Opcode & 0x0F00) >> 8;
-                if (Machine.CPU.EvaluateCondition((Condition)cond))
+                int condition = (inst.Opcode & 0x0F00) >> 8;
+                if (Machine.CPU.EvaluateCondition((Condition)condition))
                 {
                     uint pc = Machine.CPU.PC;
                     int disp = inst.Opcode & 0x00FF;
@@ -1562,7 +1562,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 else
                 {
-                    // Predecrement the source and destination address registers by the number of bytes specified
+                    // Pre-decrement the source and destination address registers by the number of bytes specified
                     // by the data size.
                     uint rXAddr = Machine.CPU.DecrementAddressRegister(rX, size);
                     uint rYAddr = Machine.CPU.DecrementAddressRegister(rY, size);
@@ -1658,7 +1658,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         break;
                 }
 
-                // Now we've read the values from memory, postincrement both address registers.
+                // Now we've read the values from memory, post-increment both address registers.
                 Machine.CPU.IncrementAddressRegister(rX, size);
                 Machine.CPU.IncrementAddressRegister(rY, size);
 
@@ -1828,7 +1828,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 else
                 {
-                    // Predecrement the source and destination address registers by the number of bytes specified
+                    // Pre-decrement the source and destination address registers by the number of bytes specified
                     // by the data size.
                     uint rXAddr = Machine.CPU.DecrementAddressRegister(rX, size);
                     uint rYAddr = Machine.CPU.DecrementAddressRegister(rY, size);
@@ -1900,7 +1900,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             var result = value.Value << 1;
                             WriteEAValue(inst, result, EAType.Source);
                             SetFlags(inst.Info.HandlerID, OpSize.Word, result, 1, value.Value & 0x8000);
-                            Machine.CPU.OverflowFlag = logicalShift ? false : (result & 0x8000) != (value.Value & 0x8000);
+                            Machine.CPU.OverflowFlag = !logicalShift && (result & 0x8000) != (value.Value & 0x8000);
                         }
                         else
                         {
@@ -1964,7 +1964,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     dRegVal &= sizeMask;
                     Machine.CPU.WriteDataRegister(dRegNum, dRegVal, size);
                     SetFlags(inst.Info.HandlerID, size, dRegVal, (uint)shiftAmt, bitShiftedOut);
-                    Machine.CPU.OverflowFlag = logicalShift ? false : msbChanged;
+                    Machine.CPU.OverflowFlag = !logicalShift && msbChanged;
                 }
                 return null;
             }
@@ -2208,7 +2208,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 else
                 {
-                    // Working with memory addresses, so predecrement both address registers by 1 byte.
+                    // Working with memory addresses, so pre-decrement both address registers by 1 byte.
                     var srcAddr = Machine.CPU.DecrementAddressRegister(rSrc, OpSize.Byte);
                     var destAddr = Machine.CPU.DecrementAddressRegister(rDest, OpSize.Byte);
                     uint srcVal = Machine.Memory.ReadByte(srcAddr);
@@ -2310,7 +2310,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         {
                             if (((inst.Opcode >> 3) & 0x0007) == 0x0004)
                             {
-                                // Predecrement addressing mode
+                                // Pre-decrement addressing mode
                                 var newAddr = MOVEM_RegToMemPreDec(regMask, address.Value, size);
                                 Machine.CPU.WriteAddressRegister(inst.Opcode & 0x0007, newAddr);
                             }
@@ -2322,7 +2322,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         else
                         {
                             var newAddr = MOVEM_MemToReg(regMask, address.Value, size);
-                            // If postincrement addressing then update the address register.
+                            // If post-increment addressing then update the address register.
                             if (((inst.Opcode >> 3) & 0x0007) == 0x0003)
                             {
                                 Machine.CPU.WriteAddressRegister(inst.Opcode & 0x0007, newAddr);

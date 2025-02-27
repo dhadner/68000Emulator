@@ -809,16 +809,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Flag used to indicate that the disassembler is currently disassembling
             /// for the purpose of disabling memory alignment checks and I/O operations.
             /// </summary>
-            bool _disassembling = false;
             protected bool Disassembling
             {
                 get
                 {
-                    return _disassembling;
+                    if (Machine.Debugger == null)
+                    {
+                        return false;
+                    }
+                    return Machine.Debugger.Disassembling;
                 }
                 set
                 {
-                    _disassembling = value;
                     if (Machine.Debugger != null)
                     {
                         Machine.Debugger.Disassembling = value;
