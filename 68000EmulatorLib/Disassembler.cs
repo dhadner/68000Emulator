@@ -328,7 +328,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 else
                 {
-                    // Same memory, different CPU state for disassembler
+                    // Same memory, different CPU state (especially PC location) for disassembler
                     Machine = new DisassemblerMachine(machine);
                 }
 
@@ -517,6 +517,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 NonExecSectionsByAddress.Clear();
             }
 
+            /// <summary>
+            /// Return the size, in bytes, for this OpSize since
+            /// the enum values start at 0.
+            /// </summary>
+            /// <param name="size"></param>
+            /// <returns></returns>
             public static uint OpSizeToBytes(OpSize size)
             {
                 return size switch
@@ -682,6 +688,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             static readonly byte[] _bytes = new byte[MaxNESBytesPerRecord];
             static readonly StringBuilder _asciiBuilder = new();
 
+            /// <summary>
+            /// Return a string of the bytes in the array as ASCII characters.
+            /// </summary>
+            /// <param name="array"></param>
+            /// <param name="length"></param>
+            /// <returns></returns>
             static string GetBytesAsString(byte[] array, uint length)
             {
                 _asciiBuilder.Clear();
@@ -703,10 +715,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <summary>
             /// Generate a line of disassembly for (part of) a non-executable section.
             /// </summary>
-            /// <param name="dir"></param>
-            /// <param name="length">Must be <= 4</param>
-            /// <param name="startAddress"></param>
-            /// <param name="radix"></param>
+            /// <param name="dir">Directive that specifies the name, size, and number of operands</param>
+            /// <param name="length"></param>
+            /// <param name="startAddress">Address of first operand</param>
+            /// <param name="radix">radix used to display values of operands</param>
             /// <returns></returns>
             protected void NonExecutableDataDisassembly(Directive dir, uint length, uint startAddress, uint radix)
             {
@@ -793,6 +805,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 dir.PostOperandAnnotation = $"    '{GetBytesAsString(_bytes, length)}'";
             }
 
+            /// <summary>
+            /// Flag used to indicate that the disassembler is currently disassembling
+            /// for the purpose of disabling memory alignment checks and I/O operations.
+            /// </summary>
             bool _disassembling = false;
             protected bool Disassembling
             {
@@ -809,11 +825,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                 }
             }
-
-#if REORG
-            private bool reOrgInProgress = false;
-            private uint reOrgAddress = 0;
-#endif 
 
             /// <summary>
             /// Disassemble one instruction at the current instruction.  The address is guaranteed 
@@ -1820,8 +1831,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected Operation Scc(Instruction inst, StringBuilder sb)
             {
                 sb.Append('S');
-                Condition cond = (Condition)((inst.Opcode & 0x0F00) >> 8);
-                AppendCondition(cond, sb);
+                Condition condition = (Condition)((inst.Opcode & 0x0F00) >> 8);
+                AppendCondition(condition, sb);
 
                 Operation op = new(InstructionAddress, sb.ToString(), OpSize.Byte);
                 sb.Append(".B"); // Size is always byte
@@ -3286,7 +3297,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public string Name { get; set; }
 
                 /// <summary>
-                /// Size (<see cref="OpSize"/>) of the operation if not default (usually Opsize.Word).
+                /// Size (<see cref="OpSize"/>) of the operation if not default (usually OpSize.Word).
                 /// </summary>
                 public OpSize? Size { get; set; }
 
