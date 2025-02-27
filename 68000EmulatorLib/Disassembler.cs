@@ -67,21 +67,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public byte[] MachineCode => Op.MachineCode;
 
                 /// <summary>
-                /// Instruction or data, e.g., "MOVEQ.L #1,D0", "DC.B  $03".  This text
-                /// is suitable for round-tripping through the VASM assembler.  Uses
-                /// only spaces, no tabs, and the mnemonic starts at string position 0.
-                /// 
-                /// This means that to send to VASM, at least one space must be prepended
-                /// to prevent the assembler treating the mnemonic as a label.
-                /// </summary>
-                public string Assembly => Op.Assembly;
-
-                /// <summary>
-                /// Post-operand annotation used for DC directive ASCII text display.
-                /// </summary>
-                public string PostOperandAnnotation => Op.PostOperandAnnotation;
-
-                /// <summary>
                 /// True if this is part of a Non-Executable Section.
                 /// </summary>
                 public bool IsNES => Op is Directive;
