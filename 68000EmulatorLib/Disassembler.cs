@@ -74,7 +74,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// This means that to send to VASM, at least one space must be prepended
                 /// to prevent the assembler treating the mnemonic as a label.
                 /// </summary>
-                public string AssemblyLine => Op.Assembly;
+                public string Assembly => Op.Assembly;
+
+                /// <summary>
+                /// Post-operand annotation used for DC directive ASCII text display.
+                /// </summary>
+                public string PostOperandAnnotation => Op.PostOperandAnnotation;
 
                 /// <summary>
                 /// True if this is part of a Non-Executable Section.
@@ -797,10 +802,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                     dir.Operands.Add(op);
                     sb.Append(op);
-                }               
+                }
 
-                sb.Append($"    '{GetBytesAsString(_bytes, length)}'");
                 dir.Assembly = sb.ToString();
+                dir.PostOperandAnnotation = $"    '{GetBytesAsString(_bytes, length)}'";
             }
 
             bool _disassembling = false;
@@ -3282,6 +3287,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Size = size;
                     MachineCode = [];
                     Assembly = "";
+                    PostOperandAnnotation = "";
                 }
 
                 /// <summary>
@@ -3311,6 +3317,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public string Assembly { get; set; }
 
                 /// <summary>
+                /// Optional annotation used for displaying ASCII data for
+                /// DC directives.
+                /// </summary>
+                public string PostOperandAnnotation { get; set; }
+
+                /// <summary>
                 /// Operands for this directives or operation.  Typically 0-2 operands
                 /// (no operands, src/dst only, or src,dst).  For directives like
                 /// "DC.B" there may be a long list of operands.
@@ -3325,12 +3337,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// Return null if the position is out of range
                 /// or there is no expression under that column.
                 ///
-                public Expression? GetExpressionAtColumn(int assyStartColumn, int column)
+                public Expression? GetExpressionAtColumn(int assemblyStartColumn, int column)
                 {
                     StringBuilder sb = new();
                     sb.Append(Name);
                     sb.AppendSizeAndTab(Size);
-                    int start = sb.Length + assyStartColumn;
+                    int start = sb.Length + assemblyStartColumn;
 
                     foreach (Operand op in Operands)
                     {
