@@ -157,7 +157,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
         /// <summary>
         /// Create an exception as a result of normal execution.
-        /// This includes things like executinga LineA instruction, handling 
+        /// This includes things like executing a LineA instruction, handling 
         /// processor interrupts, etc.
         /// </summary>
         /// <param name="vector"></param>
