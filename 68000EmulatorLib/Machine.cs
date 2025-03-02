@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
+using System;
 using System.Text;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
@@ -192,6 +193,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public void GetCPUState(ref CPUState state)
         {
             state.TransferStateFromCPU(CPU);
+        }
+
+        /// <summary>
+        /// Get the current CPU control state.
+        /// </summary>
+        /// <returns></returns>
+        public (uint pc, SRFlags sr) GetCPUControlState()
+        {
+            return (CPU.PC, CPU.SR);
         }
 
         /// <summary>
