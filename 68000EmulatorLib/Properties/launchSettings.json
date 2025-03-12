@@ -1,7 +1,8 @@
 {
   "profiles": {
     "68000EmulatorLib": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "nativeDebugging": true
     }
   }
 }

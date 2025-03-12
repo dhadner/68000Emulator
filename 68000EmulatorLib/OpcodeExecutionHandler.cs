@@ -24,8 +24,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                              0x00010000, 0x00020000, 0x00040000, 0x00080000, 0x00100000, 0x00200000, 0x00400000, 0x00800000,
                                              0x01000000, 0x02000000, 0x04000000, 0x08000000, 0x10000000, 0x20000000, 0x40000000, 0x80000000 ];
 
-            private readonly object lockObj = new();     // Object that is locked for TAS instruction.
-
             internal int _numberOfJSRCalls = 0;
 
             /// <summary>
@@ -2175,7 +2173,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? TAS(Instruction inst)
             {
-                lock (lockObj)
+                lock (PendleCodeMonkey.MC68000EmulatorLib.Machine.Lock)
                 {
                     var value = ReadEAValue(inst, EAType.Destination, true);
                     if (value.HasValue)

@@ -17,6 +17,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         protected uint _dataLength;
 
         /// <summary>
+        /// Single lock object for entire machine (==> no deadlocks)
+        /// </summary>
+        public static object Lock { get; } = new();
+
+        /// <summary>
         /// True when loading a file into memory.
         /// </summary>
         public bool LoadingProgram { get; protected set; }
