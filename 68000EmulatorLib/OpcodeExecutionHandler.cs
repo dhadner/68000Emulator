@@ -791,7 +791,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 uint? value = GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
                 if (value.HasValue)
                 {
-                    var destValue = ReadEAValue(inst, EAType.Destination, true);
+                    var destValue = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
                     if (destValue.HasValue)
                     {
                         destValue |= value.Value;
@@ -832,7 +832,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 uint? value = GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
                 if (value.HasValue)
                 {
-                    var destValue = ReadEAValue(inst, EAType.Destination, true);
+                    var destValue = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
                     if (destValue.HasValue)
                     {
                         destValue &= value.Value;
@@ -849,7 +849,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 uint? srcValue = GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
                 if (srcValue.HasValue)
                 {
-                    var destValue = ReadEAValue(inst, EAType.Destination, true);
+                    var destValue = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
                     if (destValue.HasValue)
                     {
                         uint result = destValue.Value - srcValue.Value;
@@ -866,7 +866,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 uint? srcValue = GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
                 if (srcValue.HasValue)
                 {
-                    var destValue = ReadEAValue(inst, EAType.Destination, true);
+                    var destValue = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
                     if (destValue.HasValue)
                     {
                         uint result = destValue.Value + srcValue.Value;
@@ -907,7 +907,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 uint? value = GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
                 if (value.HasValue)
                 {
-                    var destValue = ReadEAValue(inst, EAType.Destination, true);
+                    var destValue = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
                     if (destValue.HasValue)
                     {
                         destValue ^= value.Value;
@@ -988,7 +988,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? NEGX(Instruction inst)
             {
-                var value = ReadEAValue(inst, EAType.Destination, true);
+                var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
                 if (value.HasValue)
                 {
                     OpSize size = inst.Size ?? OpSize.Word;
@@ -1002,7 +1002,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? CLR(Instruction inst)
             {
-                var value = ReadEAValue(inst, EAType.Destination, true);
+                var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
                 if (value.HasValue)
                 {
                     WriteEAValue(inst, 0, EAType.Destination);
@@ -1014,7 +1014,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? NEG(Instruction inst)
             {
-                var value = ReadEAValue(inst, EAType.Destination, true);
+                var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
                 if (value.HasValue)
                 {
                     OpSize size = inst.Size ?? OpSize.Word;
@@ -1028,7 +1028,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? NOT(Instruction inst)
             {
-                var value = ReadEAValue(inst, EAType.Destination, true);
+                var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
                 if (value.HasValue)
                 {
                     OpSize size = inst.Size ?? OpSize.Word;
@@ -1274,7 +1274,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     return null;
                 }
 
-                var value = ReadEAValue(inst, EAType.Destination, true);
+                var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
                 if (value.HasValue)
                 {
                     OpSize size = inst.Size ?? OpSize.Word;
@@ -1304,7 +1304,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     return null;
                 }
 
-                var value = ReadEAValue(inst, EAType.Destination, true);
+                var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
                 if (value.HasValue)
                 {
                     OpSize size = inst.Size ?? OpSize.Word;
@@ -1317,7 +1317,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? Scc(Instruction inst)
             {
-                var value = ReadEAValue(inst, EAType.Destination, true);
+                var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
                 if (value.HasValue)
                 {
                     int condition = (inst.Opcode & 0x0F00) >> 8;
@@ -1619,7 +1619,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
                 uint dRegVal = Machine.CPU.ReadDataRegister(dRegNum);
-                var value = ReadEAValue(inst, EAType.Destination, true);
+                var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
                 if (value.HasValue)
                 {
                     var result = value.Value ^ dRegVal;
@@ -1890,7 +1890,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     // Shift on memory (using Effective Address)
                     logicalShift = (inst.Opcode & 0x0E00) != 0;        // Determine if logical shift (i.e. LSL or LSR).
-                    var value = ReadEAValue(inst, EAType.Source, true);
+                    var value = ReadEAValue(inst, EAType.Source, suppressIncDec: true);
                     if (value.HasValue)
                     {
                         if (directionLeft)
@@ -1976,7 +1976,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     // Rotate on memory (using Effective Address)
                     withExtend = (inst.Opcode & 0x0E00) == 0x0400;        // Determine if rotate with Extend (i.e. ROXL or ROXR).
-                    var value = ReadEAValue(inst, EAType.Source, true);
+                    var value = ReadEAValue(inst, EAType.Source, suppressIncDec: true);
                     if (value.HasValue)
                     {
                         if (directionLeft)
@@ -2175,7 +2175,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 lock (PendleCodeMonkey.MC68000EmulatorLib.Machine.Lock)
                 {
-                    var value = ReadEAValue(inst, EAType.Destination, true);
+                    var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
                     if (value.HasValue)
                     {
                         Machine.CPU.NegativeFlag = (value.Value & 0x00000080) != 0;
@@ -2219,7 +2219,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? NBCD(Instruction inst)
             {
-                var value = ReadEAValue(inst, EAType.Destination, true);
+                var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
                 if (value.HasValue)
                 {
                     var loVal = 10 - (value.Value & 0x0000000F) - (Machine.CPU.ExtendFlag ? 1 : 0);

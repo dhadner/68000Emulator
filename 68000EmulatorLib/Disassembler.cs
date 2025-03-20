@@ -1509,11 +1509,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         if (((inst.Opcode >> 3) & 0x0007) == 0x0004)
                         {
                             // Predecrement mode
-                            op.Operands.Add(new RegListOperand(regMask, true));
+                            op.Operands.Add(new RegListOperand(regMask, preDec: true));
                         }
                         else
                         {
-                            op.Operands.Add(new RegListOperand(regMask, false));
+                            op.Operands.Add(new RegListOperand(regMask, preDec: false));
                         }
                         op.Operands.Add(EffectiveAddressOp(inst, EAType.Destination));
                     }
@@ -1521,7 +1521,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     {
                         // Source is mem, dest is reg (but EA is in dest field)
                         op.Operands.Add(EffectiveAddressOp(inst, EAType.Destination));
-                        op.Operands.Add(new RegListOperand(regMask, false));
+                        op.Operands.Add(new RegListOperand(regMask, preDec: false));
                     }
                 }
 
