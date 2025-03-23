@@ -186,7 +186,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             ///       DC.W $0001,$0002
             ///       DC.L $00000001
             /// </summay>
-            public const int MaxNESBytesPerRecord = 32;
+            public const int MaxNESBytesPerRecord = 64;
             public const int MaxNESItemsPerRecord = 8;
             protected List<NonExecSection> NonExecSections { get; set; } = [];
             protected Dictionary<uint, NonExecSection> NonExecSectionsByAddress { get; set; } = [];
@@ -354,74 +354,80 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sections.Sort((a, b) => a.Address.CompareTo(b.Address));
 
                 bool adjusted;
-
-                // Keep cycling up through the list until we haven't adjusted any sections.
-                do
+                try
                 {
-                    adjusted = false;
-
-                    for (int i = 0; i < sections.Count - 1; i++)
+                    // Keep cycling up through the list until we haven't adjusted any sections.
+                    do
                     {
-                        if (sections[i].Address + sections[i].Length > sections[i + 1].Address)
-                        {
-                            adjusted = true;
+                        adjusted = false;
 
-                            // We have an overlap, so combine them if same size
-                            if (sections[i].ItemOpSize == sections[i + 1].ItemOpSize)
+                        for (int i = 0; i < sections.Count - 1; i++)
+                        {
+                            if (sections[i].Address + sections[i].Length > sections[i + 1].Address)
                             {
-                                uint minAddress = Math.Min(sections[i].Address, sections[i + 1].Address);
-                                uint maxAddress = Math.Max(sections[i].Address + sections[i].Length, sections[i + 1].Address + sections[i + 1].Length);
-                                uint length = maxAddress - minAddress;
-                                NonExecSection merged = new(minAddress, length, sections[i].ItemOpSize, sections[i].DisplayRadix);
-                                sections[i + 1] = merged;
-                                sections.RemoveAt(i);
+                                adjusted = true;
+
+                                // We have an overlap, so combine them if same size
+                                if (sections[i].ItemOpSize == sections[i + 1].ItemOpSize)
+                                {
+                                    uint minAddress = Math.Min(sections[i].Address, sections[i + 1].Address);
+                                    uint maxAddress = Math.Max(sections[i].Address + sections[i].Length, sections[i + 1].Address + sections[i + 1].Length);
+                                    uint length = maxAddress - minAddress;
+                                    NonExecSection merged = new(minAddress, length, sections[i].ItemOpSize, sections[i].DisplayRadix);
+                                    sections[i + 1] = merged;
+                                    sections.RemoveAt(i);
+                                }
+                                else
+                                {
+                                    // Make the first one shorter.
+                                    sections[i].Length = sections[i + 1].Address - sections[i].Address;
+                                }
+                                break;
+                            }
+                        }
+                    } while (adjusted);
+                    NonExecSectionsByAddress.Clear();
+
+                    int index = 0;
+                    while (index < NonExecSections.Count)
+                    {
+                        NonExecSection section = NonExecSections[index];
+                        uint divisor = OpSizeToLength(section.ItemOpSize);
+                        uint remainder = section.Length % divisor;
+                        uint numFullOpSizes = section.Length / divisor;
+                        if (remainder != 0)
+                        {
+                            OpSize newSize = LengthToOpSize(remainder);
+                            // Add full section if any
+                            if (numFullOpSizes > 0)
+                            {
+                                // Adjust the original section's length to account for the new, small section to be added after
+                                section.Length -= remainder;
+                                NonExecSectionsByAddress[section.Address] = section;
+
+                                // Add a new small section to make up the difference.
+                                NonExecSection sec = new NonExecSection(section.Address + section.Length, remainder, newSize, section.DisplayRadix);
+                                NonExecSectionsByAddress[sec.Address] = sec;
+                                NonExecSections.Add(sec);
+                                index++;
                             }
                             else
                             {
-                                // Make the first one shorter.
-                                sections[i].Length = sections[i + 1].Address - sections[i].Address;
+                                // Section is too small for the OpSize, so just change the OpSize.
+                                section.ItemOpSize = newSize;
+                                NonExecSectionsByAddress[section.Address] = section;
                             }
-                            break;
-                        }
-                    }
-                } while (adjusted);
-                NonExecSectionsByAddress.Clear();
-                
-                int index = 0;
-                while (index < NonExecSections.Count)
-                {
-                    NonExecSection section = NonExecSections[index];
-                    uint divisor = OpSizeToLength(section.ItemOpSize);
-                    uint remainder = section.Length % divisor;
-                    uint numFullOpSizes = section.Length / divisor;
-                    if (remainder != 0)
-                    {
-                        OpSize newSize = LengthToOpSize(remainder);
-                        // Add full section if any
-                        if (numFullOpSizes > 0)
-                        {
-                            // Adjust the original section's length to account for the new, small section to be added after
-                            section.Length -= remainder;
-                            NonExecSectionsByAddress[section.Address] = section;
-
-                            // Add a new small section to make up the difference.
-                            NonExecSection sec = new NonExecSection(section.Address + section.Length, remainder, newSize, section.DisplayRadix);
-                            NonExecSectionsByAddress[sec.Address] = sec;
-                            NonExecSections.Add(sec);
-                            index++;
                         }
                         else
                         {
-                            // Section is too small for the OpSize, so just change the OpSize.
-                            section.ItemOpSize = newSize;
                             NonExecSectionsByAddress[section.Address] = section;
                         }
+                        index++;
                     }
-                    else
-                    {
-                        NonExecSectionsByAddress[section.Address] = section;
-                    }
-                    index++;
+                }
+                catch(Exception e)
+                {
+                    Logger.Log(LogLevel.Critical, $"NormalizeSections: {e.Message}");
                 }
             }
 
@@ -628,9 +634,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             // Disassemble an instruction
                             result.Add(DisassembleAtCurrentAddress());
                         }
-                        if (Machine.Debugger?.Cancelling == true) break;
+                        //if (Machine.Debugger?.Cancelling == true) break;
                     }
                     return result;
+                }
+                catch (Exception e)
+                {
+                    Logger.Log(LogLevel.Critical, $"Disassemble: {e.Message}");
+                    throw;
                 }
                 finally
                 {
