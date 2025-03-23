@@ -367,13 +367,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             {
                                 adjusted = true;
 
-                                // We have an overlap, so combine them if same size
+                                // We have an overlap, so combine them if same OpSize
                                 if (sections[i].ItemOpSize == sections[i + 1].ItemOpSize)
                                 {
                                     uint minAddress = Math.Min(sections[i].Address, sections[i + 1].Address);
                                     uint maxAddress = Math.Max(sections[i].Address + sections[i].Length, sections[i + 1].Address + sections[i + 1].Length);
                                     uint length = maxAddress - minAddress;
-                                    NonExecSection merged = new(minAddress, length, sections[i].ItemOpSize, sections[i].DisplayRadix);
+                                    NonExecSection merged = new(minAddress, length, sections[i].ItemOpSize, sections[i].ItemsPerLine, sections[i].DisplayRadix);
                                     sections[i + 1] = merged;
                                     sections.RemoveAt(i);
                                 }
@@ -406,7 +406,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 NonExecSectionsByAddress[section.Address] = section;
 
                                 // Add a new small section to make up the difference.
-                                NonExecSection sec = new NonExecSection(section.Address + section.Length, remainder, newSize, section.DisplayRadix);
+                                NonExecSection sec = new(section.Address + section.Length, remainder, newSize, section.ItemsPerLine, section.DisplayRadix);
                                 NonExecSectionsByAddress[sec.Address] = sec;
                                 NonExecSections.Add(sec);
                                 index++;
@@ -511,8 +511,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     {
                         // This section contains the range and must be split into two.
                         NonExecSections.Remove(section);
-                        NonExecSections.Add(new(section.Address, startAddress - section.Address, section.ItemOpSize, section.DisplayRadix));
-                        NonExecSections.Add(new(startAddress + length, nesMaxAddress - maxAddress, section.ItemOpSize, section.DisplayRadix));
+                        NonExecSections.Add(new(section.Address, startAddress - section.Address, section.ItemOpSize, section.ItemsPerLine, section.DisplayRadix));
+                        NonExecSections.Add(new(startAddress + length, nesMaxAddress - maxAddress, section.ItemOpSize, section.ItemsPerLine, section.DisplayRadix));
                     }
                     // CASE 3: Range to be [c]leared top extends up into the current [s]ection,
                     //         so the section must be recalculated to cut off the bottom.
@@ -526,7 +526,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         // The low portion of nes encroaches into the top of the range and so nes must be
                         // truncated.
                         NonExecSections.Remove(section);
-                        NonExecSections.Add(new(startAddress + length, nesMaxAddress - maxAddress, section.ItemOpSize, section.DisplayRadix));
+                        NonExecSections.Add(new(startAddress + length, nesMaxAddress - maxAddress, section.ItemOpSize, section.ItemsPerLine, section.DisplayRadix));
                     }
                     // CASE 4: Range to be [c]leared bottom is less than current [s]ection top, so the
                     //         current section must be truncated on the top.
@@ -539,7 +539,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         // The high portion of nes encroaches into the low end of the range and so nes
                         // must be truncated.
                         NonExecSections.Remove(section);
-                        NonExecSections.Add(new(section.Address, startAddress - section.Address, section.ItemOpSize, section.DisplayRadix));
+                        NonExecSections.Add(new(section.Address, startAddress - section.Address, section.ItemOpSize, section.ItemsPerLine, section.DisplayRadix));
                     }
                     else
                     {
