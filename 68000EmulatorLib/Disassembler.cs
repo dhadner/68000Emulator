@@ -402,11 +402,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         {
                             // Adjust the original section's length to account for the new, small section to be added after
                             section.Length -= remainder;
-                            NonExecSectionsByAddress.Add(section.Address, section);
+                            NonExecSectionsByAddress[section.Address] = section;
 
                             // Add a new small section to make up the difference.
                             NonExecSection sec = new NonExecSection(section.Address + section.Length, remainder, newSize, section.DisplayRadix);
-                            NonExecSectionsByAddress.Add(sec.Address, sec);
+                            NonExecSectionsByAddress[sec.Address] = sec;
                             NonExecSections.Add(sec);
                             index++;
                         }
@@ -414,12 +414,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         {
                             // Section is too small for the OpSize, so just change the OpSize.
                             section.ItemOpSize = newSize;
-                            NonExecSectionsByAddress.Add(section.Address, section);
+                            NonExecSectionsByAddress[section.Address] = section;
                         }
                     }
                     else
                     {
-                        NonExecSectionsByAddress.Add(section.Address, section);
+                        NonExecSectionsByAddress[section.Address] = section;
                     }
                     index++;
                 }
