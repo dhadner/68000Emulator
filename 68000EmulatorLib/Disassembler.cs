@@ -344,6 +344,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Sort the list and then walk up the list, removing duplicate sections that cover
             /// the same memory and combine those that overlap.  Updates the dictionary by 
             /// address before returning.
+            /// If the new length of a section is incompatible with the OpSize, adjust the
+            /// OpSize accordingly.
             /// </summary>
             protected void NormalizeSections()
             {
@@ -384,9 +386,42 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                 } while (adjusted);
                 NonExecSectionsByAddress.Clear();
-                foreach (NonExecSection section in NonExecSections)
+                
+                int index = 0;
+                while (index < NonExecSections.Count)
                 {
-                    NonExecSectionsByAddress.Add(section.Address, section);
+                    NonExecSection section = NonExecSections[index];
+                    uint divisor = OpSizeToLength(section.ItemOpSize);
+                    uint remainder = section.Length % divisor;
+                    uint numFullOpSizes = section.Length / divisor;
+                    if (remainder != 0)
+                    {
+                        OpSize newSize = LengthToOpSize(remainder);
+                        // Add full section if any
+                        if (numFullOpSizes > 0)
+                        {
+                            // Adjust the original section's length to account for the new, small section to be added after
+                            section.Length -= remainder;
+                            NonExecSectionsByAddress.Add(section.Address, section);
+
+                            // Add a new small section to make up the difference.
+                            NonExecSection sec = new NonExecSection(section.Address + section.Length, remainder, newSize, section.DisplayRadix);
+                            NonExecSectionsByAddress.Add(sec.Address, sec);
+                            NonExecSections.Add(sec);
+                            index++;
+                        }
+                        else
+                        {
+                            // Section is too small for the OpSize, so just change the OpSize.
+                            section.ItemOpSize = newSize;
+                            NonExecSectionsByAddress.Add(section.Address, section);
+                        }
+                    }
+                    else
+                    {
+                        NonExecSectionsByAddress.Add(section.Address, section);
+                    }
+                    index++;
                 }
             }
 
@@ -523,7 +558,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             /// <param name="size"></param>
             /// <returns></returns>
-            public static uint OpSizeToBytes(OpSize size)
+            public static uint OpSizeToLength(OpSize size)
             {
                 return size switch
                 {
@@ -532,6 +567,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     OpSize.Long => 4,
                     _ => 1
                 };
+            }
+
+            /// <summary>
+            /// Return an OpSize compatible with this length.
+            /// </summary>
+            /// <param name="byteCount"></param>
+            /// <returns></returns>
+            public static OpSize LengthToOpSize(uint length)
+            {
+                if (length % 4 == 0) return OpSize.Long;
+                if (length % 2 == 0) return OpSize.Word;
+                return OpSize.Byte;
             }
 
             /// <summary>
@@ -566,7 +613,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         var nonExecSection = GetNonExecutableSection(CurrentAddress);
                         if (nonExecSection != null)
                         {
-                            uint size = OpSizeToBytes(nonExecSection.ItemOpSize);
+                            uint size = OpSizeToLength(nonExecSection.ItemOpSize);
 
                             // Disassemble part of a non-executable section
                             uint maxLen = size * nonExecSection.ItemsPerLine;
@@ -604,7 +651,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns></returns>
             protected DisassemblyRecord GetNonExecutableSectionRecord(uint address, uint length, NonExecSection section)
             {
-                uint itemOpSize = OpSizeToBytes(section.ItemOpSize);
+                uint itemOpSize = OpSizeToLength(section.ItemOpSize);
                 
                 Directive dir = new(address, "DC", section.ItemOpSize);
                 if (itemOpSize > length)
