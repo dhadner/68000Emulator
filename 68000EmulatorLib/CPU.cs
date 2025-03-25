@@ -188,7 +188,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Reset the CPU settings to their default state.
         /// </summary>
-        public virtual void Reset()
+        public virtual void Reset(bool intializing = false)
         {
             for (int i = 0; i < DataRegisters.Length; i++)
             {

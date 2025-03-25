@@ -116,10 +116,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Reset the machine to its default state.
         /// </summary>
-        public virtual void Reset()
+        public virtual void Reset(bool initializing = false)
         {
             Memory.Clear();
-            CPU.Reset();
+            CPU.Reset(initializing);
             IsEndOfExecution = false;
             ExecutionStopped = false;
             _loadedAddress = 0;
