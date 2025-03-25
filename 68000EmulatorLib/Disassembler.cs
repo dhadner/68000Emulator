@@ -32,7 +32,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// Create in instance of the <see cref="DisassemblyRecord"/> class.
                 /// </summary>
                 /// <param name="endOfData">Set to <c>true</c> if the disassembler
-                /// ran out of bytes prior to completing disassembly of this instrluction.</param>
+                /// ran out of bytes prior to completing disassembly of this instruction.</param>
                 /// <param name="address">Address of this instruction</param>
                 /// <param name="machineCode">Actual instruction bytes</param>
                 /// <param name="assembly">Instruction, e.g., "MOVEQ.L #1,D0".  This text
@@ -787,7 +787,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     return;
                 }
                 uint itemSize = dir.Size switch { OpSize.Byte => 1, OpSize.Word => 2, OpSize.Long => 4, _ => 1 };
-                string? format = null;
+                string? format;
                 if (radix == 2)
                 {
                     format = itemSize == 1 ? "%{0:B8}" : itemSize == 2 ? "%{0:B16}" : "%{0:B32}";
@@ -838,23 +838,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         _bytes[i * itemSize + j] = value;
                         val = (val << 8) | value;
                     }
-                    ImmediateOperand op;
 
-                    switch (dir.Size)
+                    ImmediateOperand op = dir.Size switch
                     {
-                        case OpSize.Byte:
-                            op = new ImmediateOperand((byte)val, format);
-                            break;
-                        case OpSize.Word:
-                            op = new ImmediateOperand((ushort)val, format);
-                            break;
-                        case OpSize.Long:
-                            op = new ImmediateOperand(val, format);
-                            break;
-                        default:
-                            op = new ImmediateOperand(val, format);
-                            break;
-                    }
+                        OpSize.Byte => new ImmediateOperand((byte)val, format),
+                        OpSize.Word => new ImmediateOperand((ushort)val, format),
+                        OpSize.Long => new ImmediateOperand(val, format),
+                        _ => new ImmediateOperand(val, format),
+                    };
                     dir.Operands.Add(op);
                     sb.Append(op);
                 }
@@ -3044,10 +3035,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     get
                     {
-                        if (_text == null)
-                        {
-                            _text = ToString();
-                        }
+                        _text ??= ToString();
                         return _text ?? "ERROR";
                     }
                     protected set
