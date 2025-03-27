@@ -120,7 +120,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
 
         /// <summary>
-        /// Check to ensure the instruction has an extention word.  Throw exception if not.
+        /// Check to ensure the instruction has an extension word.  Throw exception if not.
         /// </summary>
         /// <param name="inst"></param>
         /// <exception cref="IllegalInstruction">Thrown if no extension word.</exception>
@@ -142,7 +142,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="vector">The 68000 TRAP vector value.</param>
         public static void RaiseTRAPException(ushort vector)
         {
-            Logger.Log(LogLevel.Error, $"TRAP exception: vector {vector}");
+            Logger.Log(LogLevel.Error, "CPU", $"TRAP exception: vector {vector}");
             throw new TrapException(vector);
         }
 
@@ -169,7 +169,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
         /// <summary>
         /// Create an exception as a result of normal execution.
-        /// This includes things like executinga LineA instruction, handling 
+        /// This includes things like executing a LineA instruction, handling 
         /// processor interrupts, etc.
         /// </summary>
         /// <param name="vector"></param>

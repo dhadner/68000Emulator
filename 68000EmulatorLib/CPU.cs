@@ -11,7 +11,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     {
         public CPU()
         {
-            Reset();
+            Initialize();
         }
 
         /// <summary>
@@ -184,11 +184,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
         }
 
+        /// <summary>
+        /// Set the CPU settings to their default state.
+        /// </summary>
+        public void Initialize()
+        {
+            Reset(true);
+        }
 
         /// <summary>
         /// Reset the CPU settings to their default state.
         /// </summary>
-        public virtual void Reset(bool intializing = false)
+        public virtual void Reset(bool initializing = false)
         {
             for (int i = 0; i < DataRegisters.Length; i++)
             {
@@ -323,7 +330,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         internal uint IncrementAddressRegister(byte regNum, OpSize size)
         {
             uint value = ReadAddressRegister(regNum);
-            int numBytes = size == OpSize.Byte ? 1 : (size == OpSize.Long ? 4 : 2);
+            int numBytes = size switch
+            { 
+                OpSize.Byte => 1,
+                OpSize.Long => 4,
+                _ => 2 
+            };
             value += (uint)numBytes;
             WriteAddressRegister(regNum, value);
             return value;
@@ -339,8 +351,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         internal uint DecrementAddressRegister(byte regNum, OpSize size)
         {
             uint value = ReadAddressRegister(regNum);
-            int numBytes = size == OpSize.Byte ? 1 : (size == OpSize.Long ? 4 : 2);
-            value -= (uint)numBytes;
+            int numBytes = size switch
+            {
+                OpSize.Byte => 1,
+                OpSize.Long => 4,
+                _ => 2
+            }; value -= (uint)numBytes;
             WriteAddressRegister(regNum, value);
             return value;
         }

@@ -19,27 +19,6 @@
         public static LogLevel Level { get; set; } = LogLevel.Error;
 
         /// <summary>
-        /// Log a message at default level.
-        /// </summary>
-        /// <param name="message"></param>
-        //[Conditional("DEBUG")]
-        public static void Log(string message)
-        {
-            LogEvent?.Invoke(new LogEventArgs(null, message));
-        }
-
-        /// <summary>
-        /// Log a message at the specified level.
-        /// </summary>
-        /// <param name="level"></param>
-        /// <param name="message"></param>
-        //[Conditional("DEBUG")]
-        public static void Log(LogLevel level, string message)
-        {
-            LogEvent?.Invoke(new LogEventArgs(level, message));
-        }
-
-        /// <summary>
         /// Log a message for the specified feature at the specified level.
         /// </summary>
         /// <param name="level"></param>

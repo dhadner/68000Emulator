@@ -1,6 +1,7 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using static PendleCodeMonkey.MC68000EmulatorLib.Machine.Disassembler;
 
@@ -242,7 +243,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 _handlers.Add(OpHandlerID.MOVEtoCCR, MOVEtoCCR);
                 _handlers.Add(OpHandlerID.MOVEtoSR, MOVEtoSR);
                 _handlers.Add(OpHandlerID.NEGX, DST);
-                _handlers.Add(OpHandlerID.CLR, CLR);
+                _handlers.Add(OpHandlerID.CLR, DST);
                 _handlers.Add(OpHandlerID.NEG, DST);
                 _handlers.Add(OpHandlerID.NOT, DST);
                 _handlers.Add(OpHandlerID.EXT, EXT);
@@ -427,7 +428,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 catch(Exception e)
                 {
-                    Logger.Log(LogLevel.Critical, $"NormalizeSections: {e.Message}");
+                    Logger.Log(LogLevel.Critical, "DISASSEMBLER", $"NormalizeSections: {e.Message}");
                 }
             }
 
@@ -472,12 +473,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 //    This is handled by calculating the intersections and including
                 //    only sections that intersect in the cases below.
                 //
-                foreach (var section in NonExecSections)
+                foreach (var section in NonExecSections.Where(section => section.IntersectsWith(startAddress, length)))
                 {
-                    if (section.IntersectsWith(startAddress, length))
-                    {
-                        sections.Add(section);
-                    }
+                    sections.Add(section);
                 }
 
                 // Sort the sections by address
@@ -543,7 +541,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                     else
                     {
-                        throw new ApplicationException("ClearNonExecutableSectionRange: Should not happen - logic error!");
+                        throw new InvalidOperationException("ClearNonExecutableSectionRange: Should not happen - logic error!");
                     }
                 }
                 NormalizeSections();
@@ -634,13 +632,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             // Disassemble an instruction
                             result.Add(DisassembleAtCurrentAddress());
                         }
-                        //if (Machine.Debugger?.Cancelling == true) break;
                     }
                     return result;
                 }
                 catch (Exception e)
                 {
-                    Logger.Log(LogLevel.Critical, $"Disassemble: {e.Message}");
+                    Logger.Log(LogLevel.Critical, "DISASSEMBLER", $"Disassemble: {e.Message}");
                     throw;
                 }
                 finally
@@ -903,7 +900,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     List<byte> codeBytes = [];
 
                     // Show the actual instruction bytes
-                    StringBuilder code = new();
                     int i;
                     for (i = 0; (i < length) && !IsEndOfData; i++)
                     {
@@ -1120,14 +1116,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             operand = new AddressPreDecOperand(regNum);
                             break;
                         case (byte)AddrMode.AddressDisp:
-                            //Debug.Assert(ext1.HasValue, "Required extension word is not available");
+                            // !ext1.HasValue -> Required extension word is not available
                             if (ext1.HasValue)
                             {
                                 operand = new AddressDispOperand(regNum, (short)ext1.Value);
                             }
                             break;
                         case (byte)AddrMode.AddressIndex:
-                            //Debug.Assert(ext1.HasValue, "Required extension word is not available");
+                            // !ext1.HasValue -> Required extension word is not available
                             if (ext1.HasValue)
                             {
                                 sbyte disp = (sbyte)(ext1.Value & 0x00FF);
@@ -1140,7 +1136,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             switch (ea)
                             {
                                 case (byte)AddrMode.AbsShort:
-                                    //Debug.Assert(ext1.HasValue, "Required extension word is not available");
+                                    // !ext1.HasValue -> Required extension word is not available
                                     if (ext1.HasValue)
                                     {
                                         address = ext1.Value | ((ext1.Value & 0x8000) == 0 ? 0x0 : 0xFFFF0000);
@@ -1148,7 +1144,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     }
                                     break;
                                 case (byte)AddrMode.AbsLong:
-                                    //Debug.Assert(ext1.HasValue && ext2.HasValue, "Required extension word is not available");
+                                    // !ext1.HasValue -> Required extension word is not available
                                     if (ext1.HasValue && ext2.HasValue)
                                     {
                                         address = (uint)((ext1.Value << 16) + ext2.Value);
@@ -1157,7 +1153,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     }
                                     break;
                                 case (byte)AddrMode.PCDisp:
-                                    //Debug.Assert(ext1.HasValue, "Required extension word is not available");
+                                    // !ext1.HasValue -> Required extension word is not available
                                     if (ext1.HasValue)
                                     {
                                         // PC has been incremented past the extension word.  The definition of
@@ -1172,7 +1168,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     }
                                     break;
                                 case (byte)AddrMode.PCIndex:
-                                    //Debug.Assert(ext1.HasValue, "Required extension word is not available");
+                                    // Required extension word is not available
                                     if (ext1.HasValue)
                                     {
                                         byte disp = (byte)(ext1.Value & 0x00FF);
@@ -1192,12 +1188,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     }
                                     break;
                                 case (byte)AddrMode.Immediate:
-                                    //Debug.Assert(ext1.HasValue, "Required extension word is not available");
+                                    // Required extension word is not available
                                     if (ext1.HasValue)
                                     {
                                         if (opSize == OpSize.Long)
                                         {
-                                            //Debug.Assert(ext2.HasValue, "Required extension word is not available");
+                                            // !ext2.HasValue -> Required extension word is not available
                                             if (ext2.HasValue)
                                             {
                                                 immVal = (uint)((ext1.Value << 16) + ext2.Value);
@@ -1255,7 +1251,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="inst"></param>
             /// <param name="sb"></param>
             /// <returns></returns>
-            protected bool HasSourceExtWord1(Instruction inst, StringBuilder sb)
+            protected static bool HasSourceExtWord1(Instruction inst, StringBuilder sb)
             {
                 if (inst.SourceExtWord1.HasValue)
                 {
@@ -1277,17 +1273,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 op.Size = AppendSizeAndTab(inst, sb);
 
                 op.Operands.Add(EffectiveAddressOp(inst, EAType.Source));
-
-                sb.Append(op.Operands);
-                return op;
-            }
-
-            protected Operation CLR(Instruction inst, StringBuilder sb)
-            {
-                Operation op = AppendMnemonic(inst, sb);
-                op.Size = AppendSizeAndTab(inst, sb);
-
-                op.Operands.Add(EffectiveAddressOp(inst, EAType.Destination));
 
                 sb.Append(op.Operands);
                 return op;
@@ -1319,7 +1304,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                     op.Operands.Add(new ImmediateOperand((byte)value));
                     op.Operands.Add(new CCROperand());
-                    //sb.Append($"#{FormatOperand(InstructionAddress, op.Operands[0])},CCR");
+                    // $"#{FormatOperand(InstructionAddress, op.Operands[0])},CCR"
 
                     sb.Append(op.Operands);
                 }
@@ -1626,7 +1611,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         sz = "";
                         opSize = null;
                         break;
-                };
+                }
                 op.Size = opSize;
                 sb.Append(sz);
                 sb.AppendTab(EAColumn);
@@ -1953,7 +1938,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 else if (regNum.HasValue)
                 {
                     op.Operands.Add(new DataRegisterOperand(regNum.Value));
-                    //sb.Append($"D{regNum}");
+                    // $"D{regNum}"
                 }
                 op.Operands.Add(EffectiveAddressOp(inst, EAType.Destination));
 
@@ -2062,13 +2047,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     op.Operands.Add(new AddressRegisterOperand(regNum));
                     op.Operands.Add(new AddressRegisterOperand(USP));
-                    //sb.Append($"{AddressReg(regNum)},USP");
+                    // $"{AddressReg(regNum)},USP"
                 }
                 else
                 {
                     op.Operands.Add(new AddressRegisterOperand(USP));
                     op.Operands.Add(new AddressRegisterOperand(regNum));
-                    //sb.Append($"USP,{AddressReg(regNum)}");
+                    // $"USP,{AddressReg(regNum)}"
                 }
 
                 sb.Append(op.Operands);
@@ -2088,14 +2073,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     // Working with data registers
                     op.Operands.Add(new DataRegisterOperand(rSrc));
                     op.Operands.Add(new DataRegisterOperand(rDest));
-                    //sb.Append($"D{rSrc},D{rDest}");
+                    // $"D{rSrc},D{rDest}"
                 }
                 else
                 {
                     // Working with memory addresses.
                     op.Operands.Add(new AddressPreDecOperand(rSrc));
                     op.Operands.Add(new AddressPreDecOperand(rDest));
-                    //sb.Append($"-({AddressReg(rSrc)}),-({AddressReg(rDest)})");
+                    // $"-({AddressReg(rSrc)}),-({AddressReg(rDest)})"
                 }
 
                 sb.Append(op.Operands);
@@ -2119,20 +2104,20 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     case 0x08:      // Data Register <-> Data Register
                         op.Operands.Add(new DataRegisterOperand(rY));
                         op.Operands.Add(new DataRegisterOperand(rX));
-                        //sb.Append($"D{rY},D{rX}");
+                        // $"D{rY},D{rX}"
                         break;
                     case 0x09:      // Address Register <-> Address Register
                         op.Operands.Add(new AddressRegisterOperand(rY));
                         op.Operands.Add(new AddressRegisterOperand(rX));
-                        //sb.Append($"{AddressReg(rY)},{AddressReg(rX)}");
+                        // $"{AddressReg(rY)},{AddressReg(rX)}"
                         break;
                     case 0x11:      // Data Register <-> Address Register
                         op.Operands.Add(new DataRegisterOperand(rY));
                         op.Operands.Add(new AddressRegisterOperand(rX));
-                        //sb.Append($"D{rY},{AddressReg(rX)}");
+                        // $"D{rY},{AddressReg(rX)}"
                         break;
                     default:
-                        //Debug.Assert(false, "Invalid operating mode for EXG instruction.");
+                        Logger.Log(LogLevel.Warning, "DISASSEMBLER", "Invalid operating mode for EXG instruction.");
                         break;
                 }
 
@@ -2193,13 +2178,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     op.Operands.Add(new DataRegisterOperand(rX));
                     op.Operands.Add(new DataRegisterOperand(rY));
-                    //sb.Append($"D{rX},D{rY}");
+                    // $"D{rX},D{rY}"
                 }
                 else
                 {
                     op.Operands.Add(new AddressPreDecOperand(rX));
                     op.Operands.Add(new AddressPreDecOperand(rY));
-                    //sb.Append($"-({AddressReg(rX)}),-({AddressReg(rY)})");
+                    // $"-({AddressReg(rX)}),-({AddressReg(rY)})"
                 }
 
                 sb.Append(op.Operands);
@@ -2229,7 +2214,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sb.AppendTab(EAColumn);
 
                 op.Operands.Add(new ImmediateOperand((ushort)(inst.Opcode & 0x0fff), "${0:x3}"));
-                // sb.Append($"${(ushort)(inst.Opcode & 0x0fff):x3}");
+                // $"${(ushort)(inst.Opcode & 0x0fff):x3}")
 
                 sb.Append(op.Operands);
                 return op;
@@ -2321,16 +2306,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         else
                         {
                             // Skip this register, emit previous range if any
-                            if (startReg.HasValue)
+                            if (startReg.HasValue && lastReg.HasValue && lastReg.Value != startReg.Value)
                             {
-                                if (lastReg.HasValue)
-                                {
-                                    if (lastReg.Value != startReg.Value)
-                                    {
-                                        sb.Append('-');
-                                        sb.Append(_reg[lastReg.Value]);
-                                    }
-                                }
+                                sb.Append('-');
+                                sb.Append(_reg[lastReg.Value]);
                             }
                             startReg = null;
                             lastReg = null;
@@ -3295,7 +3274,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// USP register name (alias for for the MOVEtoUSP and 
             /// MOVEfromUSP instructions.
             /// </summary>
-            public AddressRegister USP = AddressRegisters[8];
+            public AddressRegister USP => AddressRegisters[8];
 
             /// <summary>
             /// Data register names.
@@ -3388,17 +3367,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     sb.AppendSizeAndTab(Size);
                     int start = sb.Length + assemblyStartColumn;
 
-                    foreach (Operand op in Operands)
+                    foreach (Operand op in Operands.Where(op => op.Expression != null))
                     {
-                        if (op.Expression != null)
+                        int opStart = start + op.Expression!.StartCol;
+                        if (opStart >= column && column <= opStart + op.Expression.Text.Length)
                         {
-                            int opStart = start + op.Expression.StartCol;
-                            if (opStart >= column && column <= opStart + op.Expression.Text.Length)
-                            {
-                                return op.Expression;
-                            }
-                            start = opStart + op.Expression.Text.Length + 1; // comma after
+                            return op.Expression;
                         }
+                        start = opStart + op.Expression.Text.Length + 1; // comma after
                     }
                     return null;
                 }
