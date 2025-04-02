@@ -775,13 +775,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="startAddress">Address of first operand</param>
             /// <param name="radix">radix used to display values of operands</param>
             /// <returns></returns>
-            protected void NonExecutableDataDisassembly(Directive dir, uint length, uint startAddress, uint radix)
+            protected string? NonExecutableDataDisassembly(Directive dir, uint length, uint startAddress, uint radix)
             {
+                string? error = null;
                 StringBuilder sb = new();
                 if (dir.Size != OpSize.Byte && dir.Size != OpSize.Word && dir.Size != OpSize.Long)
                 {
                     dir.Assembly = $"[ERROR] NonExecutableDataDisassembly called with incompatible size: {dir.Size}";
-                    return;
+                    return $"[ERROR] NonExecutableDataDisassembly called with incompatible size: {dir.Size}";
                 }
                 uint itemSize = dir.Size switch { OpSize.Byte => 1, OpSize.Word => 2, OpSize.Long => 4, _ => 1 };
                 string? format;
@@ -799,21 +800,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 uint items = Math.Max(1, length / itemSize);
                 uint remainder = length % itemSize;
+                OpSize dirSize = dir.Size?? OpSize.Word;
                 if (remainder != 0)
                 {
-                    dir.Assembly = $"[ERROR] NonExecutableDataDisassembly called with incompatible length for {dir.Size}: {length}";
-                    return;
+                    error = $"[ERROR] NonExecutableDataDisassembly called with incompatible length for {dir.Size}: {length}";
+                    dirSize = OpSize.Byte;
                 }
                 string dc;
-                if (dir.Size == OpSize.Long)
+                if (dirSize == OpSize.Long)
                 {
                     dc = "DC.L";
                 }
-                else if (dir.Size == OpSize.Word)
+                else if (dirSize == OpSize.Word)
                 {
                     dc = "DC.W";
                 }
-                else  // (dir.Size == OpSize.Byte)
+                else  // (dirSize == OpSize.Byte)
                 {
                     dc = "DC.B";
                 }
@@ -836,7 +838,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         val = (val << 8) | value;
                     }
 
-                    ImmediateOperand op = dir.Size switch
+                    ImmediateOperand op = dirSize switch
                     {
                         OpSize.Byte => new ImmediateOperand((byte)val, format),
                         OpSize.Word => new ImmediateOperand((ushort)val, format),
@@ -849,6 +851,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 dir.Assembly = sb.ToString();
                 dir.PostOperandAnnotation = $"    '{GetBytesAsString(_bytes, length)}'";
+
+                return error;
             }
 
             /// <summary>
