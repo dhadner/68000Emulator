@@ -587,6 +587,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             /// <summary>
             /// Perform a full disassembly of the specified block of memory.
+            /// 
+            /// In the case where a non-executable section is in the list, there may
+            /// be many records for a single section.  In that case, account for the
+            /// fact that the first record may not have been on an alignment boundary
+            /// from the start of that section and adjust it accordingly so that the
+            /// remaining records are aligned correctly.  If the final record is
+            /// truncated by "length", then adjust the length of the record to be
+            /// consistent with the length.
             /// </summary>
             /// <description>
             /// DisassemblyRecord output is compatible with vasm using the following options:
@@ -601,6 +609,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 try
                 {
+                    uint legalAddress = GetClosestLegalAddress(startAddress);
+                    length += startAddress - legalAddress;
+
                     // Set machine parameters for this disassembler machine
                     Disassembling = true;
                     Machine.CPU.PC = startAddress;
@@ -647,21 +658,79 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
+            /// Return the closest legal address for the given address in the section.
+            /// </summary>
+            /// <param name="address"></param>
+            /// <param name="section"></param>
+            /// <returns></returns>
+            public uint GetClosestLegalAddress(uint address)
+            {
+                return GetClosestLegalAddress(address, GetNonExecutableSection(address));
+            }
+
+            /// <summary>
+            /// Return the closest legal address for the given address in the section.
+            /// </summary>
+            /// <param name="address"></param>
+            /// <param name="section"></param>
+            /// <returns></returns>
+            public static uint GetClosestLegalAddress(uint address, NonExecSection? section)
+            {
+                address &= 0x00ffffff;
+                if (section != null)
+                {
+                    uint itemOpSize = OpSizeToLength(section.ItemOpSize);
+                    uint startIntoSection = address - section.Address;
+                    uint remainder = startIntoSection % itemOpSize;
+                    if (remainder != 0)
+                    {
+                        // The address is somewhere in the section where the alignment doesn't
+                        // match the opsize.  Round down to the next lowest address that is
+                        // on an alignment boundary.
+                        address -= remainder;
+                    }
+                    return address;
+                }
+                // Not in a non-executable section, so address must be even.
+                if ((address & 1) != 0)
+                {
+                    address--;
+                }
+                return address;
+            }
+
+            /// <summary>
             /// Return a Disassembly record for the section that starts at <see cref="address"/>
             /// and has the requested <see cref="length"/>.
+            /// 
             /// Note that the actual section may start at a much lower address and continue on past the
             /// requested length so handle appropriately.  Also, the requested section may
             /// end prior to the length passed in, so also handle that appropriately.
+            /// 
+            /// In the case where a non-executable section is large, there may
+            /// be many records for a single section.  In that case, account for the
+            /// fact that the first record may not have been on an alignment boundary
+            /// from the start of that section and return an assembly record that starts
+            /// on an alignment boundary.  
+            /// 
+            /// If the final record is truncated by "length", then adjust the length of the 
+            /// record to be consistent with the length.
             /// </summary>
-            /// <param name="address"></param>
-            /// <param name="length"></param>
-            /// <param name="section"></param>
+            /// <param name="address">starting address of this disassembly record</param>
+            /// <param name="length">max length of disassembly record in bytes</param>
+            /// <param name="section">non-executable section that contains the address.</param>
             /// <returns></returns>
             protected DisassemblyRecord GetNonExecutableSectionRecord(uint address, uint length, NonExecSection section)
             {
+                address = GetClosestLegalAddress(address, section);
+
                 uint itemOpSize = OpSizeToLength(section.ItemOpSize);
-                
+
                 Directive dir = new(address, "DC", section.ItemOpSize);
+
+                uint itemsPerLine = section.ItemsPerLine;
+
+                // Shrink the OpSize if needed.  The 
                 if (itemOpSize > length)
                 {
                     if (length == 2)
@@ -673,8 +742,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         dir.Size = OpSize.Byte;
                     }
                 }
+                itemOpSize = OpSizeToLength(dir.Size!.Value);
 
-                length = Math.Min(length, itemOpSize * section.ItemsPerLine);
+                length = Math.Min(length, itemOpSize * itemsPerLine);
 
                 // Length of NES that is contained in this record.
                 uint nesRecordLength = section.Length - (address - section.Address);
