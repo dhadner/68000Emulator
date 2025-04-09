@@ -120,8 +120,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         public uint? PC { get; set; }
 
-
-
         /// <summary>
         /// Transfer values from this <see cref="CPUState"/> instance into the settings in
         /// specified <see cref="CPU"/> instance.
@@ -130,7 +128,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Only non-null values in this <see cref="CPUState"/> instance are transferred to the <see cref="CPU"/>.
         /// </remarks>
         /// <param name="cpu">The <see cref="CPU"/> instance into which the state values should be transferred.</param>
-        public void TransferStateToCPU(CPU cpu)
+        public void ToCPU(CPU cpu)
         {
             if (D0.HasValue)
             {
@@ -222,7 +220,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Transfer values from the specified <see cref="CPU"/> instance into this <see cref="CPUState"/> instance.
         /// </summary>
         /// <param name="cpu">The <see cref="CPU"/> instance from which the state values should be transferred.</param>
-        public void TransferStateFromCPU(CPU cpu)
+        public void FromCPU(CPU cpu)
         {
             D0 = cpu.ReadDataRegister(0);
             D1 = cpu.ReadDataRegister(1);
@@ -249,6 +247,5 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             PC = cpu.PC;
         }
-
     }
 }

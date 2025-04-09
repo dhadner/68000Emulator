@@ -186,7 +186,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public CPUState GetCPUState()
         {
             CPUState state = new CPUState();
-            state.TransferStateFromCPU(CPU);
+            state.FromCPU(CPU);
             return state;
         }
 
@@ -197,7 +197,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="state">A <see cref="CPUState"/> object that will receive the current CPU state settings.</param>
         public void GetCPUState(ref CPUState state)
         {
-            state.TransferStateFromCPU(CPU);
+            state.FromCPU(CPU);
         }
 
         /// <summary>
@@ -219,7 +219,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="state">A <see cref="CPUState"/> object containing the new CPU state settings.</param>
         public void SetCPUState(CPUState state)
         {
-            state.TransferStateToCPU(CPU);
+            state.ToCPU(CPU);
         }
 
         /// <summary>

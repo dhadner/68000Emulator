@@ -317,7 +317,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Read extension word operand data for the specified effective adrdress mode.
+            /// Read extension word operand data for the specified effective address mode.
             /// </summary>
             /// <param name="ea">The effective address mode value (see Enumerations.AddrMode).</param>
             /// <param name="size">The size of effective address operand data to be read (Word or Long).</param>

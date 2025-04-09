@@ -39,7 +39,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="start">Character position to parse from (0-based)</param>
             /// <param name="length">Number of characters to parse</param>
             /// <returns>Parsed value</returns>
-            private uint FromHex(string str, int start, int length)
+            private static uint FromHex(string str, int start, int length)
             {
                 string hex = str.Substring(start, length);
                 return uint.Parse(hex, NumberStyles.HexNumber);

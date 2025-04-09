@@ -36,3 +36,4 @@ using System.Diagnostics.CodeAnalysis;
 [assembly: SuppressMessage("Minor Code Smell", "S1104:Fields should not have public accessibility", Justification = "<Pending>", Scope = "member", Target = "~F:PendleCodeMonkey.MC68000EmulatorLib.LogEventArgs.Level")]
 [assembly: SuppressMessage("Minor Code Smell", "S1104:Fields should not have public accessibility", Justification = "<Pending>", Scope = "member", Target = "~F:PendleCodeMonkey.MC68000EmulatorLib.LogEventArgs.Message")]
 [assembly: SuppressMessage("Minor Code Smell", "S1104:Fields should not have public accessibility", Justification = "<Pending>", Scope = "member", Target = "~F:PendleCodeMonkey.MC68000EmulatorLib.LogEventArgs.Feature")]
+[assembly: SuppressMessage("Minor Code Smell", "S101:Types should be named in PascalCase", Justification = "<Pending>", Scope = "type", Target = "~T:PendleCodeMonkey.MC68000EmulatorLib.CPUState")]
