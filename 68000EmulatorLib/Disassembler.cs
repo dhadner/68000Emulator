@@ -24,8 +24,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             /// <summary>
             /// Record returned when disassembling a single instruction at an address.
-            /// Comment can be provided by subclasses overriding the <see cref="Comment"/>
-            /// method.
             /// </summary>
             public record DisassemblyRecord
             {
@@ -58,12 +56,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public bool EndOfData { get; private set; }
 
                 /// <summary>
-                /// Address of this instruction
+                /// Address of this instruction or data area.
                 /// </summary>
                 public uint Address => Op.Address;
 
                 /// <summary>
-                /// Actual instruction bytes
+                /// Actual instruction or data bytes
                 /// </summary>
                 public byte[] MachineCode => Op.MachineCode;
 
@@ -2452,7 +2450,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// may be part of some operands.  The StartCol is based
             /// on the specific formatting of that operand, e.g.,
             /// "(MyValue).L" has a StartCol of 1, whereas 
-            /// "MyValue(A0,D1.W)" has a StartCol of 0.
+            /// "MyValue(A0,D1.W)" has a StartCol of 0.  
+            /// 
+            /// This can be  used as a hint to the UI when highlighting the
+            /// "MyValue" part of the expression in order to provide,
+            /// perhaps, the ability to modify the text for clearer
+            /// documentation.  E.g., "4" might be the text, and the
+            /// user may change this to "MaxLen-1", where "MaxLen" is
+            /// defined in a EQU assembly line to be equal to 5.
             /// </summary>
             public class Expression
             {
@@ -3366,7 +3371,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             ];
 
             /// <summary>
-            /// Base class for directives (e.g., "DC", "EQU") and operations (e.g., "MOVE", "JMP").
+            /// Base class for directives (e.g., "DC.L") and operations (e.g., "MOVE", "JMP").
             /// </summary>
             public class DirectiveOrOperation
             {
