@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using static PendleCodeMonkey.MC68000EmulatorLib.Machine.Disassembler;
 
@@ -12,6 +13,23 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     /// </summary>
     public partial class Machine
     {
+        /// <summary>
+        /// MC68000 supports 24-bit addressing.
+        /// </summary>
+        public const uint LEGAL_ADDRESS_MASK = 0x00ffffff;
+
+        /// <summary>
+        /// Take an arbitrary 32-bit number and mask it to be a legal
+        /// 24-bit address for the MC68000.
+        /// </summary>
+        /// <param name="address"></param>
+        /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static uint MakeLegalAddress(uint address)
+        {
+            return address & LEGAL_ADDRESS_MASK;
+        }
+
         /// <summary>
         /// Implementation of the <see cref="Disassembler"/> class.  It
         /// disassembles instructions and displays memory but never
@@ -24,8 +42,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             /// <summary>
             /// Record returned when disassembling a single instruction at an address.
-            /// Comment can be provided by subclasses overriding the <see cref="Comment"/>
-            /// method.
             /// </summary>
             public record DisassemblyRecord
             {
@@ -58,12 +74,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public bool EndOfData { get; private set; }
 
                 /// <summary>
-                /// Address of this instruction
+                /// Address of this instruction or data area.
                 /// </summary>
                 public uint Address => Op.Address;
 
                 /// <summary>
-                /// Actual instruction bytes
+                /// Actual instruction or data bytes
                 /// </summary>
                 public byte[] MachineCode => Op.MachineCode;
 
@@ -122,7 +138,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Gets or sets the <see cref="Machine"/> instance for which this <see cref="Disassembler"/> instance
             /// is handling the disassembly of instructions.
             /// </summary>
-            protected DisassemblerMachine Machine { get; set; }
+            public DisassemblerMachine Machine { get; protected set; }
 
             /// <summary>
             /// Gets or sets the start effectiveAddress of the block of memory being disassembled.
@@ -155,13 +171,26 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="address"></param>
             /// <param name="length"></param>
             /// <param name="itemOpSize">'A' auto (default), 'B' byte, 'W' word, 'L' long</param>
-            public class NonExecSection(uint address, uint length, OpSize itemOpSize = OpSize.Byte, uint itemsPerLine = 1, uint displayRadix = 16)
+            public class NonExecSection
             {
-                public virtual uint Address { get; set; } = address;
-                public virtual uint Length { get; set; } = length;
-                public virtual OpSize ItemOpSize { get; set; } = itemOpSize;
-                public virtual uint ItemsPerLine { get; set; } = Math.Min(MaxNESBytesPerRecord, Math.Max(1, itemsPerLine));
-                public virtual uint DisplayRadix { get; set; } = (uint)(displayRadix == 2 ? 2 : displayRadix == 10 ? 10 : 16);
+                public NonExecSection()
+                {
+                }
+
+                public NonExecSection(uint address, uint length, OpSize itemOpSize = OpSize.Byte, uint itemsPerLine = 1, uint displayRadix = 16)
+                {
+                    Address = address;
+                    Length = length;
+                    ItemOpSize = itemOpSize;
+                    ItemsPerLine = Math.Min(MaxNESBytesPerRecord, Math.Max(1, itemsPerLine));
+                    DisplayRadix = (uint)(displayRadix == 2 ? 2 : displayRadix == 10 ? 10 : 16);
+                }
+
+                public virtual uint Address { get; set; }
+                public virtual uint Length { get; set; }
+                public virtual OpSize ItemOpSize { get; set; }
+                public virtual uint ItemsPerLine { get; set; }
+                public virtual uint DisplayRadix { get; set; }
 
                 /// <summary>
                 /// Return true if the section contains at least one byte of the
@@ -676,7 +705,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns></returns>
             public static uint GetClosestLegalAddress(uint address, NonExecSection? section)
             {
-                address &= 0x00ffffff;
+                address = MakeLegalAddress(address);
                 if (section != null)
                 {
                     uint itemOpSize = OpSizeToLength(section.ItemOpSize);
@@ -1098,8 +1127,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// disassembly will show the absolute address instead.
             /// </summary>
             /// <param name="address"></param>
+            /// <param name="refAddress">(optional) Address from which this label is referenced</param>
             /// <returns></returns>
-            protected virtual string? GetLabelName(uint address)
+            protected virtual string? GetLabelName(uint address, uint? refAddress)
             {
                 return null;
             }
@@ -2452,7 +2482,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// may be part of some operands.  The StartCol is based
             /// on the specific formatting of that operand, e.g.,
             /// "(MyValue).L" has a StartCol of 1, whereas 
-            /// "MyValue(A0,D1.W)" has a StartCol of 0.
+            /// "MyValue(A0,D1.W)" has a StartCol of 0.  
+            /// 
+            /// This can be  used as a hint to the UI when highlighting the
+            /// "MyValue" part of the expression in order to provide,
+            /// perhaps, the ability to modify the text for clearer
+            /// documentation.  E.g., "4" might be the text, and the
+            /// user may change this to "MaxLen-1", where "MaxLen" is
+            /// defined in a EQU assembly line to be equal to 5.
             /// </summary>
             public class Expression
             {
@@ -2844,13 +2881,31 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 public Label Label { get; set; }
 
+                public string? LabelString(uint? refAddress)
+                {
+                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos) ?? CurrentDisassembler?.GetLabelName(Label.Address, Op.Address);
+                    if (disp == null && Format != null)
+                    {
+                        disp = string.Format(Format, Label.Address);
+                    }
+                    else disp ??= $"{Label}";
+
+                    Expression = new Expression(this, 0, disp);
+                    if (Size == OpSize.Long)
+                    {
+                        disp = $"({disp}).L";
+                        Expression.StartCol = 1;
+                    }
+                    return disp;
+                }
+
                 /// <summary>
                 /// Format the operand disassembly display and for the assembler.
                 /// </summary>
                 /// <returns>Operand string suitable for an assembler.</returns>
                 public override string? ToString()
                 {
-                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos) ?? CurrentDisassembler?.GetLabelName(Label.Address);
+                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos) ?? CurrentDisassembler?.GetLabelName(Label.Address, Op.Address);
                     if (disp == null && Format != null)
                     {
                         disp = string.Format(Format, Label.Address);
@@ -3084,7 +3139,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public int Pos { get; set; } = 0;
 
                 protected string? _text;
-                public string Text
+                public virtual string Text
                 {
                     get
                     {
@@ -3366,7 +3421,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             ];
 
             /// <summary>
-            /// Base class for directives (e.g., "DC", "EQU") and operations (e.g., "MOVE", "JMP").
+            /// Base class for directives (e.g., "DC.L") and operations (e.g., "MOVE", "JMP").
             /// </summary>
             public class DirectiveOrOperation
             {

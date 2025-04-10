@@ -6,7 +6,8 @@
     public interface IDebugger
     {
         /// <summary>
-        /// True if debugging.
+        /// True if debugging.  Used to enable callbacks to <see cref="DebugReadAccess(uint)"/> 
+        /// and <see cref="DebugWriteAccess(uint)"/>.
         /// </summary>
         bool Debugging { get; set; }
 
@@ -17,13 +18,13 @@
         bool Disassembling { get; set; }
 
         /// <summary>
-        /// Callback to debugger on read access when Debugging.  Useful for implementing
+        /// Callback to debugger on read access when Debugging.  Used for implementing
         /// watchpoints in the debugger.
         /// </summary>
         void DebugReadAccess(uint address);
 
         /// <summary>
-        /// Callback to debugger on write access when Debugging.  Useful for implementing
+        /// Callback to debugger on write access when Debugging.  Used for implementing
         /// watchpoints in the debugger.
         /// </summary>
         void DebugWriteAccess(uint address);
