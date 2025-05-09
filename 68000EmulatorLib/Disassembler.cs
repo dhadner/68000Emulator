@@ -120,7 +120,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Gets or sets the <see cref="Machine"/> instance for which this <see cref="Disassembler"/> instance
             /// is handling the disassembly of instructions.
             /// </summary>
-            protected DisassemblerMachine Machine { get; set; }
+            public DisassemblerMachine Machine { get; protected set; }
 
             /// <summary>
             /// Gets or sets the start effectiveAddress of the block of memory being disassembled.
@@ -1096,8 +1096,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// disassembly will show the absolute address instead.
             /// </summary>
             /// <param name="address"></param>
+            /// <param name="refAddress">(optional) Address from which this label is referenced</param>
             /// <returns></returns>
-            protected virtual string? GetLabelName(uint address)
+            protected virtual string? GetLabelName(uint address, uint? refAddress)
             {
                 return null;
             }
@@ -2849,13 +2850,31 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 public Label Label { get; set; }
 
+                public string? LabelString(uint? refAddress)
+                {
+                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos) ?? CurrentDisassembler?.GetLabelName(Label.Address, Op.Address);
+                    if (disp == null && Format != null)
+                    {
+                        disp = string.Format(Format, Label.Address);
+                    }
+                    else disp ??= $"{Label}";
+
+                    Expression = new Expression(this, 0, disp);
+                    if (Size == OpSize.Long)
+                    {
+                        disp = $"({disp}).L";
+                        Expression.StartCol = 1;
+                    }
+                    return disp;
+                }
+
                 /// <summary>
                 /// Format the operand disassembly display and for the assembler.
                 /// </summary>
                 /// <returns>Operand string suitable for an assembler.</returns>
                 public override string? ToString()
                 {
-                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos) ?? CurrentDisassembler?.GetLabelName(Label.Address);
+                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos) ?? CurrentDisassembler?.GetLabelName(Label.Address, Op.Address);
                     if (disp == null && Format != null)
                     {
                         disp = string.Format(Format, Label.Address);
@@ -3089,7 +3108,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public int Pos { get; set; } = 0;
 
                 protected string? _text;
-                public string Text
+                public virtual string Text
                 {
                     get
                     {
