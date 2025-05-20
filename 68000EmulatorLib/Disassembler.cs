@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using static PendleCodeMonkey.MC68000EmulatorLib.Machine.Disassembler;
 
@@ -12,6 +13,23 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     /// </summary>
     public partial class Machine
     {
+        /// <summary>
+        /// MC68000 supports 24-bit addressing.
+        /// </summary>
+        public const uint LEGAL_ADDRESS_MASK = 0x00ffffff;
+
+        /// <summary>
+        /// Take an arbitrary 32-bit number and mask it to be a legal
+        /// 24-bit address for the MC68000.
+        /// </summary>
+        /// <param name="address"></param>
+        /// <returns></returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static uint MakeLegalAddress(uint address)
+        {
+            return address & LEGAL_ADDRESS_MASK;
+        }
+
         /// <summary>
         /// Implementation of the <see cref="Disassembler"/> class.  It
         /// disassembles instructions and displays memory but never
@@ -674,7 +692,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns></returns>
             public static uint GetClosestLegalAddress(uint address, NonExecSection? section)
             {
-                address &= 0x00ffffff;
+                address = MakeLegalAddress(address);
                 if (section != null)
                 {
                     uint itemOpSize = OpSizeToLength(section.ItemOpSize);
