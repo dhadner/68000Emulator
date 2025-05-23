@@ -19,7 +19,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Single lock object for entire machine (==> no deadlocks)
         /// </summary>
-        public static object Lock { get; } = new();
+        public static System.Threading.Lock Lock { get; } = new();
 
         /// <summary>
         /// True when loading a file into memory.

@@ -1,8 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace>PendleCodeMonkey.MC68000EmulatorLib</RootNamespace>
+    <TargetFramework>net9.0</TargetFramework>
+	  <LangVersion>preview</LangVersion>
+	  <RootNamespace>PendleCodeMonkey.MC68000EmulatorLib</RootNamespace>
     <Authors>PendleCodeMonkey</Authors>
 	<Nullable>enable</Nullable>
   </PropertyGroup>
