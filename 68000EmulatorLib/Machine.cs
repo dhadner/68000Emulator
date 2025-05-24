@@ -330,7 +330,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         /// <param name="data">The 16-bit data array.</param>
         /// <returns>The resulting array of 8-bit values.</returns>
-        private byte[] ToByteArray(ushort[] data)
+        private static byte[] ToByteArray(ushort[] data)
         {
             byte[] bData = new byte[data.Length * 2];
 
