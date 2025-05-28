@@ -171,13 +171,26 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="address"></param>
             /// <param name="length"></param>
             /// <param name="itemOpSize">'A' auto (default), 'B' byte, 'W' word, 'L' long</param>
-            public class NonExecSection(uint address, uint length, OpSize itemOpSize = OpSize.Byte, uint itemsPerLine = 1, uint displayRadix = 16)
+            public class NonExecSection
             {
-                public virtual uint Address { get; set; } = address;
-                public virtual uint Length { get; set; } = length;
-                public virtual OpSize ItemOpSize { get; set; } = itemOpSize;
-                public virtual uint ItemsPerLine { get; set; } = Math.Min(MaxNESBytesPerRecord, Math.Max(1, itemsPerLine));
-                public virtual uint DisplayRadix { get; set; } = (uint)(displayRadix == 2 ? 2 : displayRadix == 10 ? 10 : 16);
+                public NonExecSection()
+                {
+                }
+
+                public NonExecSection(uint address, uint length, OpSize itemOpSize = OpSize.Byte, uint itemsPerLine = 1, uint displayRadix = 16)
+                {
+                    Address = address;
+                    Length = length;
+                    ItemOpSize = itemOpSize;
+                    ItemsPerLine = Math.Min(MaxNESBytesPerRecord, Math.Max(1, itemsPerLine));
+                    DisplayRadix = (uint)(displayRadix == 2 ? 2 : displayRadix == 10 ? 10 : 16);
+                }
+
+                public virtual uint Address { get; set; }
+                public virtual uint Length { get; set; }
+                public virtual OpSize ItemOpSize { get; set; }
+                public virtual uint ItemsPerLine { get; set; }
+                public virtual uint DisplayRadix { get; set; }
 
                 /// <summary>
                 /// Return true if the section contains at least one byte of the
