@@ -19,10 +19,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     /// </summary>
     public static class Lock
     {
-        [DllImport("macse_rust.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("emulator_68000.dll", CallingConvention = CallingConvention.Cdecl)]
         private static extern int lock_acquire();
 
-        [DllImport("macse_rust.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport("emulator_68000.dll", CallingConvention = CallingConvention.Cdecl)]
         private static extern int lock_release();
 
         public static IDisposable Acquire()
