@@ -9,7 +9,8 @@
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
-    <Optimize>True</Optimize>
+	  <Deterministic>False</Deterministic>
+	  <Optimize>True</Optimize>
 	  <PublishAot>true</PublishAot>
 	  <NativeLib>Shared</NativeLib>
   </PropertyGroup>

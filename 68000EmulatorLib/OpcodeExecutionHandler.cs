@@ -2173,7 +2173,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? TAS(Instruction inst)
             {
-                using (PendleCodeMonkey.MC68000EmulatorLib.Lock.Acquire())
+                lock (PendleCodeMonkey.MC68000EmulatorLib.Machine.Lock)
                 {
                     var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
                     if (value.HasValue)
