@@ -6,13 +6,57 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     {
         public partial class Disassembler
         {
+            /// <summary>
+            /// Represents a non-executable section.
+            /// </summary>
+            /// <param name="address"></param>
+            /// <param name="length">length of the section in bytes</param>
+            /// <param name="itemOpSize"></param>
+            public record NonExecutableSection
+            {
+                protected NonExecutableSection()
+                {
+                }
+
+                public NonExecutableSection(uint address, uint length, OpSize itemOpSize = OpSize.Byte, uint itemsPerLine = 1, uint displayRadix = 16)
+                {
+                    Address = address;
+                    Length = length;
+                    ItemOpSize = itemOpSize;
+                    ItemsPerLine = Math.Min(MaxNESBytesPerRecord, Math.Max(1, itemsPerLine));
+                    DisplayRadix = (uint)(displayRadix == 2 ? 2 : displayRadix == 10 ? 10 : 16);
+                }
+
+                public virtual uint Address { get; set; }
+                public virtual uint Length { get; set; }
+                public virtual OpSize ItemOpSize { get; set; }
+                public virtual uint ItemsPerLine { get; set; }
+                public virtual uint DisplayRadix { get; set; }
+
+                /// <summary>
+                /// Return true if the section contains at least one byte of the
+                /// range passed in.
+                /// </summary>
+                /// <param name="startAddress"></param>
+                /// <param name="length"></param>
+                /// <returns></returns>
+                public virtual bool IntersectsWith(uint startAddress, uint length)
+                {
+                    if (startAddress + length <= Address || startAddress >= Address + Length)
+                    {
+                        return false;
+                    }
+                    return true;
+                }
+            }
+
+
             public class NonExecutableSections
             {
-                List<NonExecSection> _sections = [];
-                readonly Dictionary<uint, NonExecSection> _sectionsByAddress = [];
+                List<NonExecutableSection> _sections = [];
 
                 public NonExecutableSections() { }
-                public NonExecutableSections(List<NonExecSection> sections)
+                public NonExecutableSections(List<NonExecutableSection> sections)
                 {
                     SetSections(sections);
                 }
@@ -22,25 +66,19 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     SetSections(nonExecSections.Sections);
                 }
 
-                public void SetSections(List<NonExecSection> sections)
+                public void SetSections(List<NonExecutableSection> sections)
                 {
                     _sections = DeepCopy(sections);
-                    _sectionsByAddress.Clear();
-                    foreach (var section in _sections)
-                    {
-                        _sectionsByAddress.Add(section.Address, section);
-                    }
                 }
 
-                public List<NonExecSection> Sections => _sections;
-                public NonExecSection? GetSection(uint address) => _sectionsByAddress[address];
+                public List<NonExecutableSection> Sections => _sections;
 
-                private static List<NonExecSection> DeepCopy(List<NonExecSection> sections)
+                private static List<NonExecutableSection> DeepCopy(List<NonExecutableSection> sections)
                 {
-                    List<NonExecSection> newSections = [];
+                    List<NonExecutableSection> newSections = [];
                     foreach (var section in sections)
                     {
-                        NonExecSection newSection = new(section.Address, section.Length, section.ItemOpSize, section.ItemsPerLine, section.DisplayRadix);
+                        NonExecutableSection newSection = new(section.Address, section.Length, section.ItemOpSize, section.ItemsPerLine, section.DisplayRadix);
                         newSections.Add(newSection);
                     }
                     return newSections;
@@ -78,7 +116,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         uint minAddress = Math.Min(_sections[i].Address, _sections[i + 1].Address);
                                         uint maxAddress = Math.Max(_sections[i].Address + _sections[i].Length, _sections[i + 1].Address + _sections[i + 1].Length);
                                         uint length = maxAddress - minAddress;
-                                        NonExecSection merged = new(minAddress, length, _sections[i].ItemOpSize, _sections[i].ItemsPerLine, _sections[i].DisplayRadix);
+                                        NonExecutableSection merged = new(minAddress, length, _sections[i].ItemOpSize, _sections[i].ItemsPerLine, _sections[i].DisplayRadix);
                                         _sections[i + 1] = merged;
                                         _sections.RemoveAt(i);
                                     }
@@ -91,12 +129,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 }
                             }
                         } while (adjusted);
-                        _sectionsByAddress.Clear();
 
                         int index = 0;
                         while (index < _sections.Count)
                         {
-                            NonExecSection section = _sections[index];
+                            NonExecutableSection section = _sections[index];
                             uint divisor = OpSizeToLength(section.ItemOpSize);
                             uint remainder = section.Length % divisor;
                             uint numFullOpSizes = section.Length / divisor;
@@ -108,11 +145,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 {
                                     // Adjust the original section's length to account for the new, small section to be added after
                                     section.Length -= remainder;
-                                    _sectionsByAddress[section.Address] = section;
 
                                     // Add a new small section to make up the difference.
-                                    NonExecSection sec = new(section.Address + section.Length, remainder, newSize, section.ItemsPerLine, section.DisplayRadix);
-                                    _sectionsByAddress[sec.Address] = sec;
+                                    NonExecutableSection sec = new(section.Address + section.Length, remainder, newSize, section.ItemsPerLine, section.DisplayRadix);
                                     _sections.Add(sec);
                                     index++;
                                 }
@@ -120,12 +155,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 {
                                     // Section is too small for the OpSize, so just change the OpSize.
                                     section.ItemOpSize = newSize;
-                                    _sectionsByAddress[section.Address] = section;
                                 }
-                            }
-                            else
-                            {
-                                _sectionsByAddress[section.Address] = section;
                             }
                             index++;
                         }
@@ -166,7 +196,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public void ClearNonExecutableRange(uint startAddress, uint length)
                 {
                     uint maxAddress = startAddress + length - 1;
-                    List<NonExecSection> newSections = [];
+                    List<NonExecutableSection> newSections = [];
                     Normalize();
 
                     // CASE 0: Range to be [c]leared does not intersect any [s]ections.
@@ -255,7 +285,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public void Clear()
                 {
                     _sections.Clear();
-                    _sectionsByAddress.Clear();
                 }
 
                 /// <summary>
@@ -263,7 +292,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// </summary>
                 /// <returns>The zero-based index of the first non-executable data block that the current effectiveAddress falls within, or null if
                 /// the current effectiveAddress is within executable code.</returns>
-                public NonExecSection? GetIncludingSection(uint address)
+                public NonExecutableSection? GetSectionIncluding(uint address)
                 {
                     foreach (var section in _sections)
                     {
@@ -283,7 +312,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// <returns>True if in non-executable section</returns>
                 public bool WithinNonExecutableData(uint address)
                 {
-                    return GetIncludingSection(address) != null;
+                    return GetSectionIncluding(address) != null;
                 }
 
             }

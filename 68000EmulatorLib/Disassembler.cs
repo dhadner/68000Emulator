@@ -166,50 +166,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected bool IsEndOfData => CurrentAddress >= StartAddress + Length;
 
             /// <summary>
-            /// Represents a non-executable section.
-            /// </summary>
-            /// <param name="address"></param>
-            /// <param name="length"></param>
-            /// <param name="itemOpSize">'A' auto (default), 'B' byte, 'W' word, 'L' long</param>
-            public record NonExecSection
-            {
-                public NonExecSection()
-                {
-                }
-
-                public NonExecSection(uint address, uint length, OpSize itemOpSize = OpSize.Byte, uint itemsPerLine = 1, uint displayRadix = 16)
-                {
-                    Address = address;
-                    Length = length;
-                    ItemOpSize = itemOpSize;
-                    ItemsPerLine = Math.Min(MaxNESBytesPerRecord, Math.Max(1, itemsPerLine));
-                    DisplayRadix = (uint)(displayRadix == 2 ? 2 : displayRadix == 10 ? 10 : 16);
-                }
-
-                public virtual uint Address { get; set; }
-                public virtual uint Length { get; set; }
-                public virtual OpSize ItemOpSize { get; set; }
-                public virtual uint ItemsPerLine { get; set; }
-                public virtual uint DisplayRadix { get; set; }
-
-                /// <summary>
-                /// Return true if the section contains at least one byte of the
-                /// range passed in.
-                /// </summary>
-                /// <param name="startAddress"></param>
-                /// <param name="length"></param>
-                /// <returns></returns>
-                public virtual bool IntersectsWith(uint startAddress, uint length)
-                {
-                    if (startAddress + length <= Address || startAddress >= Address + Length)
-                    {
-                        return false;
-                    }
-                    return true;
-                }
-            }
-
-            /// <summary>
             /// Maximum number of bytes to include in a disassembler record
             /// in a non-executable section.
             /// E.g., DC.B $01,$02,$03,$04
@@ -220,7 +176,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             public const int MaxNESItemsPerRecord = 8;
 
             
-            public NonExecutableSections NonExecSections { get; protected set; } = new();
+            public NonExecutableSections MachineNonExecutableSections { get; protected set; } = new();
 
             protected delegate Operation DisassemblyHandler(Instruction inst, StringBuilder sb);
             protected readonly Dictionary<OpHandlerID, DisassemblyHandler> _handlers = [];
@@ -440,7 +396,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     // When Length is exceeded, loop exits because IsEndOfData goes true.
                     while (!IsEndOfData && count++ < maxCount)
                     {
-                        var nonExecSection = NonExecSections.GetIncludingSection(CurrentAddress);
+                        var nonExecSection = MachineNonExecutableSections.GetSectionIncluding(CurrentAddress);
                         if (nonExecSection != null)
                         {
                             uint size = OpSizeToLength(nonExecSection.ItemOpSize);
@@ -480,7 +436,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns></returns>
             public uint GetClosestLegalAddress(uint address)
             {
-                return GetClosestLegalAddress(address, NonExecSections.GetIncludingSection(address));
+                return GetClosestLegalAddress(address, MachineNonExecutableSections.GetSectionIncluding(address));
             }
 
             /// <summary>
@@ -489,7 +445,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="address"></param>
             /// <param name="section"></param>
             /// <returns></returns>
-            public static uint GetClosestLegalAddress(uint address, NonExecSection? section)
+            public static uint GetClosestLegalAddress(uint address, NonExecutableSection? section)
             {
                 address = MakeLegalAddress(address);
                 if (section != null)
@@ -535,7 +491,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="length">max length of disassembly record in bytes</param>
             /// <param name="section">non-executable section that contains the address.</param>
             /// <returns></returns>
-            protected DisassemblyRecord GetNonExecutableSectionRecord(uint address, uint length, NonExecSection section)
+            protected DisassemblyRecord GetNonExecutableSectionRecord(uint address, uint length, NonExecutableSection section)
             {
                 address = GetClosestLegalAddress(address, section);
 
@@ -728,10 +684,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 set
                 {
-                    if (Machine.Debugger != null)
-                    {
-                        Machine.Debugger.Disassembling = value;
-                    }
+                    Machine.Debugger?.Disassembling = value;
                 }
             }
 

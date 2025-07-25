@@ -1,4 +1,6 @@
-﻿using System;
+﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
+using PendleCodeMonkey.MC68000EmulatorLib;
+using System;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Xunit;
@@ -529,6 +531,54 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 }
                 Assert.Equal(cleanEa, cleand1);
             }
+        }
+
+        [Theory]
+        [InlineData(0x1000, 32, OpSize.Word, 4, 10)]
+        [InlineData(0x2000, 65, OpSize.Byte, 12, 16)]
+        [InlineData(0x3000, 2, OpSize.Word, 1, 2)]
+        [InlineData(0x4000, 16, OpSize.Word, 4, 8)]
+        public void TestCreateNonExecutableSections(uint address, uint length, OpSize itemOpSize, uint itemsPerLine, uint displayRadix)
+        {
+            DebugMachine machine = CreateMachine();
+            MC68000EmulatorLib.Machine.Disassembler disassembler = new(machine);
+            var sections = disassembler.MachineNonExecutableSections;
+
+            sections.SetNonExecutableRange(address, length, itemOpSize, itemsPerLine, displayRadix);
+            Assert.True(sections.WithinNonExecutableData(address));
+            Assert.True(sections.WithinNonExecutableData(address + length - 1));
+            Assert.True(sections.WithinNonExecutableData(address + length / 2));
+
+            var section0 = sections.GetSectionIncluding(address);
+            Assert.Equal(address, section0.Address);
+            Assert.Equal(length, section0.Length);
+            Assert.Equal(itemOpSize, section0.ItemOpSize);
+            Assert.Equal(itemsPerLine, section0.ItemsPerLine);
+            if (displayRadix != 2 && displayRadix != 10 && displayRadix != 16)
+            {
+                Assert.NotEqual(displayRadix, section0.DisplayRadix);
+            }
+            else
+            {
+                Assert.Equal(displayRadix, section0.DisplayRadix);
+            }
+
+            var section3 = sections.GetSectionIncluding(address);
+            Assert.NotNull(section3);
+            Assert.Equal(section0, section3);
+
+            var section4 = sections.GetSectionIncluding(address + length - 1);
+            Assert.NotNull(section4);
+            Assert.Equal(section0, section4);
+
+            var section5 = sections.GetSectionIncluding(address + length - 1);
+            Assert.NotNull(section5);
+            Assert.Equal(section0, section5);
+
+            var section6 = sections.GetSectionIncluding(address + length);
+            Assert.Null(section6);
+
+            Assert.True(true);
         }
     }
 }

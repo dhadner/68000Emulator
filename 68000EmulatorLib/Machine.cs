@@ -132,7 +132,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns>A string containing details of the current state of the machine.</returns>
         public string Dump()
         {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new();
 
             sb.Append($"D0: 0x{CPU.ReadDataRegister(0):X4} ({CPU.ReadDataRegister(0)})");
             sb.Append(Environment.NewLine);
@@ -185,7 +185,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns>A <see cref="CPUState"/> object containing the current CPU state settings.</returns>
         public CPUState GetCPUState()
         {
-            CPUState state = new CPUState();
+            CPUState state = new();
             state.FromCPU(CPU);
             return state;
         }
@@ -309,7 +309,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 Memory.Clear();
             }
-            SRecordLoader loader = new SRecordLoader(this);
+            SRecordLoader loader = new(this);
             LoadingProgram = true;
             string? errMsg = loader.Load(sFile, out uint? startingAddress, out uint lowestAddress, out uint highestAddress);
             LoadingProgram = false;
