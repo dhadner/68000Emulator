@@ -545,9 +545,9 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             var sections = disassembler.MachineNonExecutableSections;
 
             sections.SetNonExecutableRange(address, length, itemOpSize, itemsPerLine, displayRadix);
-            Assert.True(sections.WithinNonExecutableData(address));
-            Assert.True(sections.WithinNonExecutableData(address + length - 1));
-            Assert.True(sections.WithinNonExecutableData(address + length / 2));
+            Assert.True(sections.IsNonExecutable(address));
+            Assert.True(sections.IsNonExecutable(address + length - 1));
+            Assert.True(sections.IsNonExecutable(address + length / 2));
 
             var section0 = sections.GetSectionIncluding(address);
             Assert.Equal(address, section0.Address);
@@ -579,6 +579,35 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Assert.Null(section6);
 
             Assert.True(true);
+        }
+
+        [Theory]
+        [InlineData(0x1000, 0x0020, OpSize.Word, 10, 0x1010, 0x0010, OpSize.Word, 10, true, 0x1000, 0x0020, OpSize.Word, 10)]
+        [InlineData(0x1000, 0x0020, OpSize.Word, 10, 0x1010, 0x0010, OpSize.Word, 16, false, 0x1000, 0x0020, OpSize.Word, 10)]
+        [InlineData(0x1000, 0x2000, OpSize.Byte, 16, 0x2000, 0x4000, OpSize.Byte, 16, true, 0x1000, 0x5000, OpSize.Byte, 16)]
+        [InlineData(0x1000, 0x0010, OpSize.Word, 10, 0x1000, 0x0020, OpSize.Word, 10, true, 0x1000, 0x0020, OpSize.Word, 10)]
+        public void TestMerging(uint a1, uint l1, OpSize os1, uint radix1, uint a2, uint l2, OpSize os2, uint radix2, bool shouldBeMerged, uint aMerge, uint lMerge, OpSize osMerge, uint radixMerge)
+        {
+            DebugMachine machine = CreateMachine();
+            MC68000EmulatorLib.Machine.Disassembler disassembler = new(machine);
+            var sections = disassembler.MachineNonExecutableSections;
+
+            sections.SetNonExecutableRange(a1, l1, os1, 4, radix1);
+            sections.SetNonExecutableRange(a2, l2, os2, 4, radix2);
+
+            if (shouldBeMerged) {
+                var merged = sections.GetSectionIncluding(aMerge);
+                Assert.Single(sections.Sections);
+                Assert.NotNull(merged);
+                Assert.Equal(aMerge, merged.Address);
+                Assert.Equal(lMerge, merged.Length);
+                Assert.Equal(osMerge, merged.ItemOpSize);
+                Assert.Equal(radixMerge, merged.DisplayRadix);
+            }
+            else
+            {
+                Assert.Equal(2, sections.Sections.Count);
+            }
         }
     }
 }

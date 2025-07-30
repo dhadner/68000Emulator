@@ -165,18 +165,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             protected bool IsEndOfData => CurrentAddress >= StartAddress + Length;
 
-            /// <summary>
-            /// Maximum number of bytes to include in a disassembler record
-            /// in a non-executable section.
-            /// E.g., DC.B $01,$02,$03,$04
-            ///       DC.W $0001,$0002
-            ///       DC.L $00000001
-            /// </summay>
-            public const int MaxNESBytesPerRecord = 64;
-            public const int MaxNESItemsPerRecord = 8;
-
             
-            public NonExecutableSections MachineNonExecutableSections { get; protected set; } = new();
+            public NonExecutableSections MachineNonExecutableSections { get; set; } = new();
 
             protected delegate Operation DisassemblyHandler(Instruction inst, StringBuilder sb);
             protected readonly Dictionary<OpHandlerID, DisassemblyHandler> _handlers = [];
@@ -553,7 +543,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return value;
             }
 
-            static readonly byte[] _bytes = new byte[MaxNESBytesPerRecord];
+            static readonly byte[] _bytes = new byte[NonExecutableSections.MaxNESBytesPerRecord];
             static readonly StringBuilder _asciiBuilder = new();
 
             /// <summary>
@@ -684,7 +674,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 set
                 {
-                    Machine.Debugger?.Disassembling = value;
+                    if (Machine.Debugger != null)
+                    {
+                        Machine.Debugger.Disassembling = value;
+                    }
                 }
             }
 
