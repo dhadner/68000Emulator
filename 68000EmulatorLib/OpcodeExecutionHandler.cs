@@ -10,6 +10,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     /// </summary>
     public partial class Machine
     {
+#pragma warning disable S2325 // Methods and properties that don't access instance data should be static
         /// <summary>
         /// Implementation of the <see cref="OpcodeExecutionHandler"/> class.
         /// </summary>
@@ -465,12 +466,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <exception cref="TrapException"/>
             public TrapException? Execute(Instruction? instruction)
             {
-                if (instruction != null)
+                if (instruction != null && _handlers.TryGetValue(instruction.Info.HandlerID, out OpHandler? value))
                 {
-                    if (_handlers.TryGetValue(instruction.Info.HandlerID, out OpHandler? value))
-                    {
-                        return value?.Invoke(instruction);          // Call the handler Action.
-                    }
+                    return value?.Invoke(instruction);          // Call the handler Action.
                 }
                 Helpers.RaiseTRAPException(TrapVector.IllegalInstruction);
                 return null; // Never get here

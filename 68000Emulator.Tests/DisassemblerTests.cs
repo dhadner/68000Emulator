@@ -14,7 +14,11 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
     /// </summary>
     public static class Extensions
     {
+#pragma warning disable IDE0079 // Remove unnecessary suppression
+#pragma warning disable SYSLIB1045 // Convert to 'GeneratedRegexAttribute'.
         private static readonly Regex regex = new(@"\s+");
+#pragma warning restore SYSLIB1045 // Convert to 'GeneratedRegexAttribute'.
+#pragma warning restore IDE0079 // Remove unnecessary suppression
 
         public static string RemoveWhiteSpaces(this string str)
         {
@@ -48,14 +52,6 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         internal static DebugMachine CreateMachine()
         {
             var machine = new MC68000EmulatorLib.Machine();
-            //var state = new CPUState
-            //{
-            //    USP = 0x2000,
-            //    SSP = 0x3000,
-            //    SR = 0,
-            //    PC = 0x4000
-            //};
-            //machine.SetCPUState(state);
             return new DebugMachine(machine);
         }
 

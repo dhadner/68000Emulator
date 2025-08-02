@@ -86,7 +86,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Gets a value indicating if the machine has reached the end of the loaded executable data.
         /// </summary>
-        protected virtual bool IsEndOfData => CPU.PC >= _loadedAddress + _dataLength;
+        public virtual bool IsEndOfData => CPU.PC >= _loadedAddress + _dataLength;
 
         /// <summary>
         /// Gets a value indicating if the execution of code has been terminated.
@@ -111,7 +111,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Gets a value indicating if the execution of code has been stopped by a STOP instruction.
         /// </summary>
-        protected bool ExecutionStopped { get; set; }
+        public virtual bool ExecutionStopped { get; protected set; }
 
         /// <summary>
         /// Reset the machine to its default state.

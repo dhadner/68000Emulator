@@ -106,7 +106,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// <summary>
                 /// End of data not reached until end of address space.
                 /// </summary>
-                protected override bool IsEndOfData => CPU.PC >= 0xffffffff;
+                public override bool IsEndOfData => CPU.PC >= 0xffffffff;
 
                 /// <summary>
                 /// For the purposes of disassembly, end of execution is the entire
@@ -674,10 +674,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 set
                 {
-                    if (Machine.Debugger != null)
-                    {
-                        Machine.Debugger.Disassembling = value;
-                    }
+                    Machine.Debugger?.Disassembling = value;
                 }
             }
 
