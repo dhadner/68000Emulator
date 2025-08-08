@@ -9,7 +9,7 @@
         /// True if debugging.  Used to enable callbacks to <see cref="DebugReadAccess(uint)"/> 
         /// and <see cref="DebugWriteAccess(uint)"/>.
         /// </summary>
-        bool Debugging { get; set; }
+        bool Debugging { get; }
 
         /// <summary>
         /// True if disassembling. Can be used to override access checks,

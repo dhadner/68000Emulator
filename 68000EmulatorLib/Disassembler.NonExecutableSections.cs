@@ -200,7 +200,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                     catch (Exception e)
                     {
-                        Logger.Log(LogLevel.Critical, "DISASSEMBLER", $"NormalizeSections: {e.Message}");
+                        Logger.Log(LogLevel.Critical, "DISASSEMBLER", () => $"NormalizeSections: {e.Message}");
                     }
                 }
 

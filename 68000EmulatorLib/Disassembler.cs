@@ -409,7 +409,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 catch (Exception e)
                 {
-                    Logger.Log(LogLevel.Critical, "DISASSEMBLER", $"Disassemble: {e.Message}");
+                    Logger.Log(LogLevel.Critical, "DISASSEMBLER", () => $"Disassemble: {e.Message}");
                     throw;
                 }
                 finally
