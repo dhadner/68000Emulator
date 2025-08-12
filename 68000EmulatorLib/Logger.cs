@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -99,12 +100,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="level"></param>
         /// <param name="feature"></param>
         /// <param name="message"></param>
-        public static void Log(LogLevel level, string feature, string message)
+        public static void Log(LogLevel level, string feature, string message,
+                               [CallerMemberName] string memberName = "",
+                               [CallerFilePath]   string sourceFilePath = "",
+                               [CallerLineNumber] int sourceLineNumber = 0)
         {
             if (!IsEnabled(level)) return;
             if (!IsEnabled(feature)) return;
 
-            var logEntry = new LogEntry(level, feature, message);
+            string logMessage = $"[{Path.GetFileName(sourceFilePath)}:{sourceLineNumber}:{memberName}] {message}";
+
+            var logEntry = new LogEntry(level, feature, logMessage);
             LogEvent?.Invoke(logEntry);
         }
 
@@ -116,12 +122,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="level"></param>
         /// <param name="feature"></param>
         /// <param name="message"></param>
-        public static void Log(LogLevel level, string feature, Func<string> messageFactory)
+        public static void Log(LogLevel level, string feature, Func<string> messageFactory,
+                               [CallerMemberName] string memberName = "",
+                               [CallerFilePath] string sourceFilePath = "",
+                               [CallerLineNumber] int sourceLineNumber = 0)
         {
             if (!IsEnabled(level)) return;
             if (!IsEnabled(feature)) return;
 
-            var logEntry = new LogEntry(level, feature, messageFactory());
+            string logMessage = $"[{Path.GetFileName(sourceFilePath)}:{sourceLineNumber}:{memberName}] {messageFactory()}";
+
+            var logEntry = new LogEntry(level, feature, logMessage);
             LogEvent?.Invoke(logEntry);
         }
     }

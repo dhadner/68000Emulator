@@ -1,9 +1,9 @@
-﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using static PendleCodeMonkey.MC68000EmulatorLib.Machine.Disassembler;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
@@ -91,7 +91,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             /// <summary>
             /// Wrapper around the machine's memory with its own CPU.PC and
-            /// <see cref="IsEndOfData"/> and <see cref="IsEndOfExecution"/>logic to 
+            /// <see cref="IsEndOfData"/> and <see cref="IsEndOfExecution"/>logic to
             /// support the Decoder.
             /// </summary>
             public class DisassemblerMachine : Machine
@@ -165,7 +165,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             protected bool IsEndOfData => CurrentAddress >= StartAddress + Length;
 
-            
+
             public NonExecutableSections MachineNonExecutableSections { get; set; } = new();
 
             protected delegate Operation DisassemblyHandler(Instruction inst, StringBuilder sb);
@@ -346,9 +346,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return OpSize.Byte;
             }
 
+
             /// <summary>
             /// Perform a full disassembly of the specified block of memory.
-            /// 
+            ///
             /// In the case where a non-executable section is in the list, there may
             /// be many records for a single section.  In that case, account for the
             /// fact that the first record may not have been on an alignment boundary
@@ -370,8 +371,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 try
                 {
-                    uint legalAddress = GetClosestLegalAddress(startAddress);
+                    uint legalAddress = GetClosestLowerLegalAddress(startAddress);
                     length += startAddress - legalAddress;
+
+#if DEBUG_HIDE
+                    // Logging: record parameters at entry, include caller name
+                    string callerName = "Unknown";
+                    try
+                    {
+                        var st = new System.Diagnostics.StackTrace();
+                        var frame = st.GetFrame(1); // 0 = this method, 1 = caller
+                        callerName = frame?.GetMethod()?.Name ?? "<unknown>";
+                    }
+                    catch { callerName = "<error>"; }
+                    System.Diagnostics.Debug.WriteLine($"Disassemble called by {callerName}: startAddress=0x{startAddress:X6}, length=0x{length:X}, maxCount={maxCount}");
+                    Logger.Log(LogLevel.Trace, "DISASSEMBLER", () => $"Disassemble called by {callerName}: startAddress=0x{startAddress:X6}, length=0x{length:X}, maxCount={maxCount}");
+#endif
 
                     // Set machine parameters for this disassembler machine
                     Disassembling = true;
@@ -405,6 +420,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             result.Add(DisassembleAtCurrentAddress());
                         }
                     }
+
+                    // Logging: record result count at exit
+#if DEBUG_HIDE
+                    System.Diagnostics.Debug.WriteLine($"Disassemble completed: startAddress=0x{startAddress:X6}, length=0x{length:X}, maxCount={maxCount}, recordCount={result.Count}");
+                    Logger.Log(LogLevel.Trace, "DISASSEMBLER", () => $"Disassemble completed: startAddress=0x{startAddress:X6}, length=0x{length:X}, maxCount={maxCount}, recordCount={result.Count}");
+#endif
+
                     return result;
                 }
                 catch (Exception e)
@@ -419,23 +441,23 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Return the closest legal address for the given address in the section.
+            /// Return the closest legal address less than or equal to the given address in the section.
             /// </summary>
             /// <param name="address"></param>
             /// <param name="section"></param>
             /// <returns></returns>
-            public uint GetClosestLegalAddress(uint address)
+            public uint GetClosestLowerLegalAddress(uint address)
             {
-                return GetClosestLegalAddress(address, MachineNonExecutableSections.GetSectionIncluding(address));
+                return GetClosestLowerLegalAddress(address, MachineNonExecutableSections.GetSectionIncluding(address));
             }
 
             /// <summary>
-            /// Return the closest legal address for the given address in the section.
+            /// Return the closest legal address less than or equal to the given address in the section.
             /// </summary>
             /// <param name="address"></param>
             /// <param name="section"></param>
             /// <returns></returns>
-            public static uint GetClosestLegalAddress(uint address, NonExecutableSection? section)
+            public static uint GetClosestLowerLegalAddress(uint address, NonExecutableSection? section)
             {
                 address = MakeLegalAddress(address);
                 if (section != null)
@@ -463,18 +485,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <summary>
             /// Return a Disassembly record for the section that starts at <see cref="address"/>
             /// and has the requested <see cref="length"/>.
-            /// 
+            ///
             /// Note that the actual section may start at a much lower address and continue on past the
             /// requested length so handle appropriately.  Also, the requested section may
             /// end prior to the length passed in, so also handle that appropriately.
-            /// 
+            ///
             /// In the case where a non-executable section is large, there may
             /// be many records for a single section.  In that case, account for the
             /// fact that the first record may not have been on an alignment boundary
             /// from the start of that section and return an assembly record that starts
-            /// on an alignment boundary.  
-            /// 
-            /// If the final record is truncated by "length", then adjust the length of the 
+            /// on an alignment boundary.
+            ///
+            /// If the final record is truncated by "length", then adjust the length of the
             /// record to be consistent with the length.
             /// </summary>
             /// <param name="address">starting address of this disassembly record</param>
@@ -483,7 +505,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns></returns>
             protected DisassemblyRecord GetNonExecutableSectionRecord(uint address, uint length, NonExecutableSection section)
             {
-                address = GetClosestLegalAddress(address, section);
+                address = GetClosestLowerLegalAddress(address, section);
 
                 uint itemOpSize = OpSizeToLength(section.ItemOpSize);
 
@@ -491,7 +513,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 uint itemsPerLine = section.ItemsPerLine;
 
-                // Shrink the OpSize if needed.  The 
+                // Shrink the OpSize if needed.  The
                 if (itemOpSize > length)
                 {
                     if (length == 2)
@@ -516,7 +538,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     // Can't use ReadNextByte() because NonExecutableDataDisassembly(...)
                     // will call it below and calling it here would result in double
-                    // incrementing CurrentAddress.  Note that Machine.Memory can be 
+                    // incrementing CurrentAddress.  Note that Machine.Memory can be
                     // overridden in derived classes to access memory-mapped I/O as well
                     // (also applies to ReadNextByte() since it calls Machine.Memory.ReadByte(...),
                     // - so I/O could be read twice).
@@ -603,7 +625,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 uint items = Math.Max(1, length / itemSize);
                 uint remainder = length % itemSize;
-                OpSize dirSize = dir.Size?? OpSize.Word;
+                OpSize dirSize = dir.Size ?? OpSize.Word;
                 if (remainder != 0)
                 {
                     error = $"[ERROR] NonExecutableDataDisassembly called with incompatible length for {dir.Size}: {length}";
@@ -679,7 +701,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Disassemble one instruction at the current instruction.  The address is guaranteed 
+            /// Disassemble one instruction at the current instruction.  The address is guaranteed
             /// to not be in a non-executable section.
             /// </summary>
             /// <returns></returns>
@@ -822,7 +844,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             /// <summary>
             /// Subclasses can override and return a label for this address.
-            /// 
+            ///
             /// The disassembly will use this label rather than the absolute
             /// address passed in.  If the subclass returns <c>null</c>, the
             /// disassembly will show the absolute address instead.
@@ -836,39 +858,39 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Subclasses can override this to return a symbolic expression for 
+            /// Subclasses can override this to return a symbolic expression for
             /// the expression at this address and operand position.
-            /// 
+            ///
             /// Operand position:
             ///     0 = source
             ///     1 = dest
-            ///     more if a directive like <c>DC.B  $23,$45,$ea,$8f</c>, 
+            ///     more if a directive like <c>DC.B  $23,$45,$ea,$8f</c>,
             ///                               which has 4 operands numbered 0-3
-            ///                               
+            ///
             /// An expression is a (possibly symbolic) string that is legal in
             /// assembler and that resolves to the constant value in the op code
             /// operand (other than register references).
-            /// 
+            ///
             /// For example, in the assembly line
             ///   <c>MOVE.B  $e8,$08(A0,D2.W)</c>
-            ///   
-            /// the operation has two operands: <c>$e8</c> and <c>$08(A0,D2.W)</c>.  
+            ///
+            /// the operation has two operands: <c>$e8</c> and <c>$08(A0,D2.W)</c>.
             /// The source operand has the expression <c>$e8</c> that can be replaced
             /// by this function with a symbolic expression.  For example, if
-            /// the following EQU is in the code, 
-            /// 
+            /// the following EQU is in the code,
+            ///
             /// <c>MouseOffset  EQU  $08+$e0</c>
-            /// 
+            ///
             /// then, if the above MOVE.B operation is at address <c>$00400234</c>, the
             /// subclass might return the expression <c>MouseOffset</c> in response to the
             /// call:
-            /// 
+            ///
             /// <c>string? expression = GetExpression($00400234, 0); // Address = $00400234, </c>
             /// <c>                                                  // operand position = 0 (source)</c>
-            /// 
+            ///
             /// The disassembly will now use <c>MouseOffset</c> rather than <c>$e8</c> to make for
             /// easier understanding.
-            /// 
+            ///
             /// </summary>
             /// <param name="address"></param>
             /// <param name="operandPos"></param>
@@ -1578,10 +1600,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             /// <summary>
             /// Test Condition, Decrement, and Branch.
-            /// 
+            ///
             ///     If Condition False
             ///         Then (Dn - 1 -> Dn; If Dn != -1 Then PC + dn -> PC)
-            ///         
+            ///
             /// Controls a loop of instructions. The parameters are a condition code, a data
             /// register(counter), and a displacement value.The instruction first tests the condition for
             /// termination; if it is true, no operation is performed.If the termination condition is not
@@ -1594,7 +1616,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// bytes from the current program counter to the destination program counter.Condition
             /// code cc specifies one of the following conditional tests (refer to Table 3-19 for more
             /// information on these conditional tests):
-            /// 
+            ///
             ///     Mnemonic    Condition           Mnemonic    Condition
             ///     ========    =========           ========    =========
             ///     CC(HI)      Carry Clear         LS          Low or Same
@@ -1605,19 +1627,19 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             ///     GT          Greater Than        T           True
             ///     HI          High                VC          Overflow Clear
             ///     LE          Less or Equal       VS          Overflow Set
-            ///     
+            ///
             /// Condition Codes:
-            ///     Not affected.           
-            ///     
+            ///     Not affected.
+            ///
             /// NOTE:
-            /// 
+            ///
             /// The terminating condition is similar to the UNTIL loop clauses of
             /// high-level languages.For example: DBMI can be stated as
             /// "decrement and branch until minus".
-            /// 
+            ///
             /// Most assemblers accept DBRA for DBF for use when only a
             /// count terminates the loop (no condition is tested).
-            /// 
+            ///
             /// A program can enter a loop at the beginning or by branching to
             /// the trailing DBcc instruction.Entering the loop at the beginning
             /// is useful for indexed addressing modes and dynamically
@@ -1664,7 +1686,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             /// <summary>
             /// Set According to Condition.
-            /// Sets the byte to all ones if the condition is true, sets the 
+            /// Sets the byte to all ones if the condition is true, sets the
             /// byte to zero if false.
             /// </summary>
             /// <param name="inst"></param>
@@ -2182,9 +2204,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Contains a text expression or symbolic value that
             /// may be part of some operands.  The StartCol is based
             /// on the specific formatting of that operand, e.g.,
-            /// "(MyValue).L" has a StartCol of 1, whereas 
-            /// "MyValue(A0,D1.W)" has a StartCol of 0.  
-            /// 
+            /// "(MyValue).L" has a StartCol of 1, whereas
+            /// "MyValue(A0,D1.W)" has a StartCol of 0.
+            ///
             /// This can be  used as a hint to the UI when highlighting the
             /// "MyValue" part of the expression in order to provide,
             /// perhaps, the ability to modify the text for clearer
@@ -2375,7 +2397,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
 
                 public AddressIndexOperand(int addressRegNum, int dataRegNum, OpSize indexSize, sbyte disp, string? format = null) : this(AddressRegisters[addressRegNum], DataRegisters[dataRegNum], indexSize, new Displacement(disp), format) { }
-                
+
                 public AddressRegister AddressRegister { get; set; }
                 public DataRegister IndexRegister { get; set; }
                 public Displacement Displacement { get; set; }
@@ -2422,7 +2444,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 public AbsShortOperand(ushort value, string? format = null) : this(new Displacement(value), format) { }
 
-                public AbsShortOperand(short value, string? format = null) : this(new Displacement(value), format) { } 
+                public AbsShortOperand(short value, string? format = null) : this(new Displacement(value), format) { }
 
                 public Displacement Displacement { get; set; }
 
@@ -2673,7 +2695,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 public PCIndexOperand(int indexRegNum, Displacement displacement, OpSize size, string? format = null) : this(DataRegisters[indexRegNum], displacement, size, format) { }
                 public PCIndexOperand(int indexRegNum, uint address, OpSize size, string? format = null) : this(DataRegisters[indexRegNum], new Displacement(address), size, format) { }
-                
+
                 public DataRegister IndexRegister { get; set; }
                 public Displacement Displacement { get; set; }
 
@@ -2786,10 +2808,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             /// <summary>
             /// Represents an operand for either a Directive or an Operation.
-            /// 
+            ///
             /// For an Operation, it can be either Source (Pos = 0) or
             /// Destination (Pos = 1).
-            /// 
+            ///
             /// For a Directive, the Pos represents which Operand it is
             /// in the list of operands starting at 0.
             /// </summary>
@@ -2815,26 +2837,26 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// Set when the Operand is added to the OperandList in the Operation
                 /// object.
                 /// </summary>
-                public DirectiveOrOperation Op 
-                { 
-                    get { return _op; } 
-                    set { _op = value; _text = null; } 
+                public DirectiveOrOperation Op
+                {
+                    get { return _op; }
+                    set { _op = value; _text = null; }
                 }
 
                 public bool IsMemory { get; set; } = false;
 
                 OpSize? _size;
-                public OpSize? Size 
+                public OpSize? Size
                 {
-                    get { return _size; } 
-                    set { _size = value; _text = null; } 
+                    get { return _size; }
+                    set { _size = value; _text = null; }
                 }
 
                 protected string? _format;
                 public string? Format
                 {
                     get { return _format; }
-                    set { _format = value; _text = null; } 
+                    set { _format = value; _text = null; }
                 }
 
                 public int Pos { get; set; } = 0;
@@ -2856,7 +2878,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 protected Expression? _expression;
                 /// <summary>
                 /// Optional expression that can represent an immediate
-                /// value or displacement for this operand.  May be defined by 
+                /// value or displacement for this operand.  May be defined by
                 /// an EQU for example.
                 /// </summary>
                 public Expression? Expression
@@ -3101,7 +3123,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             ];
 
             /// <summary>
-            /// USP register name (alias for for the MOVEtoUSP and 
+            /// USP register name (alias for for the MOVEtoUSP and
             /// MOVEfromUSP instructions.
             /// </summary>
             public AddressRegister USP => AddressRegisters[8];
@@ -3186,7 +3208,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// Get the Expression at the specified column,
                 /// starting from 0 as the first column of the
                 /// operation mnemonic.
-                /// 
+                ///
                 /// Return null if the position is out of range
                 /// or there is no expression under that column.
                 ///
