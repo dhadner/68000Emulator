@@ -217,7 +217,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// CPU settings will be unaffected.
         /// </remarks>
         /// <param name="state">A <see cref="CPUState"/> object containing the new CPU state settings.</param>
-        public void SetCPUState(CPUState state)
+        public virtual void SetCPUState(CPUState state)
         {
             state.ToCPU(CPU);
         }
