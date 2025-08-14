@@ -66,6 +66,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         ///  2 - Etc.
         /// </param>
         /// <returns></returns>
+        [RequiresUnreferencedCode("Caller uses StackTrace and reflection, which may not be compatible with trimming.")]
         public static string Caller(int level = 0)
         {
             try
