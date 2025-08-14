@@ -1,4 +1,6 @@
-﻿using System;
+﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
+using PendleCodeMonkey.MC68000EmulatorLib;
+using System;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 using Xunit;
@@ -12,7 +14,11 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
     /// </summary>
     public static class Extensions
     {
+#pragma warning disable IDE0079 // Remove unnecessary suppression
+#pragma warning disable SYSLIB1045 // Convert to 'GeneratedRegexAttribute'.
         private static readonly Regex regex = new(@"\s+");
+#pragma warning restore SYSLIB1045 // Convert to 'GeneratedRegexAttribute'.
+#pragma warning restore IDE0079 // Remove unnecessary suppression
 
         public static string RemoveWhiteSpaces(this string str)
         {
@@ -46,14 +52,6 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         internal static DebugMachine CreateMachine()
         {
             var machine = new MC68000EmulatorLib.Machine();
-            //var state = new CPUState
-            //{
-            //    USP = 0x2000,
-            //    SSP = 0x3000,
-            //    SR = 0,
-            //    PC = 0x4000
-            //};
-            //machine.SetCPUState(state);
             return new DebugMachine(machine);
         }
 
@@ -528,6 +526,83 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                     Debug.WriteLine($"Expected: '{cleanEa}', got '{cleand1}'");
                 }
                 Assert.Equal(cleanEa, cleand1);
+            }
+        }
+
+        [Theory]
+        [InlineData(0x1000, 32, OpSize.Word, 4, 10)]
+        [InlineData(0x2000, 65, OpSize.Byte, 12, 16)]
+        [InlineData(0x3000, 2, OpSize.Word, 1, 2)]
+        [InlineData(0x4000, 16, OpSize.Word, 4, 8)]
+        public void TestCreateNonExecutableSections(uint address, uint length, OpSize itemOpSize, uint itemsPerLine, uint displayRadix)
+        {
+            DebugMachine machine = CreateMachine();
+            MC68000EmulatorLib.Machine.Disassembler disassembler = new(machine);
+            var sections = disassembler.MachineNonExecutableSections;
+
+            sections.SetNonExecutableRange(address, length, itemOpSize, itemsPerLine, displayRadix);
+            Assert.True(sections.IsNonExecutable(address));
+            Assert.True(sections.IsNonExecutable(address + length - 1));
+            Assert.True(sections.IsNonExecutable(address + length / 2));
+
+            var section0 = sections.GetSectionIncluding(address);
+            Assert.Equal(address, section0.Address);
+            Assert.Equal(length, section0.Length);
+            Assert.Equal(itemOpSize, section0.ItemOpSize);
+            Assert.Equal(itemsPerLine, section0.ItemsPerLine);
+            if (displayRadix != 2 && displayRadix != 10 && displayRadix != 16)
+            {
+                Assert.NotEqual(displayRadix, section0.DisplayRadix);
+            }
+            else
+            {
+                Assert.Equal(displayRadix, section0.DisplayRadix);
+            }
+
+            var section3 = sections.GetSectionIncluding(address);
+            Assert.NotNull(section3);
+            Assert.Equal(section0, section3);
+
+            var section4 = sections.GetSectionIncluding(address + length - 1);
+            Assert.NotNull(section4);
+            Assert.Equal(section0, section4);
+
+            var section5 = sections.GetSectionIncluding(address + length - 1);
+            Assert.NotNull(section5);
+            Assert.Equal(section0, section5);
+
+            var section6 = sections.GetSectionIncluding(address + length);
+            Assert.Null(section6);
+
+            Assert.True(true);
+        }
+
+        [Theory]
+        [InlineData(0x1000, 0x0020, OpSize.Word, 10, 0x1010, 0x0010, OpSize.Word, 10, true, 0x1000, 0x0020, OpSize.Word, 10)]
+        [InlineData(0x1000, 0x0020, OpSize.Word, 10, 0x1010, 0x0010, OpSize.Word, 16, false, 0x1000, 0x0020, OpSize.Word, 10)]
+        [InlineData(0x1000, 0x2000, OpSize.Byte, 16, 0x2000, 0x4000, OpSize.Byte, 16, true, 0x1000, 0x5000, OpSize.Byte, 16)]
+        [InlineData(0x1000, 0x0010, OpSize.Word, 10, 0x1000, 0x0020, OpSize.Word, 10, true, 0x1000, 0x0020, OpSize.Word, 10)]
+        public void TestMerging(uint a1, uint l1, OpSize os1, uint radix1, uint a2, uint l2, OpSize os2, uint radix2, bool shouldBeMerged, uint aMerge, uint lMerge, OpSize osMerge, uint radixMerge)
+        {
+            DebugMachine machine = CreateMachine();
+            MC68000EmulatorLib.Machine.Disassembler disassembler = new(machine);
+            var sections = disassembler.MachineNonExecutableSections;
+
+            sections.SetNonExecutableRange(a1, l1, os1, 4, radix1);
+            sections.SetNonExecutableRange(a2, l2, os2, 4, radix2);
+
+            if (shouldBeMerged) {
+                var merged = sections.GetSectionIncluding(aMerge);
+                Assert.Single(sections.Sections);
+                Assert.NotNull(merged);
+                Assert.Equal(aMerge, merged.Address);
+                Assert.Equal(lMerge, merged.Length);
+                Assert.Equal(osMerge, merged.ItemOpSize);
+                Assert.Equal(radixMerge, merged.DisplayRadix);
+            }
+            else
+            {
+                Assert.Equal(2, sections.Sections.Count);
             }
         }
     }

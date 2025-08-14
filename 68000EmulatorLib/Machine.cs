@@ -86,7 +86,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Gets a value indicating if the machine has reached the end of the loaded executable data.
         /// </summary>
-        protected virtual bool IsEndOfData => CPU.PC >= _loadedAddress + _dataLength;
+        public virtual bool IsEndOfData => CPU.PC >= _loadedAddress + _dataLength;
 
         /// <summary>
         /// Gets a value indicating if the execution of code has been terminated.
@@ -111,7 +111,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Gets a value indicating if the execution of code has been stopped by a STOP instruction.
         /// </summary>
-        protected bool ExecutionStopped { get; set; }
+        public virtual bool ExecutionStopped { get; protected set; }
 
         /// <summary>
         /// Reset the machine to its default state.
@@ -132,7 +132,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns>A string containing details of the current state of the machine.</returns>
         public string Dump()
         {
-            StringBuilder sb = new StringBuilder();
+            StringBuilder sb = new();
 
             sb.Append($"D0: 0x{CPU.ReadDataRegister(0):X4} ({CPU.ReadDataRegister(0)})");
             sb.Append(Environment.NewLine);
@@ -185,7 +185,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns>A <see cref="CPUState"/> object containing the current CPU state settings.</returns>
         public CPUState GetCPUState()
         {
-            CPUState state = new CPUState();
+            CPUState state = new();
             state.FromCPU(CPU);
             return state;
         }
@@ -217,7 +217,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// CPU settings will be unaffected.
         /// </remarks>
         /// <param name="state">A <see cref="CPUState"/> object containing the new CPU state settings.</param>
-        public void SetCPUState(CPUState state)
+        public virtual void SetCPUState(CPUState state)
         {
             state.ToCPU(CPU);
         }
@@ -309,7 +309,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 Memory.Clear();
             }
-            SRecordLoader loader = new SRecordLoader(this);
+            SRecordLoader loader = new(this);
             LoadingProgram = true;
             string? errMsg = loader.Load(sFile, out uint? startingAddress, out uint lowestAddress, out uint highestAddress);
             LoadingProgram = false;

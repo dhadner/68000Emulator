@@ -1,7 +1,6 @@
 using PendleCodeMonkey.MC68000EmulatorLib;
 using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System;
-using System.Diagnostics.Eventing.Reader;
 using Xunit;
 using static PendleCodeMonkey.MC68000EmulatorLib.Machine;
 
@@ -9,6 +8,9 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 {
     public class OpcodeExecutionHandlerTests
     {
+#pragma warning disable S4144 // Methods should not have identical implementations
+#pragma warning disable IDE0090 // Use 'new(...)'
+#pragma warning disable IDE0300 // Simplify collection initialization
         /// <summary>
         /// Create an instance of the <see cref="Machine"/> class and populate the registers
         /// with some preset values.
@@ -43,7 +45,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             return machine;
         }
 
-        static Random rng = new Random(1);
+        static readonly Random rng = new Random(1);
 
         [Theory]
         [InlineData(0x00, null, null, OpSize.Word, EAType.Source, (byte)0, null, null, null)]                                   // D0
@@ -266,7 +268,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Instruction inst = new Instruction(0, null, size, addrMode);
 
             // Act
-            var _ = machine.ExecutionHandler.EvaluateEffectiveAddress(inst, EAType.Source);
+            var (_, _, _, _) = machine.ExecutionHandler.EvaluateEffectiveAddress(inst, EAType.Source);
 
             // Assert
             Assert.Equal(expRegValue, machine.CPU.ReadAddressRegister(0));
@@ -292,7 +294,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Instruction inst = new Instruction(0, null, size, addrMode);
 
             // Act
-            var _ = machine.ExecutionHandler.EvaluateEffectiveAddress(inst, EAType.Source);
+            var (_, _, _, _) = machine.ExecutionHandler.EvaluateEffectiveAddress(inst, EAType.Source);
 
             // Assert
             Assert.Equal(expRegValue, machine.CPU.ReadAddressRegister(7));
@@ -331,7 +333,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         public void ORItoCCR()
         {
             // Arrange
-            ushort[] code = new ushort[] { 0x003C, 0x0010 };  // ori #$10,ccr
+            ushort[] code = [0x003C, 0x0010];  // ori #$10,ccr
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
@@ -351,7 +353,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         public void ORItoSR()
         {
             // Arrange
-            ushort[] code = new ushort[] { 0x007C, 0x2000 };  // ori #$2000,sr
+            ushort[] code = [0x007C, 0x2000];  // ori #$2000,sr
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
@@ -371,7 +373,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         public void ORI()
         {
             // Arrange
-            ushort[] code = new ushort[] { 0x0041, 0x1234, 0x0054, 0x1234 };  // ori.w #$1234,d1 | ori.w #$1234,(a4)
+            ushort[] code = [0x0041, 0x1234, 0x0054, 0x1234];  // ori.w #$1234,d1 | ori.w #$1234,(a4)
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
@@ -380,7 +382,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 A4 = 0x00002000
             };
             machine.SetCPUState(initState);
-            ushort[] data = new ushort[] { 0x8055 };
+            ushort[] data = [0x8055];
             machine.LoadData(data, 0x00002000, false);
 
             // Act
@@ -502,8 +504,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         {
             ushort[] code = size switch
             {
-                OpSize.Byte => new ushort[] { 0x0202, (ushort)andValue },    // andi.b #<orValue>,d2
-                OpSize.Word => new ushort[] { 0x0242, (ushort)andValue },    // andi.w #<orValue>,d2
+                OpSize.Byte => [0x0202, (ushort)andValue],    // andi.b #<orValue>,d2
+                OpSize.Word => [0x0242, (ushort)andValue],    // andi.w #<orValue>,d2
                 _ => new ushort[] { 0x0282, (ushort)((andValue & 0xFFFF0000) >> 16), (ushort)andValue },  // andi.l #<orValue>,d2
             };
             Machine machine = new Machine();
@@ -526,7 +528,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         public void SUBI()
         {
             // Arrange
-            ushort[] code = new ushort[] { 0x0402, 0x0010, 0x0443, 0x2030, 0x0496, 0x3040, 0x5060 };  // subi.b #$10,d2 | subi.w #$2030,d3 | subi.l #$30405060,(a6)
+            ushort[] code = [0x0402, 0x0010, 0x0443, 0x2030, 0x0496, 0x3040, 0x5060];  // subi.b #$10,d2 | subi.w #$2030,d3 | subi.l #$30405060,(a6)
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
@@ -555,8 +557,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [InlineData(0x0000F321, SRFlags.Carry | SRFlags.Extend | SRFlags.Negative)]
         public void SUBI_FlagsTest(uint subValue, SRFlags expectedFlags)
         {
-            ushort[] code = new ushort[] { 0x0442, (ushort)subValue };    // subi.w #<orValue>,d2;
-            Machine machine = new Machine();
+            ushort[] code = [0x0442, (ushort)subValue];    // subi.w #<orValue>,d2
+            Machine machine = new();
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
             {
@@ -575,7 +577,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         public void ADDI()
         {
             // Arrange
-            ushort[] code = new ushort[] { 0x0602, 0x0010, 0x0643, 0x2030, 0x0696, 0x3040, 0x5060 };  // addi.b #$10,d2 | addi.w #$2030,d3 | addi.l #$30405060,(a6)
+            ushort[] code = [0x0602, 0x0010, 0x0643, 0x2030, 0x0696, 0x3040, 0x5060];  // addi.b #$10,d2 | addi.w #$2030,d3 | addi.l #$30405060,(a6)
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
@@ -585,7 +587,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 A6 = 0x00002000
             };
             machine.SetCPUState(initState);
-            ushort[] data = new ushort[] { 0xFEDC, 0xBA98 };
+            ushort[] data = [0xFEDC, 0xBA98];
             machine.LoadData(data, 0x00002000, false);
 
             // Act
@@ -605,7 +607,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [InlineData(0x00001234, (SRFlags)0)]
         public void ADDI_FlagsTest(uint addValue, SRFlags expectedFlags)
         {
-            ushort[] code = new ushort[] { 0x0642, (ushort)addValue };    // addi.w #<orValue>,d2;
+            ushort[] code = new ushort[] { 0x0642, (ushort)addValue };    // addi.w #<orValue>,d2
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
@@ -645,7 +647,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         public void EORItoSR()
         {
             // Arrange
-            ushort[] code = new ushort[] { 0x0A7C, 0xA000 };  // eori #$A000,sr
+            ushort[] code = [0x0A7C, 0xA000];  // eori #$A000,sr
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
@@ -665,7 +667,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         public void EORI()
         {
             // Arrange
-            ushort[] code = new ushort[] { 0x0A47, 0x0F0F, 0x0A56, 0xF0F0 };  // eori.w #$0F0F,d7 | eori.w #$F0F0,(a6)
+            ushort[] code = [0x0A47, 0x0F0F, 0x0A56, 0xF0F0];  // eori.w #$0F0F,d7 | eori.w #$F0F0,(a6)
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
@@ -699,8 +701,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         {
             ushort[] code = size switch
             {
-                OpSize.Byte => new ushort[] { 0x0A07, (ushort)eorValue },    // eori.b #<orValue>,d7
-                OpSize.Word => new ushort[] { 0x0A47, (ushort)eorValue },    // eori.w #<orValue>,d7
+                OpSize.Byte => [0x0A07, (ushort)eorValue],    // eori.b #<orValue>,d7
+                OpSize.Word => [0x0A47, (ushort)eorValue],    // eori.w #<orValue>,d7
                 _ => new ushort[] { 0x0A87, (ushort)((eorValue & 0xFFFF0000) >> 16), (ushort)eorValue },  // eori.l #<orValue>,d7
             };
             Machine machine = new Machine();
@@ -733,8 +735,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         {
             ushort[] code = size switch
             {
-                OpSize.Byte => new ushort[] { 0x0C03, (ushort)cmpValue },    // cmpi.b #<orValue>,d3
-                OpSize.Word => new ushort[] { 0x0C43, (ushort)cmpValue },    // cmpi.w #<orValue>,d4
+                OpSize.Byte => [0x0C03, (ushort)cmpValue],    // cmpi.b #<orValue>,d3
+                OpSize.Word => [0x0C43, (ushort)cmpValue],    // cmpi.w #<orValue>,d4
                 _ => new ushort[] { 0x0C83, (ushort)((cmpValue & 0xFFFF0000) >> 16), (ushort)cmpValue },  // cmpi.l #<orValue>,d3
             };
             Machine machine = new Machine();
@@ -767,7 +769,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 A2 = 0x00003000
             };
             machine.SetCPUState(initState);
-            ushort[] data = new ushort[] { 0x8055, 0x40AA };
+            ushort[] data = [0x8055, 0x40AA];
             machine.LoadData(data, 0x00003000, false);
 
             // Act
@@ -776,7 +778,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             // Assert
             Assert.Equal((uint)0x000000BC, machine.CPU.ReadDataRegister(3));
             Assert.Equal((uint)0x5678, machine.Memory.ReadWord(0x00002000));
-            Assert.Equal((uint)0x805540AA, machine.CPU.ReadDataRegister(4));
+            Assert.Equal(0x805540AA, machine.CPU.ReadDataRegister(4));
             Assert.Equal((uint)0x00003004, machine.CPU.ReadAddressRegister(2));
         }
 
@@ -784,7 +786,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         public void MOVEA()
         {
             // Arrange
-            ushort[] code = new ushort[] { 0x3246, 0x285A };  // movea.w d6,a1 | movea.l (a2)+,a4
+            ushort[] code = [0x3246, 0x285A];  // movea.w d6,a1 | movea.l (a2)+,a4
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
@@ -803,7 +805,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal((uint)0x00005678, machine.CPU.ReadAddressRegister(1));
-            Assert.Equal((uint)0x805540AA, machine.CPU.ReadAddressRegister(4));
+            Assert.Equal(0x805540AA, machine.CPU.ReadAddressRegister(4));
             Assert.Equal((uint)0x00003004, machine.CPU.ReadAddressRegister(2));
         }
 
@@ -811,7 +813,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         public void MOVEfromSR()
         {
             // Arrange
-            ushort[] code = new ushort[] { 0x40C1 };  // move sr,d1
+            ushort[] code = [0x40C1];  // move sr,d1
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
@@ -841,7 +843,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 SR = SRFlags.Overflow | SRFlags.Zero | SRFlags.SupervisorMode
             };
             machine.SetCPUState(initState);
-            ushort[] data = new ushort[] { 0x1584 };
+            ushort[] data = [0x1584];
             machine.LoadData(data, 0x00003000, false);
 
             // Act
@@ -864,7 +866,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 SR = SRFlags.Overflow | SRFlags.Zero
             };
             machine.SetCPUState(initState);
-            ushort[] data = new ushort[] { 0x2012 };
+            ushort[] data = [0x2012];
             machine.LoadData(data, 0x00002000, false);
 
             // Act
@@ -898,9 +900,9 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         {
             ushort[] code = size switch
             {
-                OpSize.Byte => new ushort[] { 0x4001 },     // negx.b d1
-                OpSize.Word => new ushort[] { 0x4041 },     // negx.w d1
-                _ => new ushort[] { 0x4081 },               // negx.l d1
+                OpSize.Byte => [0x4001],     // negx.b d1
+                OpSize.Word => [0x4041],     // negx.w d1
+                _ => [0x4081],               // negx.l d1
             };
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
@@ -959,7 +961,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         public void CLR()
         {
             Machine machine = new Machine();
-            ushort[] code = new ushort[] { 0x4207, 0x4252, 0x42B8, 0x2000 };  // clr.b d7 | clr.w (a2) | clr.l ($2000)
+            ushort[] code = [0x4207, 0x4252, 0x42B8, 0x2000];  // clr.b d7 | clr.w (a2) | clr.l ($2000)
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
             {
@@ -967,9 +969,9 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 A2 = 0x00003000
             };
             machine.SetCPUState(initState);
-            ushort[] data = new ushort[] { 0xAAAA, 0x5555 };
+            ushort[] data = [0xAAAA, 0x5555];
             machine.LoadData(data, 0x00002000, false);
-            data = new ushort[] { 0x2021 };
+            data = [0x2021];
             machine.LoadData(data, 0x00003000, false);
 
             // Act
@@ -2205,12 +2207,12 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.Execute();
 
             // Assert
-            Assert.Equal((uint)0x87654321, machine.CPU.ReadDataRegister(0));
+            Assert.Equal(0x87654321, machine.CPU.ReadDataRegister(0));
             Assert.Equal((uint)0x12345678, machine.CPU.ReadDataRegister(1));
             Assert.Equal((uint)0x55555555, machine.CPU.ReadAddressRegister(0));
             Assert.Equal((uint)0x01010101, machine.CPU.ReadAddressRegister(1));
             Assert.Equal((uint)0x66666666, machine.CPU.ReadAddressRegister(5));
-            Assert.Equal((uint)0xAAAAAAAA, machine.CPU.ReadDataRegister(6));
+            Assert.Equal(0xAAAAAAAA, machine.CPU.ReadDataRegister(6));
         }
 
         [Theory]
@@ -3491,9 +3493,9 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             // Assert
             Assert.Equal((uint)0x00002FE8, machine.CPU.USP);
             Assert.Equal((uint)0x12345678, machine.Memory.ReadLong(0x00002FE8));
-            Assert.Equal((uint)0xAAAAAAAA, machine.Memory.ReadLong(0x00002FEC));
+            Assert.Equal(0xAAAAAAAA, machine.Memory.ReadLong(0x00002FEC));
             Assert.Equal((uint)0x55555555, machine.Memory.ReadLong(0x00002FF0));
-            Assert.Equal((uint)0x87654321, machine.Memory.ReadLong(0x00002FF4));
+            Assert.Equal(0x87654321, machine.Memory.ReadLong(0x00002FF4));
             Assert.Equal((uint)0x10293847, machine.Memory.ReadLong(0x00002FF8));
             Assert.Equal((uint)0x56473829, machine.Memory.ReadLong(0x00002FFC));
         }
@@ -3517,11 +3519,11 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             // Assert
             Assert.Equal((uint)0x00003000, machine.CPU.USP);
             Assert.Equal((uint)0x00005678, machine.CPU.ReadDataRegister(4));
-            Assert.Equal((uint)0xFFFFAAAA, machine.CPU.ReadDataRegister(5));
+            Assert.Equal(0xFFFFAAAA, machine.CPU.ReadDataRegister(5));
             Assert.Equal((uint)0x00005555, machine.CPU.ReadDataRegister(6));
             Assert.Equal((uint)0x00004321, machine.CPU.ReadAddressRegister(1));
             Assert.Equal((uint)0x00003847, machine.CPU.ReadAddressRegister(2));
-            Assert.Equal((uint)0xFFFFFFFF, machine.CPU.ReadAddressRegister(3));
+            Assert.Equal(0xFFFFFFFF, machine.CPU.ReadAddressRegister(3));
         }
 
         [Fact]
@@ -3540,7 +3542,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 USP = 0x00002FE8
             };
             machine.SetCPUState(initState);
-            ushort[] data = new ushort[] { 0x1234, 0x5678, 0xAAAA, 0xAAAA, 0x5555, 0x5555, 0x8765, 0x4321, 0x1029, 0x3847, 0x5647, 0x3829 };
+            ushort[] data = [0x1234, 0x5678, 0xAAAA, 0xAAAA, 0x5555, 0x5555, 0x8765, 0x4321, 0x1029, 0x3847, 0x5647, 0x3829];
             machine.LoadData(data, 0x00002FE8, false);
 
             // Act
@@ -3549,13 +3551,13 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             // Assert
             Assert.Equal((uint)0x00003000, machine.CPU.USP);
             Assert.Equal((uint)0x12345678, machine.CPU.ReadDataRegister(4));
-            Assert.Equal((uint)0xAAAAAAAA, machine.CPU.ReadDataRegister(5));
+            Assert.Equal(0xAAAAAAAA, machine.CPU.ReadDataRegister(5));
             Assert.Equal((uint)0x55555555, machine.CPU.ReadDataRegister(6));
-            Assert.Equal((uint)0x87654321, machine.CPU.ReadAddressRegister(1));
+            Assert.Equal(0x87654321, machine.CPU.ReadAddressRegister(1));
             Assert.Equal((uint)0x10293847, machine.CPU.ReadAddressRegister(2));
             Assert.Equal((uint)0x56473829, machine.CPU.ReadAddressRegister(3));
         }
-
+#pragma warning restore S4144 // Methods should not have identical implementations
 
     }
 }

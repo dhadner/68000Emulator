@@ -142,7 +142,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="vector">The 68000 TRAP vector value.</param>
         public static void RaiseTRAPException(ushort vector)
         {
-            Logger.Log(LogLevel.Error, "CPU", $"TRAP exception: vector {vector}");
+            Logger.Log(LogLevel.Error, "CPU", () => $"TRAP exception: vector {vector}");
             throw new TrapException(vector);
         }
 

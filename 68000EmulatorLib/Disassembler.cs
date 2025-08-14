@@ -1,9 +1,9 @@
-﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text;
+using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using static PendleCodeMonkey.MC68000EmulatorLib.Machine.Disassembler;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
@@ -37,7 +37,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// a location or I/O address would change the state
         /// of the (simulated) hardware.
         /// </summary>
-        public class Disassembler
+        public partial class Disassembler
         {
 
             /// <summary>
@@ -91,7 +91,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             /// <summary>
             /// Wrapper around the machine's memory with its own CPU.PC and
-            /// <see cref="IsEndOfData"/> and <see cref="IsEndOfExecution"/>logic to 
+            /// <see cref="IsEndOfData"/> and <see cref="IsEndOfExecution"/>logic to
             /// support the Decoder.
             /// </summary>
             public class DisassemblerMachine : Machine
@@ -106,7 +106,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// <summary>
                 /// End of data not reached until end of address space.
                 /// </summary>
-                protected override bool IsEndOfData => CPU.PC >= 0xffffffff;
+                public override bool IsEndOfData => CPU.PC >= 0xffffffff;
 
                 /// <summary>
                 /// For the purposes of disassembly, end of execution is the entire
@@ -165,61 +165,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             protected bool IsEndOfData => CurrentAddress >= StartAddress + Length;
 
-            /// <summary>
-            /// Represents a non-executable section.
-            /// </summary>
-            /// <param name="address"></param>
-            /// <param name="length"></param>
-            /// <param name="itemOpSize">'A' auto (default), 'B' byte, 'W' word, 'L' long</param>
-            public class NonExecSection
-            {
-                public NonExecSection()
-                {
-                }
 
-                public NonExecSection(uint address, uint length, OpSize itemOpSize = OpSize.Byte, uint itemsPerLine = 1, uint displayRadix = 16)
-                {
-                    Address = address;
-                    Length = length;
-                    ItemOpSize = itemOpSize;
-                    ItemsPerLine = Math.Min(MaxNESBytesPerRecord, Math.Max(1, itemsPerLine));
-                    DisplayRadix = (uint)(displayRadix == 2 ? 2 : displayRadix == 10 ? 10 : 16);
-                }
-
-                public virtual uint Address { get; set; }
-                public virtual uint Length { get; set; }
-                public virtual OpSize ItemOpSize { get; set; }
-                public virtual uint ItemsPerLine { get; set; }
-                public virtual uint DisplayRadix { get; set; }
-
-                /// <summary>
-                /// Return true if the section contains at least one byte of the
-                /// range passed in.
-                /// </summary>
-                /// <param name="startAddress"></param>
-                /// <param name="length"></param>
-                /// <returns></returns>
-                public virtual bool IntersectsWith(uint startAddress, uint length)
-                {
-                    if (startAddress + length <= Address || startAddress >= Address + Length)
-                    {
-                        return false;
-                    }
-                    return true;
-                }
-            }
-
-            /// <summary>
-            /// Maximum number of bytes to include in a disassembler record
-            /// in a non-executable section.
-            /// E.g., DC.B $01,$02,$03,$04
-            ///       DC.W $0001,$0002
-            ///       DC.L $00000001
-            /// </summay>
-            public const int MaxNESBytesPerRecord = 64;
-            public const int MaxNESItemsPerRecord = 8;
-            protected List<NonExecSection> NonExecSections { get; set; } = [];
-            protected Dictionary<uint, NonExecSection> NonExecSectionsByAddress { get; set; } = [];
+            public NonExecutableSections MachineNonExecutableSections { get; set; } = new();
 
             protected delegate Operation DisassemblyHandler(Instruction inst, StringBuilder sb);
             protected readonly Dictionary<OpHandlerID, DisassemblyHandler> _handlers = [];
@@ -371,221 +318,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Sort the list and then walk up the list, removing duplicate sections that cover
-            /// the same memory and combine those that overlap.  Updates the dictionary by 
-            /// address before returning.
-            /// If the new length of a section is incompatible with the OpSize, adjust the
-            /// OpSize accordingly.
-            /// </summary>
-            protected void NormalizeSections()
-            {
-                // Sort the sections by address
-                List<NonExecSection> sections = NonExecSections;
-                sections.Sort((a, b) => a.Address.CompareTo(b.Address));
-
-                bool adjusted;
-                try
-                {
-                    // Keep cycling up through the list until we haven't adjusted any sections.
-                    do
-                    {
-                        adjusted = false;
-
-                        for (int i = 0; i < sections.Count - 1; i++)
-                        {
-                            if (sections[i].Address + sections[i].Length > sections[i + 1].Address)
-                            {
-                                adjusted = true;
-
-                                // We have an overlap, so combine them if same OpSize
-                                if (sections[i].ItemOpSize == sections[i + 1].ItemOpSize)
-                                {
-                                    uint minAddress = Math.Min(sections[i].Address, sections[i + 1].Address);
-                                    uint maxAddress = Math.Max(sections[i].Address + sections[i].Length, sections[i + 1].Address + sections[i + 1].Length);
-                                    uint length = maxAddress - minAddress;
-                                    NonExecSection merged = new(minAddress, length, sections[i].ItemOpSize, sections[i].ItemsPerLine, sections[i].DisplayRadix);
-                                    sections[i + 1] = merged;
-                                    sections.RemoveAt(i);
-                                }
-                                else
-                                {
-                                    // Make the first one shorter.
-                                    sections[i].Length = sections[i + 1].Address - sections[i].Address;
-                                }
-                                break;
-                            }
-                        }
-                    } while (adjusted);
-                    NonExecSectionsByAddress.Clear();
-
-                    int index = 0;
-                    while (index < NonExecSections.Count)
-                    {
-                        NonExecSection section = NonExecSections[index];
-                        uint divisor = OpSizeToLength(section.ItemOpSize);
-                        uint remainder = section.Length % divisor;
-                        uint numFullOpSizes = section.Length / divisor;
-                        if (remainder != 0)
-                        {
-                            OpSize newSize = LengthToOpSize(remainder);
-                            // Add full section if any
-                            if (numFullOpSizes > 0)
-                            {
-                                // Adjust the original section's length to account for the new, small section to be added after
-                                section.Length -= remainder;
-                                NonExecSectionsByAddress[section.Address] = section;
-
-                                // Add a new small section to make up the difference.
-                                NonExecSection sec = new(section.Address + section.Length, remainder, newSize, section.ItemsPerLine, section.DisplayRadix);
-                                NonExecSectionsByAddress[sec.Address] = sec;
-                                NonExecSections.Add(sec);
-                                index++;
-                            }
-                            else
-                            {
-                                // Section is too small for the OpSize, so just change the OpSize.
-                                section.ItemOpSize = newSize;
-                                NonExecSectionsByAddress[section.Address] = section;
-                            }
-                        }
-                        else
-                        {
-                            NonExecSectionsByAddress[section.Address] = section;
-                        }
-                        index++;
-                    }
-                }
-                catch(Exception e)
-                {
-                    Logger.Log(LogLevel.Critical, "DISASSEMBLER", $"NormalizeSections: {e.Message}");
-                }
-            }
-
-            /// <summary>
-            /// Add details of a non-executable block of data.
-            /// </summary>
-            /// <remarks>
-            /// Non-executable sections are blocks of memory that contain data that is not executable code.
-            /// Such data blocks are shown in the disassembly output using a DB directive.
-            /// </remarks>
-            /// <param name="startAddress">The start effectiveAddress of the block of non-executable data.</param>
-            /// <param name="length">The length (in bytes) of the block of non-executable data.</param>
-            /// <param name="itemOpSize">OpSize (B, L, W)</param>
-            public void SetNonExecutableRange(uint startAddress, uint length, OpSize itemOpSize = OpSize.Byte, uint itemsPerLine = 1, uint displayRadix = 16)
-            {
-                if (itemsPerLine > MaxNESBytesPerRecord)
-                {
-                    throw new ArgumentException($"itemsPerLine must be no more than MaxNESBytesPerRecord {MaxNESBytesPerRecord}");
-                }
-                NormalizeSections();
-                ClearNonExecutableRange(startAddress, length);
-                NonExecSections.Add(new(startAddress, length, itemOpSize, itemsPerLine, displayRadix));
-                NormalizeSections();
-            }
-
-            /// <summary>
-            /// Find all executable sections in this range and either delete (if totally within range)
-            /// or re-adjust to eliminate this range.  May have to split a section into two if the range
-            /// is totally included in the section.
-            /// </summary>
-            /// <param name="startAddress"></param>
-            /// <param name="length"></param>
-            public void ClearNonExecutableRange(uint startAddress, uint length)
-            {
-                uint maxAddress = startAddress + length - 1;
-                List<NonExecSection> sections = [];
-                NormalizeSections();
-
-                // CASE 0: Range to be [c]leared does not intersect any [s]ections.
-                //         Nothing needs to be done.
-                //
-                //    This is handled by calculating the intersections and including
-                //    only sections that intersect in the cases below.
-                //
-                foreach (var section in NonExecSections.Where(section => section.IntersectsWith(startAddress, length)))
-                {
-                    sections.Add(section);
-                }
-
-                // Sort the sections by address
-                sections.Sort((a, b) => a.Address.CompareTo(b.Address));
-
-                foreach (var section in sections)
-                {
-                    uint nesMaxAddress = section.Address + section.Length - 1;
-
-                    // CASE 1: Range to be [c]leared totally contains the current [s]ection,
-                    //         so deleting the entire section is needed.
-                    //
-                    //    startAddress     [ccccccccccccccccc]        startAddress + length
-                    //    section.Address     [ssssssssss]            section.Address + section.Length
-                    //    section.Address  [ssssssssss]               section.Address + section.Length
-                    //    section.Address         [ssssssssss]        section.Address + section.Length
-                    //
-                    if (section.Address >= startAddress && nesMaxAddress <= maxAddress)
-                    {
-                        // This section is totally contained within the range.
-                        NonExecSections.Remove(section);
-                    }
-                    // CASE 2: Range to be [c]leared is totally within the current [s]ection
-                    //         (and not at beginning or end of the section), so the current
-                    //         section must be split into two.
-                    //
-                    //    startAddress         [cccccccccc]           startAddress + length
-                    //    section.Address   [sssxxxxxxxxxxxssssss]    section.Address + section.Length
-                    //
-                    else if (section.Address < startAddress && nesMaxAddress > maxAddress)
-                    {
-                        // This section contains the range and must be split into two.
-                        NonExecSections.Remove(section);
-                        NonExecSections.Add(new(section.Address, startAddress - section.Address, section.ItemOpSize, section.ItemsPerLine, section.DisplayRadix));
-                        NonExecSections.Add(new(startAddress + length, nesMaxAddress - maxAddress, section.ItemOpSize, section.ItemsPerLine, section.DisplayRadix));
-                    }
-                    // CASE 3: Range to be [c]leared top extends up into the current [s]ection,
-                    //         so the section must be recalculated to cut off the bottom.
-                    //
-                    //    startAddress    [cccccccccc]                startAddress + length
-                    //    section.Address   [xxxxxssssssss]           section.Address + section.Length
-                    //    section.Address [xxxxxxxxxxsss]             section.Address + section.Length
-                    //
-                    else if (startAddress <= section.Address && nesMaxAddress > maxAddress)
-                    {
-                        // The low portion of nes encroaches into the top of the range and so nes must be
-                        // truncated.
-                        NonExecSections.Remove(section);
-                        NonExecSections.Add(new(startAddress + length, nesMaxAddress - maxAddress, section.ItemOpSize, section.ItemsPerLine, section.DisplayRadix));
-                    }
-                    // CASE 4: Range to be [c]leared bottom is less than current [s]ection top, so the
-                    //         current section must be truncated on the top.
-                    //
-                    //    startAddress               [cccccccccc]     startAddress + length
-                    //    section.Address   [sssssssssxxxx]           section.Address + section.Length
-                    //
-                    else if (startAddress >= section.Address)
-                    {
-                        // The high portion of nes encroaches into the low end of the range and so nes
-                        // must be truncated.
-                        NonExecSections.Remove(section);
-                        NonExecSections.Add(new(section.Address, startAddress - section.Address, section.ItemOpSize, section.ItemsPerLine, section.DisplayRadix));
-                    }
-                    else
-                    {
-                        throw new InvalidOperationException("ClearNonExecutableSectionRange: Should not happen - logic error!");
-                    }
-                }
-                NormalizeSections();
-            }
-
-            /// <summary>
-            /// Clear all non-executable sections.
-            /// </summary>
-            public void ClearNonExecutableSections()
-            {
-                NonExecSections.Clear();
-                NonExecSectionsByAddress.Clear();
-            }
-
-            /// <summary>
             /// Return the size, in bytes, for this OpSize since
             /// the enum values start at 0.
             /// </summary>
@@ -614,9 +346,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return OpSize.Byte;
             }
 
+
             /// <summary>
             /// Perform a full disassembly of the specified block of memory.
-            /// 
+            ///
             /// In the case where a non-executable section is in the list, there may
             /// be many records for a single section.  In that case, account for the
             /// fact that the first record may not have been on an alignment boundary
@@ -638,8 +371,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 try
                 {
-                    uint legalAddress = GetClosestLegalAddress(startAddress);
+                    uint legalAddress = GetClosestLowerLegalAddress(startAddress);
                     length += startAddress - legalAddress;
+
+#if DEBUG_HIDE
+                    // Logging: record parameters at entry, include caller name
+                    string callerName = "Unknown";
+                    try
+                    {
+                        var st = new System.Diagnostics.StackTrace();
+                        var frame = st.GetFrame(1); // 0 = this method, 1 = caller
+                        callerName = frame?.GetMethod()?.Name ?? "<unknown>";
+                    }
+                    catch { callerName = "<error>"; }
+                    System.Diagnostics.Debug.WriteLine($"Disassemble called by {callerName}: startAddress=0x{startAddress:X6}, length=0x{length:X}, maxCount={maxCount}");
+                    Logger.Log(LogLevel.Trace, "DISASSEMBLER", () => $"Disassemble called by {callerName}: startAddress=0x{startAddress:X6}, length=0x{length:X}, maxCount={maxCount}");
+#endif
 
                     // Set machine parameters for this disassembler machine
                     Disassembling = true;
@@ -654,7 +401,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     // When Length is exceeded, loop exits because IsEndOfData goes true.
                     while (!IsEndOfData && count++ < maxCount)
                     {
-                        var nonExecSection = GetNonExecutableSection(CurrentAddress);
+                        var nonExecSection = MachineNonExecutableSections.GetSectionIncluding(CurrentAddress);
                         if (nonExecSection != null)
                         {
                             uint size = OpSizeToLength(nonExecSection.ItemOpSize);
@@ -673,11 +420,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             result.Add(DisassembleAtCurrentAddress());
                         }
                     }
+
+                    // Logging: record result count at exit
+#if DEBUG_HIDE
+                    System.Diagnostics.Debug.WriteLine($"Disassemble completed: startAddress=0x{startAddress:X6}, length=0x{length:X}, maxCount={maxCount}, recordCount={result.Count}");
+                    Logger.Log(LogLevel.Trace, "DISASSEMBLER", () => $"Disassemble completed: startAddress=0x{startAddress:X6}, length=0x{length:X}, maxCount={maxCount}, recordCount={result.Count}");
+#endif
+
                     return result;
                 }
                 catch (Exception e)
                 {
-                    Logger.Log(LogLevel.Critical, "DISASSEMBLER", $"Disassemble: {e.Message}");
+                    Logger.Log(LogLevel.Critical, "DISASSEMBLER", () => $"Disassemble: {e.Message}");
                     throw;
                 }
                 finally
@@ -687,23 +441,23 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Return the closest legal address for the given address in the section.
+            /// Return the closest legal address less than or equal to the given address in the section.
             /// </summary>
             /// <param name="address"></param>
             /// <param name="section"></param>
             /// <returns></returns>
-            public uint GetClosestLegalAddress(uint address)
+            public uint GetClosestLowerLegalAddress(uint address)
             {
-                return GetClosestLegalAddress(address, GetNonExecutableSection(address));
+                return GetClosestLowerLegalAddress(address, MachineNonExecutableSections.GetSectionIncluding(address));
             }
 
             /// <summary>
-            /// Return the closest legal address for the given address in the section.
+            /// Return the closest legal address less than or equal to the given address in the section.
             /// </summary>
             /// <param name="address"></param>
             /// <param name="section"></param>
             /// <returns></returns>
-            public static uint GetClosestLegalAddress(uint address, NonExecSection? section)
+            public static uint GetClosestLowerLegalAddress(uint address, NonExecutableSection? section)
             {
                 address = MakeLegalAddress(address);
                 if (section != null)
@@ -731,27 +485,27 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <summary>
             /// Return a Disassembly record for the section that starts at <see cref="address"/>
             /// and has the requested <see cref="length"/>.
-            /// 
+            ///
             /// Note that the actual section may start at a much lower address and continue on past the
             /// requested length so handle appropriately.  Also, the requested section may
             /// end prior to the length passed in, so also handle that appropriately.
-            /// 
+            ///
             /// In the case where a non-executable section is large, there may
             /// be many records for a single section.  In that case, account for the
             /// fact that the first record may not have been on an alignment boundary
             /// from the start of that section and return an assembly record that starts
-            /// on an alignment boundary.  
-            /// 
-            /// If the final record is truncated by "length", then adjust the length of the 
+            /// on an alignment boundary.
+            ///
+            /// If the final record is truncated by "length", then adjust the length of the
             /// record to be consistent with the length.
             /// </summary>
             /// <param name="address">starting address of this disassembly record</param>
             /// <param name="length">max length of disassembly record in bytes</param>
             /// <param name="section">non-executable section that contains the address.</param>
             /// <returns></returns>
-            protected DisassemblyRecord GetNonExecutableSectionRecord(uint address, uint length, NonExecSection section)
+            protected DisassemblyRecord GetNonExecutableSectionRecord(uint address, uint length, NonExecutableSection section)
             {
-                address = GetClosestLegalAddress(address, section);
+                address = GetClosestLowerLegalAddress(address, section);
 
                 uint itemOpSize = OpSizeToLength(section.ItemOpSize);
 
@@ -759,7 +513,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 uint itemsPerLine = section.ItemsPerLine;
 
-                // Shrink the OpSize if needed.  The 
+                // Shrink the OpSize if needed.  The
                 if (itemOpSize > length)
                 {
                     if (length == 2)
@@ -784,7 +538,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     // Can't use ReadNextByte() because NonExecutableDataDisassembly(...)
                     // will call it below and calling it here would result in double
-                    // incrementing CurrentAddress.  Note that Machine.Memory can be 
+                    // incrementing CurrentAddress.  Note that Machine.Memory can be
                     // overridden in derived classes to access memory-mapped I/O as well
                     // (also applies to ReadNextByte() since it calls Machine.Memory.ReadByte(...),
                     // - so I/O could be read twice).
@@ -811,35 +565,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return value;
             }
 
-            /// <summary>
-            /// Determines if the current effectiveAddress is within a non-executable data block.
-            /// </summary>
-            /// <returns>The zero-based index of the first non-executable data block that the current effectiveAddress falls within, or null if
-            /// the current effectiveAddress is within executable code.</returns>
-            public NonExecSection? GetNonExecutableSection(uint address)
-            {
-                foreach (var section in NonExecSections)
-                {
-                    if (address >= section.Address && address < (section.Address + section.Length))
-                    {
-                        return section;
-                    }
-                }
-
-                return null;
-            }
-
-            /// <summary>
-            /// Return true if this address is within a non-executable section.
-            /// </summary>
-            /// <param name="address"></param>
-            /// <returns>True if in non-executable section</returns>
-            public bool WithinNonExecutableData(uint address)
-            {
-                return GetNonExecutableSection(address) != null;
-            }
-
-            static readonly byte[] _bytes = new byte[MaxNESBytesPerRecord];
+            static readonly byte[] _bytes = new byte[NonExecutableSections.MaxNESBytesPerRecord];
             static readonly StringBuilder _asciiBuilder = new();
 
             /// <summary>
@@ -899,7 +625,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 uint items = Math.Max(1, length / itemSize);
                 uint remainder = length % itemSize;
-                OpSize dirSize = dir.Size?? OpSize.Word;
+                OpSize dirSize = dir.Size ?? OpSize.Word;
                 if (remainder != 0)
                 {
                     error = $"[ERROR] NonExecutableDataDisassembly called with incompatible length for {dir.Size}: {length}";
@@ -970,15 +696,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 set
                 {
-                    if (Machine.Debugger != null)
-                    {
-                        Machine.Debugger.Disassembling = value;
-                    }
+                    Machine.Debugger?.Disassembling = value;
                 }
             }
 
             /// <summary>
-            /// Disassemble one instruction at the current instruction.  The address is guaranteed 
+            /// Disassemble one instruction at the current instruction.  The address is guaranteed
             /// to not be in a non-executable section.
             /// </summary>
             /// <returns></returns>
@@ -1121,7 +844,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             /// <summary>
             /// Subclasses can override and return a label for this address.
-            /// 
+            ///
             /// The disassembly will use this label rather than the absolute
             /// address passed in.  If the subclass returns <c>null</c>, the
             /// disassembly will show the absolute address instead.
@@ -1135,39 +858,39 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Subclasses can override this to return a symbolic expression for 
+            /// Subclasses can override this to return a symbolic expression for
             /// the expression at this address and operand position.
-            /// 
+            ///
             /// Operand position:
             ///     0 = source
             ///     1 = dest
-            ///     more if a directive like <c>DC.B  $23,$45,$ea,$8f</c>, 
+            ///     more if a directive like <c>DC.B  $23,$45,$ea,$8f</c>,
             ///                               which has 4 operands numbered 0-3
-            ///                               
+            ///
             /// An expression is a (possibly symbolic) string that is legal in
             /// assembler and that resolves to the constant value in the op code
             /// operand (other than register references).
-            /// 
+            ///
             /// For example, in the assembly line
             ///   <c>MOVE.B  $e8,$08(A0,D2.W)</c>
-            ///   
-            /// the operation has two operands: <c>$e8</c> and <c>$08(A0,D2.W)</c>.  
+            ///
+            /// the operation has two operands: <c>$e8</c> and <c>$08(A0,D2.W)</c>.
             /// The source operand has the expression <c>$e8</c> that can be replaced
             /// by this function with a symbolic expression.  For example, if
-            /// the following EQU is in the code, 
-            /// 
+            /// the following EQU is in the code,
+            ///
             /// <c>MouseOffset  EQU  $08+$e0</c>
-            /// 
+            ///
             /// then, if the above MOVE.B operation is at address <c>$00400234</c>, the
             /// subclass might return the expression <c>MouseOffset</c> in response to the
             /// call:
-            /// 
+            ///
             /// <c>string? expression = GetExpression($00400234, 0); // Address = $00400234, </c>
             /// <c>                                                  // operand position = 0 (source)</c>
-            /// 
+            ///
             /// The disassembly will now use <c>MouseOffset</c> rather than <c>$e8</c> to make for
             /// easier understanding.
-            /// 
+            ///
             /// </summary>
             /// <param name="address"></param>
             /// <param name="operandPos"></param>
@@ -1877,10 +1600,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             /// <summary>
             /// Test Condition, Decrement, and Branch.
-            /// 
+            ///
             ///     If Condition False
             ///         Then (Dn - 1 -> Dn; If Dn != -1 Then PC + dn -> PC)
-            ///         
+            ///
             /// Controls a loop of instructions. The parameters are a condition code, a data
             /// register(counter), and a displacement value.The instruction first tests the condition for
             /// termination; if it is true, no operation is performed.If the termination condition is not
@@ -1893,7 +1616,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// bytes from the current program counter to the destination program counter.Condition
             /// code cc specifies one of the following conditional tests (refer to Table 3-19 for more
             /// information on these conditional tests):
-            /// 
+            ///
             ///     Mnemonic    Condition           Mnemonic    Condition
             ///     ========    =========           ========    =========
             ///     CC(HI)      Carry Clear         LS          Low or Same
@@ -1904,19 +1627,19 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             ///     GT          Greater Than        T           True
             ///     HI          High                VC          Overflow Clear
             ///     LE          Less or Equal       VS          Overflow Set
-            ///     
+            ///
             /// Condition Codes:
-            ///     Not affected.           
-            ///     
+            ///     Not affected.
+            ///
             /// NOTE:
-            /// 
+            ///
             /// The terminating condition is similar to the UNTIL loop clauses of
             /// high-level languages.For example: DBMI can be stated as
             /// "decrement and branch until minus".
-            /// 
+            ///
             /// Most assemblers accept DBRA for DBF for use when only a
             /// count terminates the loop (no condition is tested).
-            /// 
+            ///
             /// A program can enter a loop at the beginning or by branching to
             /// the trailing DBcc instruction.Entering the loop at the beginning
             /// is useful for indexed addressing modes and dynamically
@@ -1963,7 +1686,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             /// <summary>
             /// Set According to Condition.
-            /// Sets the byte to all ones if the condition is true, sets the 
+            /// Sets the byte to all ones if the condition is true, sets the
             /// byte to zero if false.
             /// </summary>
             /// <param name="inst"></param>
@@ -2481,9 +2204,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Contains a text expression or symbolic value that
             /// may be part of some operands.  The StartCol is based
             /// on the specific formatting of that operand, e.g.,
-            /// "(MyValue).L" has a StartCol of 1, whereas 
-            /// "MyValue(A0,D1.W)" has a StartCol of 0.  
-            /// 
+            /// "(MyValue).L" has a StartCol of 1, whereas
+            /// "MyValue(A0,D1.W)" has a StartCol of 0.
+            ///
             /// This can be  used as a hint to the UI when highlighting the
             /// "MyValue" part of the expression in order to provide,
             /// perhaps, the ability to modify the text for clearer
@@ -2674,7 +2397,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
 
                 public AddressIndexOperand(int addressRegNum, int dataRegNum, OpSize indexSize, sbyte disp, string? format = null) : this(AddressRegisters[addressRegNum], DataRegisters[dataRegNum], indexSize, new Displacement(disp), format) { }
-                
+
                 public AddressRegister AddressRegister { get; set; }
                 public DataRegister IndexRegister { get; set; }
                 public Displacement Displacement { get; set; }
@@ -2721,7 +2444,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 public AbsShortOperand(ushort value, string? format = null) : this(new Displacement(value), format) { }
 
-                public AbsShortOperand(short value, string? format = null) : this(new Displacement(value), format) { } 
+                public AbsShortOperand(short value, string? format = null) : this(new Displacement(value), format) { }
 
                 public Displacement Displacement { get; set; }
 
@@ -2972,7 +2695,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 public PCIndexOperand(int indexRegNum, Displacement displacement, OpSize size, string? format = null) : this(DataRegisters[indexRegNum], displacement, size, format) { }
                 public PCIndexOperand(int indexRegNum, uint address, OpSize size, string? format = null) : this(DataRegisters[indexRegNum], new Displacement(address), size, format) { }
-                
+
                 public DataRegister IndexRegister { get; set; }
                 public Displacement Displacement { get; set; }
 
@@ -3085,10 +2808,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             /// <summary>
             /// Represents an operand for either a Directive or an Operation.
-            /// 
+            ///
             /// For an Operation, it can be either Source (Pos = 0) or
             /// Destination (Pos = 1).
-            /// 
+            ///
             /// For a Directive, the Pos represents which Operand it is
             /// in the list of operands starting at 0.
             /// </summary>
@@ -3114,26 +2837,26 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// Set when the Operand is added to the OperandList in the Operation
                 /// object.
                 /// </summary>
-                public DirectiveOrOperation Op 
-                { 
-                    get { return _op; } 
-                    set { _op = value; _text = null; } 
+                public DirectiveOrOperation Op
+                {
+                    get { return _op; }
+                    set { _op = value; _text = null; }
                 }
 
                 public bool IsMemory { get; set; } = false;
 
                 OpSize? _size;
-                public OpSize? Size 
+                public OpSize? Size
                 {
-                    get { return _size; } 
-                    set { _size = value; _text = null; } 
+                    get { return _size; }
+                    set { _size = value; _text = null; }
                 }
 
                 protected string? _format;
                 public string? Format
                 {
                     get { return _format; }
-                    set { _format = value; _text = null; } 
+                    set { _format = value; _text = null; }
                 }
 
                 public int Pos { get; set; } = 0;
@@ -3155,7 +2878,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 protected Expression? _expression;
                 /// <summary>
                 /// Optional expression that can represent an immediate
-                /// value or displacement for this operand.  May be defined by 
+                /// value or displacement for this operand.  May be defined by
                 /// an EQU for example.
                 /// </summary>
                 public Expression? Expression
@@ -3400,7 +3123,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             ];
 
             /// <summary>
-            /// USP register name (alias for for the MOVEtoUSP and 
+            /// USP register name (alias for for the MOVEtoUSP and
             /// MOVEfromUSP instructions.
             /// </summary>
             public AddressRegister USP => AddressRegisters[8];
@@ -3485,7 +3208,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// Get the Expression at the specified column,
                 /// starting from 0 as the first column of the
                 /// operation mnemonic.
-                /// 
+                ///
                 /// Return null if the position is out of range
                 /// or there is no expression under that column.
                 ///
