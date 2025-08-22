@@ -127,12 +127,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Column where the effective address (source,dest) text starts,
             /// where the mnemonic (e.g., "DC.W", "MOVEM") starts in column 0.
             /// </summary>
-            public const int EAColumn = 8;
+            public const int EA_COLUMN = 8;
 
             /// <summary>
             /// Maximum instruction length in bytes.
             /// </summary>
-            public const int MaxInstructionLength = 10;
+            public const int MAX_INSTRUCTION_LENGTH = 14;
 
             /// <summary>
             /// Gets or sets the <see cref="Machine"/> instance for which this <see cref="Disassembler"/> instance
@@ -645,7 +645,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     dc = "DC.B";
                 }
                 sb.Append(dc);
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
                 Array.Clear(_bytes);
 
                 for (int i = 0; i < items; i++)
@@ -813,7 +813,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     sb.Append(sSize);
                 }
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
                 return size ?? OpSize.Word;
             }
 
@@ -1122,7 +1122,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 mnemonic = mnemonic[..^"toCCR".Length];
                 Operation op = new(InstructionAddress, mnemonic);
                 sb.Append(mnemonic);
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 // SourceExtWord1 holds the immediate operand value.
                 if (HasSourceExtWord1(inst, sb))
@@ -1144,7 +1144,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 mnemonic = mnemonic[..^"toSR".Length];
                 Operation op = new(InstructionAddress, mnemonic);
                 sb.Append(mnemonic);
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 // SourceExtWord1 holds the immediate operand value.
                 if (inst.SourceExtWord1.HasValue)
@@ -1163,7 +1163,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 Operation op = new(InstructionAddress, "MOVE");
                 sb.Append("MOVE");
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 op.Operands.Add(EffectiveAddressOp(inst, EAType.Source));
                 op.Operands.Add(new SROperand());
@@ -1176,7 +1176,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 Operation op = new(InstructionAddress, "MOVE");
                 sb.Append("MOVE");
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 op.Operands.Add(EffectiveAddressOp(inst, EAType.Source));
                 op.Operands.Add(new CCROperand());
@@ -1189,7 +1189,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 Operation op = new(InstructionAddress, "MOVE");
                 sb.Append("MOVE");
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 op.Operands.Add(new SROperand());
                 op.Operands.Add(EffectiveAddressOp(inst, EAType.Destination));
@@ -1226,7 +1226,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 Operation op = AppendMnemonic(inst, sb);
                 op.Size = OpSize.Word;
                 sb.Append(".W");
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
 
@@ -1325,7 +1325,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 op.Size = size;
                 string sz = size == OpSize.Word ? ".W" : ".L";
                 sb.Append(sz);
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 byte aRegNum = (byte)(inst.Opcode & 0x0007);
                 byte dRegNum = (byte)((inst.Opcode & 0x0E00) >> 9);
@@ -1395,7 +1395,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 Operation op = AppendMnemonic(inst, sb);
                 op.Size = OpSize.Long;
                 sb.Append(".L");
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
                 int data = Helpers.SignExtendValue((uint)(inst.Opcode & 0x00FF), OpSize.Byte);
@@ -1441,7 +1441,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 op.Size = opSize;
                 sb.Append(sz);
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 op.Operands.Add(new QuickDataOperand(addVal));
 
@@ -1464,7 +1464,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected Operation LINK(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 if (inst.SourceExtWord1.HasValue)
                 {
@@ -1483,7 +1483,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected Operation UNLK(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 byte regNum = (byte)(inst.Opcode & 0x0007);
                 op.Operands.Add(new AddressRegisterOperand(regNum));
@@ -1552,7 +1552,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected Operation JMP_JSR(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 op.Operands.Add(EffectiveAddressOp(inst, EAType.Source));
 
@@ -1660,7 +1660,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 Operation op = new(InstructionAddress, sb.ToString(), OpSize.Word);
                 sb.Append(".W");
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 int dRegNum = inst.Opcode & 0x0007;
                 uint pc = Machine.CPU.PC;
@@ -1699,7 +1699,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 Operation op = new(InstructionAddress, sb.ToString(), OpSize.Byte);
                 sb.Append(".B"); // Size is always byte
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 op.Operands.Add(EffectiveAddressOp(inst, EAType.Destination));
 
@@ -1820,7 +1820,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 else
                 {
-                    sb.AppendTab(EAColumn);
+                    sb.AppendTab(EA_COLUMN);
                 }
 
                 op.Operands.Add(new AddressRegisterOperand(regNum));
@@ -1841,7 +1841,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     _ => ".?"
                 };
                 sb.Append(sz);
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 byte regNum = (byte)(inst.Opcode & 0x0007);
 
@@ -1854,7 +1854,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected Operation SWAP(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 byte regNum = (byte)(inst.Opcode & 0x0007);
                 op.Operands.Add(new DataRegisterOperand(regNum));
@@ -1867,7 +1867,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 Operation op = new(InstructionAddress, "MOVE");
                 sb.Append("MOVE");
-                AppendTab(EAColumn, sb);
+                AppendTab(EA_COLUMN, sb);
 
                 byte regNum = (byte)(inst.Opcode & 0x0007);
                 if ((inst.Opcode & 0x0008) == 0)
@@ -1890,7 +1890,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected Operation ABCD_SBCD(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
-                AppendTab(EAColumn, sb);
+                AppendTab(EA_COLUMN, sb);
 
                 byte rSrc = (byte)(inst.Opcode & 0x0007);
                 byte rDest = (byte)((inst.Opcode & 0x0E00) >> 9);
@@ -1919,7 +1919,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 Operation op = AppendMnemonic(inst, sb);
                 op.Size = OpSize.Long;
                 sb.Append(".L");
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 // NOTE: x and y are the reverse of the convention used
                 // in the NXP Programmer's Reference Manual.
@@ -1955,7 +1955,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected Operation STOP(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 var data = inst.SourceExtWord1;
                 if (data.HasValue)
@@ -1970,7 +1970,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected Operation TRAP(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 ushort vector = (ushort)(inst.Opcode & 0x000F);
                 op.Operands.Add(new ImmediateOperand(vector));
@@ -2038,7 +2038,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 Operation op = new(InstructionAddress, "LINEA");
                 sb.Append($"LINEA");
-                sb.AppendTab(EAColumn);
+                sb.AppendTab(EA_COLUMN);
 
                 op.Operands.Add(new ImmediateOperand((ushort)(inst.Opcode & 0x0fff), "${0:x3}"));
                 // $"${(ushort)(inst.Opcode & 0x0fff):x3}")
