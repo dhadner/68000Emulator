@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
@@ -31,6 +32,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// watchpoints in the debugger.
         /// </summary>
         void DebugWriteAccess(uint address);
+
+        /// <summary>
+        /// Callback to debugger if a Status Register change may have happened.
+        /// </summary>
+        /// <param name="prevSr"></param>
+        /// <param name="currSR"></param>
+        void DebugStatusRegisterChange(SRFlags prevSr, SRFlags currSR);
 
         /// <summary>
         /// Callback to debugger to allow UI events during long operations
