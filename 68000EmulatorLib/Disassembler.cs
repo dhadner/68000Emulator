@@ -1,10 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System.Runtime.CompilerServices;
 using System.Text;
-using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
-using static PendleCodeMonkey.MC68000EmulatorLib.Machine.Disassembler;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -373,20 +369,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     uint legalAddress = GetClosestLowerLegalAddress(startAddress);
                     length += startAddress - legalAddress;
-
-#if DEBUG_HIDE
-                    // Logging: record parameters at entry, include caller name
-                    string callerName = "Unknown";
-                    try
-                    {
-                        var st = new System.Diagnostics.StackTrace();
-                        var frame = st.GetFrame(1); // 0 = this method, 1 = caller
-                        callerName = frame?.GetMethod()?.Name ?? "<unknown>";
-                    }
-                    catch { callerName = "<error>"; }
-                    System.Diagnostics.Debug.WriteLine($"Disassemble called by {callerName}: startAddress=0x{startAddress:X6}, length=0x{length:X}, maxCount={maxCount}");
-                    Logger.Log(LogLevel.Trace, "DISASSEMBLER", () => $"Disassemble called by {callerName}: startAddress=0x{startAddress:X6}, length=0x{length:X}, maxCount={maxCount}");
-#endif
 
                     // Set machine parameters for this disassembler machine
                     Disassembling = true;
