@@ -1,6 +1,7 @@
-﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
-using System;
-using System.Collections.Generic;
+﻿#define CHECK_STACK_POINTER
+#define CHECK_PC_FOR_ZERO
+
+using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System.Diagnostics;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
@@ -468,7 +469,26 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 if (instruction != null && _handlers.TryGetValue(instruction.Info.HandlerID, out OpHandler? value))
                 {
-                    return value?.Invoke(instruction);          // Call the handler Action.
+#if CHECK_PC_FOR_ZERO
+                    uint oldPC = Machine.CPU.PC;
+#endif
+                    TrapException? e = value?.Invoke(instruction);          // Call the handler Action.
+#if CHECK_STACK_POINTER
+                    var sr = Machine.CPU.SR;
+                    var sp = (sr & SRFlags.SupervisorMode) != 0 ? Machine.CPU.SSP : Machine.CPU.USP;
+                    if (sp == 0)
+                    {
+                        Logger.Log(LogLevel.Critical, "STACK", $"Stack Pointer == 0: PC = {Machine.CPU.PC:x8}");
+                    }
+#endif
+#if CHECK_PC_FOR_ZERO
+                    if (Machine.CPU.PC < 0x400)
+                    {
+                        Logger.Log(LogLevel.Critical, "CPU", $"PC < 0x400: original PC = {oldPC:x8}, new PC = {Machine.CPU.PC:x8}");
+                        Machine.IsEndOfExecution = true;
+                    }
+#endif
+                    return e;
                 }
                 Helpers.RaiseTRAPException(TrapVector.IllegalInstruction);
                 return null; // Never get here
@@ -2171,17 +2191,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? TAS(Instruction inst)
             {
-                lock (PendleCodeMonkey.MC68000EmulatorLib.Machine.Lock)
+                var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
+                if (value.HasValue)
                 {
-                    var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                    if (value.HasValue)
-                    {
-                        Machine.CPU.NegativeFlag = (value.Value & 0x00000080) != 0;
-                        Machine.CPU.ZeroFlag = (value.Value & 0x000000FF) == 0;
-                        Machine.CPU.CarryFlag = Machine.CPU.OverflowFlag = false;
-                        var result = value.Value | 0x00000080;
-                        WriteEAValue(inst, result, EAType.Destination);
-                    }
+                    Machine.CPU.NegativeFlag = (value.Value & 0x00000080) != 0;
+                    Machine.CPU.ZeroFlag = (value.Value & 0x000000FF) == 0;
+                    Machine.CPU.CarryFlag = Machine.CPU.OverflowFlag = false;
+                    var result = value.Value | 0x00000080;
+                    WriteEAValue(inst, result, EAType.Destination);
                 }
                 return null;
             }
