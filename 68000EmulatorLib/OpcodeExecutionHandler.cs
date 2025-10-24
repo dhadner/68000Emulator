@@ -671,7 +671,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             Debug.Assert(ext1.HasValue, "Required extension word is not available");
                             if (ext1.HasValue)
                             {
-                                address = (uint)(Machine.CPU.ReadAddressRegister(regNum) + (short)ext1.Value);
+                                address = (uint)((int)Machine.CPU.ReadAddressRegister(regNum) + (short)ext1.Value);
                             }
                             break;
                         case (byte)AddrMode.AddressIndex:
@@ -684,9 +684,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 uint indexValue = Machine.CPU.ReadDataRegister(indexRegNum);
                                 if (indexSize == OpSize.Word)
                                 {
-                                    indexValue = (indexValue & 0x0000FFFF) | ((indexValue & 0x00008000) == 0 ? 0x0 : 0xFFFF0000);
+                                    indexValue = (uint)(int)(short)(ushort)indexValue;
                                 }
-                                address = (uint)(Machine.CPU.ReadAddressRegister(regNum) + (int)indexValue + (sbyte)disp);
+                                address = (uint)((int)Machine.CPU.ReadAddressRegister(regNum) + (int)indexValue + (sbyte)disp);
                             }
                             break;
                         case 0x0038:
@@ -696,7 +696,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     Debug.Assert(ext1.HasValue, "Required extension word is not available");
                                     if (ext1.HasValue)
                                     {
-                                        address = ext1.Value | ((ext1.Value & 0x8000) == 0 ? 0x0 : 0xFFFF0000);
+                                        address = (uint)(int)(short)ext1.Value;
                                     }
                                     break;
                                 case (byte)AddrMode.AbsLong:
@@ -716,7 +716,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                             pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
                                         }
                                     
-                                        address = (uint)(Machine.CPU.PC - pcDecrement + (short)ext1.Value);
+                                        address = (uint)((int)Machine.CPU.PC - pcDecrement + (short)ext1.Value);
                                     }
                                     break;
                                 case (byte)AddrMode.PCIndex:
@@ -729,7 +729,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         uint indexValue = Machine.CPU.ReadDataRegister(indexRegNum);
                                         if (indexSize == OpSize.Word)
                                         {
-                                            indexValue = (indexValue & 0x0000FFFF) | ((indexValue & 0x00008000) == 0 ? 0x0 : 0xFFFF0000);
+                                            indexValue = (uint)(int)(short)(ushort)indexValue;
                                         }
                                         // PC has been incremented past the extension word.  The definition of
                                         // PC displacement uses the value of the extension word address as the PC value.
@@ -738,7 +738,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         {
                                             pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
                                         }
-                                        address = (uint)(Machine.CPU.PC - pcDecrement + (int)indexValue + (sbyte)disp);
+                                        address = (uint)((int)Machine.CPU.PC - pcDecrement + (int)indexValue + (sbyte)disp);
                                     }
                                     break;
                                 case (byte)AddrMode.Immediate:
@@ -969,6 +969,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 uint? value = ReadEAValue(inst, EAType.Source);
                 if (value.HasValue)
                 {
+                    if (inst.Size == OpSize.Word)
+                    {
+                        // Sign-extend
+                        value = (uint)Helpers.SignExtendValue(value.Value);
+                    }
                     OpSize size = OpSize.Long; // MOVEA always moves full 32 bits for address register
                     int regNum = (inst.Opcode & 0x0E00) >> 9;
                     Machine.CPU.WriteAddressRegister(regNum, value.Value, size);
