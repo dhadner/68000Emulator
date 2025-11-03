@@ -210,9 +210,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         internal InstructionInfo? GetInstructionInfo(ushort opcode)
         {
             byte group = (byte)((opcode & 0xF000) >> 12);
-            if (Instructions.ContainsKey(group))
+            if (Instructions.TryGetValue(group, out var groupList))
             {
-                foreach (var inst in Instructions[group])
+                foreach (var inst in groupList)
                 {
                     if ((opcode & inst.OpcodeMask) == inst.OpcodeValue)
                     {

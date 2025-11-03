@@ -47,6 +47,20 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
 
         /// <summary>
+        ///	Extract the operation mode (src or dst plus byte, word, or long) from the supplied opcode value.
+        /// </summary>
+        /// <remarks>
+        /// This should be called to retrieve operation mode values that are located in
+        /// bits 5, 6 and 7 of the opcode.
+        /// </remarks>
+        /// <param name="opcode">The opcode from which the operation mode should be extracted.</param>
+        /// <returns>The extracted operation mode value.</returns>
+        public static byte GetOpMode(ushort opcode)
+        {
+            return (byte)((opcode & 0x01C0) >> 6);
+        }
+
+        /// <summary>
         /// Retrieve a bit mask for the specified data size.
         /// </summary>
         /// <remarks>

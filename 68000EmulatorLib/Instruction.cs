@@ -47,7 +47,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="destExtWord1"></param>
             /// <param name="destExtWord2"></param>
             /// <returns>This instruction (convenience)</returns>
-            internal Instruction SetInstruction(ushort opcode, InstructionInfo info, OpSize? size = null, byte? srcAddrMode = null, ushort? srcExtWord1 = null, ushort? srcExtWord2 = null,
+            internal Instruction SetInstruction(ushort opcode, InstructionInfo info, OpSize size = OpSize.Word, byte? srcAddrMode = null, ushort? srcExtWord1 = null, ushort? srcExtWord2 = null,
                                                 byte? destAddrMode = null, ushort? destExtWord1 = null, ushort? destExtWord2 = null)
             {
                 Opcode = opcode;

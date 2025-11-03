@@ -1,4 +1,5 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -164,7 +165,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             public NonExecutableSections MachineNonExecutableSections { get; set; } = new();
 
-            protected delegate Operation DisassemblyHandler(Instruction inst, StringBuilder sb);
+            /// <summary>
+            /// Return the disassembled operation at the CurrentAddress.
+            /// </summary>
+            /// <param name="inst"></param>
+            /// <param name="sb"></param>
+            /// <throws>NotSupportedException if it is an illegal instruction</throws>
+            /// <returns>Disassembled Operation or null (or throws NotSupportedException) if illegal instruction</returns>
+            protected delegate Operation? DisassemblyHandler(Instruction inst, StringBuilder sb);
             protected readonly Dictionary<OpHandlerID, DisassemblyHandler> _handlers = [];
             protected static readonly uint[] _bit = [ 0x00000001, 0x00000002, 0x00000004, 0x00000008, 0x00000010, 0x00000020, 0x00000040, 0x00000080,
                                                       0x00000100, 0x00000200, 0x00000400, 0x00000800, 0x00001000, 0x00002000, 0x00004000, 0x00008000,
@@ -282,7 +290,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 _handlers.Add(OpHandlerID.MOVEP, MOVEP);
                 _handlers.Add(OpHandlerID.MOVEM, MOVEM);
                 _handlers.Add(OpHandlerID.LINEA, LINEA);
-                _handlers.Add(OpHandlerID.LINEF, NOOPERANDS);
+                _handlers.Add(OpHandlerID.LINEF, LINEF);
             }
 
             /// <summary>
@@ -376,31 +384,56 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     StartAddress = startAddress;
                     Length = length;
                     CurrentAddress = StartAddress;
-                    int count = 0;
 
                     List<DisassemblyRecord> result = [];
 
                     // When Length is exceeded, loop exits because IsEndOfData goes true.
+                    int count = 0;
                     while (!IsEndOfData && count++ < maxCount)
                     {
-                        var nonExecSection = MachineNonExecutableSections.GetSectionIncluding(CurrentAddress);
-                        if (nonExecSection != null)
+                        NonExecutableSection? section = MachineNonExecutableSections.GetSectionIncluding(CurrentAddress);
+                        DisassemblyRecord? record = null;
+                        bool oddAddress = (CurrentAddress & 1) == 1;
+
+                        if (section == null)
                         {
-                            uint size = OpSizeToLength(nonExecSection.ItemOpSize);
+                            // Not in a non-executable section - disassemble instruction if not at odd address
+                            if (!oddAddress)
+                            {
+                                record = DisassembleInstruction(); // increments CurrentAddress if record returned
+                            }
+                            if (record == null)
+                            {
+                                // Failed to disassemble or odd address - restore address and create minimal non-exec section
+                                // This section will be either 1 or 2 bytes depending on whether the address is odd
+                                // and if there is enough room for a two-byte section if the address is even.
+                                uint len = Math.Min(2u, Length - (CurrentAddress - StartAddress));
+                                OpSize opSize = len == 1u || oddAddress ? OpSize.Byte : OpSize.Word;
+                                len = opSize == OpSize.Byte ? 1u : 2u;
 
-                            // Disassemble part of a non-executable section
-                            uint maxLen = size * nonExecSection.ItemsPerLine;
-                            uint len = Math.Min(nonExecSection.Address + nonExecSection.Length - CurrentAddress, maxLen);
-                            len = Math.Min(len, length - (CurrentAddress - startAddress));
+                                // Create a minimal 1 or 2 byte section
+                                section = new NonExecutableSection(CurrentAddress, len, opSize);
 
-                            // Updates CurrentAddress when reading memory using ReadNextByte().
-                            result.Add(GetNonExecutableSectionRecord(CurrentAddress, len, nonExecSection));
+                                record = GetNonExecutableSectionRecord(CurrentAddress, len, section);
+                            }
                         }
                         else
                         {
-                            // Disassemble an instruction
-                            result.Add(DisassembleAtCurrentAddress());
+                            // In non-executable section - create record for part of section
+                            uint itemSize = OpSizeToLength(section!.ItemOpSize);
+
+                            // Three constraints on record length
+                            uint sectionRemaining = section.Length - (CurrentAddress - section.Address);
+                            uint maxLenForOneLine = itemSize * section.ItemsPerLine;
+                            uint disassemblyRemaining = Length - (CurrentAddress - StartAddress);
+
+                            // Take minimum of all three
+                            uint len = Math.Min(sectionRemaining, Math.Min(maxLenForOneLine, disassemblyRemaining));
+
+                            record = GetNonExecutableSectionRecord(CurrentAddress, len, section);
                         }
+
+                        result.Add(record);
                     }
 
                     // Logging: record result count at exit
@@ -683,73 +716,87 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Disassemble one instruction at the current instruction.  The address is guaranteed
-            /// to not be in a non-executable section.
+            /// Disassemble one instruction at the current address.
+            /// If the instruction is not legal, return null since this is
+            /// either for a different processor or is just data.
+            /// Leaves CurrentAddress unchanged on failure.
             /// </summary>
             /// <returns></returns>
-            protected DisassemblyRecord DisassembleAtCurrentAddress()
+            protected DisassemblyRecord? DisassembleInstruction()
             {
+                DisassemblyRecord? record = null;
+                uint oldAddress = CurrentAddress;
                 try
                 {
-                    InstructionAddress = CurrentAddress;  // CurrentAddress will be incremented by ReadNextByte() below
-                    Disassembling = true;
-                    bool endOfData = false;
-                    string assembly = "UNKNOWN";
-                    Operation op;
-
-                    // Decoder fetches the instruction at the current PC, so set it to
-                    // where we want to disassembler.
-                    Machine.CPU.PC = InstructionAddress;
-                    Instruction? inst = Machine.Decoder.FetchInstruction();
-
-                    // PC has been incremented to point to the next instruction after this one.
-                    int length = (int)Machine.CPU.PC - (int)InstructionAddress;
-
-                    List<byte> codeBytes = [];
-
-                    // Show the actual instruction bytes
-                    int i;
-                    for (i = 0; (i < length) && !IsEndOfData; i++)
+                    do
                     {
-                        byte value = ReadNextByte();
-                        codeBytes.Add(value);
-                    }
-                    if (IsEndOfData && i < length)
-                    {
-                        // End of memory block before we finished
-                        assembly = "... ";
-                        op = new(InstructionAddress, assembly);
-                        endOfData = true;
-                    }
-                    else if (inst != null)
-                    {
-                        StringBuilder sb = new();
-                        if (_handlers.TryGetValue(inst.Info.HandlerID, out DisassemblyHandler? instructionDisassembler))
+                        InstructionAddress = CurrentAddress;  // CurrentAddress will be incremented by FetchInstruction() below
+                        Disassembling = true;
+                        Operation? op;
+
+                        // Decoder fetches the instruction at the current PC, so set it to
+                        // where we want to disassembler.
+                        Machine.CPU.PC = InstructionAddress;
+                        Instruction? inst = Machine.Decoder.FetchInstruction();
+                        if (inst == null)
                         {
-                            op = instructionDisassembler(inst, sb);
+                            break;
+                        }
+                        // PC has been incremented to point to the next instruction after this one.
+                        int length = (int)Machine.CPU.PC - (int)InstructionAddress;
+
+                        List<byte> codeBytes = [];
+
+                        // Show the actual instruction bytes
+                        int i;
+                        for (i = 0; (i < length) && !IsEndOfData; i++)
+                        {
+                            byte value = ReadNextByte();
+                            codeBytes.Add(value);
+                        }
+                        if (IsEndOfData && i < length)
+                        {
+                            // End of memory block before we finished
+                            break;
                         }
                         else
                         {
-                            op = new Operation(InstructionAddress, "????");
-                            sb.Append("????");
+                            StringBuilder sb = new();
+                            if (_handlers.TryGetValue(inst.Info.HandlerID, out DisassemblyHandler? instructionDisassembler))
+                            {
+                                op = instructionDisassembler(inst, sb);
+                                if (op == null)
+                                {
+                                    // Handler could not generate disassembly (probably illegal addressing mode)
+                                    break;
+                                }
+                            }
+                            else
+                            {
+                                // No handler
+                                break;
+                            }
+                            byte[] machineCode = [.. codeBytes];
+                            op!.MachineCode = machineCode;
+                            op.Assembly = sb.ToString();
+                            record = new DisassemblyRecord(IsEndOfData, op);
                         }
-                        assembly = sb.ToString();
-                    }
-                    else
-                    {
-                        // inst == null
-                        op = new(InstructionAddress, "MISSING");
-                    }
-
-                    byte[] machineCode = [.. codeBytes];
-                    op.MachineCode = machineCode;
-                    op.Assembly = assembly;
-                    return new DisassemblyRecord(endOfData, op);
+                    } while (false);
+                }
+                catch (Exception e)
+                {
+                    Logger.Log(LogLevel.Error, "DISASSEMBLER", () => $"DisassembleInstruction: {e.Message}");
                 }
                 finally
                 {
+                    if (record == null)
+                    {
+                        // Restore address on failure
+                        CurrentAddress = oldAddress;
+                    }
                     Disassembling = false;
                 }
+                return record;
             }
 
             /// <summary>
@@ -930,15 +977,23 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             {
                                 operand = new AddressDispOperand(regNum, (short)ext1.Value);
                             }
+                            else
+                            {
+                                throw new NotSupportedException("Required extension word is not available");
+                            }
                             break;
                         case (byte)AddrMode.AddressIndex:
                             // !ext1.HasValue -> Required extension word is not available
                             if (ext1.HasValue)
                             {
                                 sbyte disp = (sbyte)(ext1.Value & 0x00FF);
-                                int indexRegNum = ((ext1.Value & 0x7000) >> 12);
+                                int indexRegNum = (ext1.Value & 0x7000) >> 12;
                                 OpSize sz = (ext1.Value & 0x0800) == 0 ? OpSize.Word : OpSize.Long;
                                 operand = new AddressIndexOperand(regNum, indexRegNum, sz, disp);
+                            }
+                            else
+                            {
+                                throw new NotSupportedException("Required extension word is not available");
                             }
                             break;
                         case 0x0038:
@@ -949,7 +1004,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     if (ext1.HasValue)
                                     {
                                         address = ext1.Value | ((ext1.Value & 0x8000) == 0 ? 0x0 : 0xFFFF0000);
-                                        operand = new LabelOperand(address.Value);
+                                        operand = new LabelOperand(address.Value, AddrMode.AbsShort);
+                                    }
+                                    else
+                                    {
+                                        throw new NotSupportedException("Required extension word is not available");
                                     }
                                     break;
                                 case (byte)AddrMode.AbsLong:
@@ -957,8 +1016,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     if (ext1.HasValue && ext2.HasValue)
                                     {
                                         address = (uint)((ext1.Value << 16) + ext2.Value);
-                                        operand = new LabelOperand(address.Value);
+                                        operand = new LabelOperand(address.Value, AddrMode.AbsLong);
                                         size = OpSize.Long;
+                                    }
+                                    else
+                                    {
+                                        throw new NotSupportedException("Required extension word is not available");
                                     }
                                     break;
                                 case (byte)AddrMode.PCDisp:
@@ -973,7 +1036,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                             pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
                                         }
                                         address = (uint)((int)Machine.CPU.PC - pcDecrement + (short)ext1.Value);
-                                        operand = new LabelOperand(address.Value);
+                                        operand = new LabelOperand(address.Value, AddrMode.PCDisp);
+                                    }
+                                    else
+                                    {
+                                        throw new NotSupportedException("Required extension word is not available");
                                     }
                                     break;
                                 case (byte)AddrMode.PCIndex:
@@ -995,6 +1062,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         uint baseAddress = (uint)((sbyte)disp + (int)Machine.CPU.PC - pcDecrement);
                                         operand = new PCIndexOperand(indexRegNum, baseAddress, sz);
                                     }
+                                    else
+                                    {
+                                        throw new NotSupportedException("Required extension word is not available");
+                                    }
                                     break;
                                 case (byte)AddrMode.Immediate:
                                     // Required extension word is not available
@@ -1015,11 +1086,19 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                             immVal = ext1.Value;
                                             operand = new ImmediateOperand((ushort)immVal!.Value);
                                         }
-                                        else
+                                        else if (opSize == OpSize.Byte)
                                         {
                                             immVal = ext1.Value;
                                             operand = new ImmediateOperand((byte)immVal!.Value);
                                         }
+                                        else
+                                        {
+                                            throw new NotSupportedException("Unsupported opSize in Immediate addressing mode");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        throw new NotSupportedException("Required extension word is not available");
                                     }
                                     isMemory = false;
                                     break;
@@ -1028,13 +1107,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                 }
 
-
                 if (operand == null)
                 {
-                    operand = new();
+                    throw new NotSupportedException("Unsupported effective address");
                 }
                 else
                 {
+                    Debug.Assert(operand.AddressMode != null);
+
                     operand.IsMemory = isMemory;
                     operand.Size = size;
                 }
@@ -1076,7 +1156,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             //
             // ***************************
 
-            protected Operation PEA(Instruction inst, StringBuilder sb)
+            protected Operation? PEA(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
                 op.Size = AppendSizeAndTab(inst, sb);
@@ -1087,7 +1167,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return op;
             }
 
-            protected Operation DST(Instruction inst, StringBuilder sb)
+            protected Operation? DST(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
                 op.Size = AppendSizeAndTab(inst, sb);
@@ -1098,7 +1178,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return op;
             }
 
-            protected Operation IMMEDtoCCR(Instruction inst, StringBuilder sb)
+            protected Operation? IMMEDtoCCR(Instruction inst, StringBuilder sb)
             {
                 string mnemonic = inst.Info.Mnemonic;
                 mnemonic = mnemonic[..^"toCCR".Length];
@@ -1117,10 +1197,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                     sb.Append(op.Operands);
                 }
+                else
+                {
+                    return null; // "Expecting SourceExtWord1"
+                }
                 return op;
             }
 
-            protected Operation IMMEDtoSR(Instruction inst, StringBuilder sb)
+            protected Operation? IMMEDtoSR(Instruction inst, StringBuilder sb)
             {
                 string mnemonic = inst.Info.Mnemonic;
                 mnemonic = mnemonic[..^"toSR".Length];
@@ -1138,10 +1222,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                     sb.Append(op.Operands);
                 }
+                else
+                {
+                    return null; // "Expecting SourceExtWord1"
+                }
                 return op;
             }
 
-            protected Operation MOVEtoSR(Instruction inst, StringBuilder sb)
+            protected Operation? MOVEtoSR(Instruction inst, StringBuilder sb)
             {
                 Operation op = new(InstructionAddress, "MOVE");
                 sb.Append("MOVE");
@@ -1154,7 +1242,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return op;
             }
 
-            protected Operation MOVEtoCCR(Instruction inst, StringBuilder sb)
+            protected Operation? MOVEtoCCR(Instruction inst, StringBuilder sb)
             {
                 Operation op = new(InstructionAddress, "MOVE");
                 sb.Append("MOVE");
@@ -1167,7 +1255,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return op;
             }
 
-            protected Operation MOVEfromSR(Instruction inst, StringBuilder sb)
+            protected Operation? MOVEfromSR(Instruction inst, StringBuilder sb)
             {
                 Operation op = new(InstructionAddress, "MOVE");
                 sb.Append("MOVE");
@@ -1180,7 +1268,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return op;
             }
 
-            protected Operation IMMED_OP(Instruction inst, StringBuilder sb)
+            protected Operation? IMMED_OP(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
                 OpSize opSize = AppendSizeAndTab(inst, sb);
@@ -1188,22 +1276,34 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 uint? value = OpcodeExecutionHandler.GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
                 if (value.HasValue)
                 {
-                    Operand operand = opSize switch
+                    Operand operand;
+                    switch (opSize) 
                     {
-                        OpSize.Byte => new ImmediateOperand((byte)value),
-                        OpSize.Word => new ImmediateOperand((short)value),
-                        OpSize.Long => new ImmediateOperand((uint)value),
-                        _ => new ImmediateOperand(0xDEADBEEF)
-                    };
+                        case OpSize.Byte:
+                            operand = new ImmediateOperand((byte)value);
+                            break;
+                        case OpSize.Word:
+                            operand = new ImmediateOperand((short)value);
+                            break;
+                        case OpSize.Long:
+                            operand = new ImmediateOperand((uint)value);
+                            break;
+                        default:
+                            return null; // "Operation size not supported"                    
+                    }
                     op.Operands.Add(operand);
                     op.Operands.Add(EffectiveAddressOp(inst, EAType.Destination));
 
                     sb.Append(op.Operands);
                 }
+                else
+                {
+                    return null; // "Expecting sized operand value"
+                }
                 return op;
             }
 
-            protected Operation MULS_MULU_DIVU_DIVS(Instruction inst, StringBuilder sb)
+            protected Operation? MULS_MULU_DIVU_DIVS(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
                 op.Size = OpSize.Word;
@@ -1219,7 +1319,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return op;
             }
 
-            protected Operation SUBX(Instruction inst, StringBuilder sb)
+            protected Operation? SUBX(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
                 op.Size = AppendSizeAndTab(inst, sb);
@@ -1240,7 +1340,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return op;
             }
 
-            protected Operation ADD_SUB_OR_AND_EOR_CMP(Instruction inst, StringBuilder sb)
+            protected Operation? ADD_SUB_OR_AND_EOR_CMP(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
                 op.Size = AppendSizeAndTab(inst, sb);
@@ -1260,7 +1360,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return op;
             }
 
-            protected Operation CMPM(Instruction inst, StringBuilder sb)
+            protected Operation? CMPM(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
                 op.Size = AppendSizeAndTab(inst, sb);
@@ -1275,19 +1375,28 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return op;
             }
 
-            protected Operation MOVE(Instruction inst, StringBuilder sb)
+            protected Operation? MOVE(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
                 op.Size = AppendSizeAndTab(inst, sb);
 
-                op.Operands.Add(EffectiveAddressOp(inst, EAType.Source));
-                op.Operands.Add(EffectiveAddressOp(inst, EAType.Destination));
+                Operand src = EffectiveAddressOp(inst, EAType.Source);
+                op.Operands.Add(src);
+                Operand dst = EffectiveAddressOp(inst, EAType.Destination);
+                if (dst.AddressMode == AddrMode.AddressRegister ||
+                    dst.AddressMode == AddrMode.Immediate ||
+                    dst.AddressMode == AddrMode.PCIndex ||
+                    dst.AddressMode == AddrMode.PCDisp)
+                {
+                    return null;
+                }
+                op.Operands.Add(dst);
 
                 sb.Append(op.Operands);
                 return op;
             }
 
-            protected Operation MOVEA(Instruction inst, StringBuilder sb)
+            protected Operation? MOVEA(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
                 op.Size = AppendSizeAndTab(inst, sb);
@@ -1300,7 +1409,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return op;
             }
 
-            protected Operation MOVEP(Instruction inst, StringBuilder sb)
+            protected Operation? MOVEP(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
                 OpSize size = (inst.Opcode & 0x0040) == 0 ? OpSize.Word : OpSize.Long;
@@ -1329,14 +1438,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 else
                 {
-                    sb.Append("[SourceExtWord1 missing]");
+                    return null; // "Expecting SourceExtWord1"
                 }
 
                 sb.Append(op.Operands);
                 return op;
             }
 
-            protected Operation MOVEM(Instruction inst, StringBuilder sb)
+            protected Operation? MOVEM(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
                 OpSize size = inst.Size ?? OpSize.Long;
@@ -1367,12 +1476,16 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         op.Operands.Add(new RegListOperand(regMask, preDec: false));
                     }
                 }
+                else
+                {
+                    return null; // "Expecting SourceExtWord1"
+                }
 
                 sb.Append(op.Operands);
                 return op;
             }
 
-            protected Operation MOVEQ(Instruction inst, StringBuilder sb)
+            protected Operation? MOVEQ(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
                 op.Size = OpSize.Long;
@@ -1389,7 +1502,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return op;
             }
 
-            protected Operation ADDQ_SUBQ(Instruction inst, StringBuilder sb)
+            protected Operation? ADDQ_SUBQ(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
 
@@ -1417,9 +1530,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         opSize = OpSize.Long;
                         break;
                     default:
-                        sz = "";
-                        opSize = null;
-                        break;
+                        return null;
                 }
                 op.Size = opSize;
                 sb.Append(sz);
@@ -1431,6 +1542,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 // of the size that has been specified. This operation also doesn't affect the flags.
                 if ((inst.Opcode & 0x0038) == (int)AddrMode.AddressRegister)
                 {
+                    if (size == 0 || size == 3)
+                    {
+                        // Incompatible size
+                        return null;
+                    }
                     int regNum = inst.Opcode & 0x0007;
                     op.Operands.Add(new AddressRegisterOperand(regNum));
                 }
@@ -1457,6 +1573,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     op.Operands.Add(new ImmediateOperand(disp));
 
                     sb.Append(op.Operands);
+                }
+                else
+                {
+                    throw new NotSupportedException("Expecting SourceExtWord1");
                 }
 
                 return op;
@@ -1503,7 +1623,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     if (inst.SourceExtWord1.HasValue)
                     {
                         // Byte displacement is zero so use the extension word value as a 16-bit displacement.
-                        disp = Helpers.SignExtendValue((uint)inst.SourceExtWord1, OpSize.Word);
+                        disp = Helpers.SignExtendValue(inst.SourceExtWord1.Value, OpSize.Word);
 
                         // Step PC back a word as it should be pointing immediately after the instruction opcode word
                         // for the displacement to be correct (whereas it will currently be pointing at the location immediately
@@ -1512,7 +1632,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                     else
                     {
-                        sb.Append("[SourceExtWord1 missing]");
+                        throw new NotSupportedException("Expecting SourceExtWord1");
                     }
                 }
                 else
@@ -1553,7 +1673,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     // Byte displacement is zero so use the extension word value as a 16-bit displacement.
                     if (inst.SourceExtWord1.HasValue)
                     {
-                        disp = Helpers.SignExtendValue((uint)inst.SourceExtWord1, OpSize.Word);
+                        disp = Helpers.SignExtendValue(inst.SourceExtWord1.Value, OpSize.Word);
 
                         // Step PC back a word as it should be pointing immediately after the instruction opcode word
                         // for the displacement to be correct (whereas it will currently be pointing at the location immediately
@@ -1562,7 +1682,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                     else
                     {
-                        sb.Append("[SourceExtWord1 missing]");
+                        throw new NotSupportedException("Expecting SourceExtWord1");
                     }
                 }
                 else
@@ -1660,7 +1780,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 else
                 {
-                    sb.Append($"ERROR: Missing inst.SourceExtWord1");
+                    throw new NotSupportedException("Expecting SourceExtWord1");
                 }
 
                 return op;
@@ -1793,18 +1913,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected Operation LEA(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
+                sb.AppendTab(EA_COLUMN);
                 int regNum = (inst.Opcode & 0x0E00) >> 9;
 
                 op.Operands.Add(EffectiveAddressOp(inst, EAType.Source));
-                if (op.Operands[0].Size != null)
-                {
-                    AppendSizeAndTab(op.Operands[0].Size, sb);
-                }
-                else
-                {
-                    sb.AppendTab(EA_COLUMN);
-                }
-
                 op.Operands.Add(new AddressRegisterOperand(regNum));
 
                 sb.Append(op.Operands);
@@ -1820,7 +1932,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     OpSize.Word => ".W",
                     OpSize.Long => ".L",
-                    _ => ".?"
+                    _ => throw new NotSupportedException("Operation size not supported")
                 };
                 sb.Append(sz);
                 sb.AppendTab(EA_COLUMN);
@@ -1926,8 +2038,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         // $"D{rY},{AddressReg(rX)}"
                         break;
                     default:
-                        Logger.Log(LogLevel.Warning, "DISASSEMBLER", "Invalid operating mode for EXG instruction.");
-                        break;
+                        throw new NotSupportedException("Invalid operating mode for EXG instruction.");
                 }
 
                 sb.Append(op.Operands);
@@ -2007,13 +2118,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return op;
             }
 
+#pragma warning disable S2325 // Methods and properties that don't access instance data should be static
             protected Operation NONE(Instruction inst, StringBuilder sb)
+#pragma warning restore S2325 // Methods and properties that don't access instance data should be static
             {
-                Operation op = AppendMnemonic(inst, sb);
-                op.Name = " ???";
-
-                sb.Append(op.Name);
-                return op;
+                throw new NotSupportedException("Operation unknown");
             }
 
             protected virtual Operation LINEA(Instruction inst, StringBuilder sb)
@@ -2029,6 +2138,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return op;
             }
 
+            protected virtual Operation LINEF(Instruction inst, StringBuilder sb)
+            {
+                Operation op = new(InstructionAddress, "LINEF");
+                sb.Append($"LINEF");
+                sb.AppendTab(EA_COLUMN);
+
+                op.Operands.Add(new ImmediateOperand((ushort)(inst.Opcode & 0x0fff), "${0:x3}"));
+                // $"${(ushort)(inst.Opcode & 0x0fff):x3}")
+
+                sb.Append(op.Operands);
+                return op;
+            }
             //////////////////////////////////////////////////////////////////////////
             // Support for documentation
             //////////////////////////////////////////////////////////////////////////
@@ -2236,6 +2357,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public AddressRegisterOperand(AddressRegister addressRegister, string? format = null) : base(format)
                 {
                     AddressRegister = addressRegister;
+                    AddressMode = AddrMode.AddressRegister;
                 }
                 public AddressRegisterOperand(int addressRegNum) : this(AddressRegisters[addressRegNum]) { }
 
@@ -2259,6 +2381,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public AddressOperand(AddressRegister addressRegister)
                 {
                     AddressRegister = addressRegister;
+                    AddressMode = AddrMode.Address;
                 }
                 public AddressOperand(int addressRegNum) : this(AddressRegisters[addressRegNum]) { }
 
@@ -2282,6 +2405,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public AddressPostIncOperand(AddressRegister addressRegister) : base()
                 {
                     AddressRegister = addressRegister;
+                    AddressMode = AddrMode.AddressPostInc;
                 }
                 public AddressPostIncOperand(int addressRegNum) : this(AddressRegisters[addressRegNum]) { }
 
@@ -2305,6 +2429,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public AddressPreDecOperand(AddressRegister addressRegister)
                 {
                     AddressRegister = addressRegister;
+                    AddressMode = AddrMode.AddressPreDec;
                 }
 
                 public AddressPreDecOperand(int addressRegNum) : this(AddressRegisters[addressRegNum]) { }
@@ -2329,6 +2454,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public AddressDispOperand(AddressRegister addressRegister, Displacement displacement, string? format = null) : base(format)
                 {
                     AddressRegister = addressRegister;
+                    AddressMode = AddrMode.AddressDisp;
                     Displacement = displacement;
                 }
 
@@ -2373,6 +2499,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public AddressIndexOperand(AddressRegister addressRegister, DataRegister indexRegister, OpSize indexSize, Displacement displacement, string? format = null) : base(format)
                 {
                     AddressRegister = addressRegister;
+                    AddressMode = AddrMode.AddressIndex;
                     IndexRegister = indexRegister;
                     Displacement = displacement;
                     IndexSize = indexSize;
@@ -2486,6 +2613,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public DataRegisterOperand(DataRegister dataRegister, OpSize? size = null)
                 {
                     DataRegister = dataRegister;
+                    AddressMode = AddrMode.DataRegister;
                     Size = size;
                 }
 
@@ -2508,6 +2636,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public ImmediateOperand(ImmediateData data, string? format = null) : base(format)
                 {
                     Data = data;
+                    AddressMode = AddrMode.Immediate;
                     Size = data.Size;
                 }
                 public ImmediateOperand(byte value, string? format = null) : this(new ImmediateData(value), format) { }
@@ -2539,7 +2668,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
                     }
 
-                    if (Op.Name != "LINEA" && Op.Name != "DC")
+                    if (Op.Name != "LINEA" && Op.Name != "LINEF" && Op.Name != "DC")
                     {
                         Expression = new Expression(this, 1, disp!);
                         opStr = $"#{disp}";
@@ -2577,32 +2706,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             public class LabelOperand : Operand
             {
-                public LabelOperand(Label label, string? format = null) : base(format)
+                public LabelOperand(Label label, AddrMode? addressMode = null, string? format = null) : base(format)
                 {
                     Label = label;
+                    AddressMode = addressMode;
                 }
 
-                public LabelOperand(uint address, string? format = null) : this(new Label(address), format) { }
+                public LabelOperand(uint address, AddrMode? addressMode = null, string? format = null) : this(new Label(address), addressMode, format) { }
 
                 public Label Label { get; set; }
-
-                public string? LabelString(uint? refAddress)
-                {
-                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos) ?? CurrentDisassembler?.GetLabelName(Label.Address, Op.Address);
-                    if (disp == null && Format != null)
-                    {
-                        disp = string.Format(Format, Label.Address);
-                    }
-                    else disp ??= $"{Label}";
-
-                    Expression = new Expression(this, 0, disp);
-                    if (Size == OpSize.Long)
-                    {
-                        disp = $"({disp}).L";
-                        Expression.StartCol = 1;
-                    }
-                    return disp;
-                }
 
                 /// <summary>
                 /// Format the operand disassembly display and for the assembler.
@@ -2618,9 +2730,19 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     else disp ??= $"{Label}";
 
                     Expression = new Expression(this, 0, disp);
-                    if (Size == OpSize.Long)
+                    if (AddressMode == AddrMode.PCDisp)
+                    {
+                        disp = $"{disp}(PC)";
+                        Expression.StartCol = 0;
+                    }
+                    else if (Size == OpSize.Long || AddressMode == AddrMode.AbsLong)
                     {
                         disp = $"({disp}).L";
+                        Expression.StartCol = 1;
+                    }
+                    else if (Size == OpSize.Word || AddressMode == AddrMode.AbsShort)
+                    {
+                        disp = $"({disp}).W";
                         Expression.StartCol = 1;
                     }
                     return disp;
@@ -2657,7 +2779,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
                         else
                         {
-                            disp = $"{Displacement}";
+                            disp = $"{Displacement}(PC)";
                         }
                     }
 
@@ -2670,6 +2792,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 public PCIndexOperand(DataRegister indexRegister, Displacement displacement, OpSize size, string? format = null) : base(format)
                 {
+                    AddressMode = AddrMode.PCIndex;
                     IndexRegister = indexRegister;
                     Displacement = displacement;
                     Size = size;
@@ -2826,6 +2949,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
 
                 public bool IsMemory { get; set; } = false;
+
+                public AddrMode? AddressMode { get; set; } = null;
 
                 OpSize? _size;
                 public OpSize? Size
