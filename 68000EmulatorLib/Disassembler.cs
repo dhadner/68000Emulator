@@ -22,7 +22,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="address"></param>
         /// <returns></returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static uint MakeLegalAddress(uint address)
+        public static uint Make24BitAddress(uint address)
         {
             return address & LEGAL_ADDRESS_MASK;
         }
@@ -474,7 +474,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns></returns>
             public static uint GetClosestLowerLegalAddress(uint address, NonExecutableSection? section)
             {
-                address = MakeLegalAddress(address);
+                address = Make24BitAddress(address);
                 if (section != null)
                 {
                     uint itemOpSize = OpSizeToLength(section.ItemOpSize);
@@ -580,7 +580,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return value;
             }
 
-            static readonly byte[] _bytes = new byte[NonExecutableSections.MaxNESBytesPerRecord];
+            static readonly byte[] _bytes = new byte[NonExecutableSections.MAX_NES_BYTES_PER_RECORD];
             static readonly StringBuilder _asciiBuilder = new();
 
             /// <summary>

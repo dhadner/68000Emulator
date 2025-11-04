@@ -23,7 +23,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Address = address;
                     Length = length;
                     ItemOpSize = itemOpSize;
-                    ItemsPerLine = Math.Min(NonExecutableSections.MaxNESBytesPerRecord, Math.Max(1, itemsPerLine));
+                    ItemsPerLine = Math.Min(NonExecutableSections.MAX_NES_BYTES_PER_RECORD, Math.Max(1, itemsPerLine));
                     DisplayRadix = (uint)(displayRadix == 2 ? 2 : displayRadix == 10 ? 10 : 16);
                 }
 
@@ -70,8 +70,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 ///       DC.W $0001,$0002
                 ///       DC.L $00000001
                 /// </summary>
-                public const int MaxNESItemsPerRecord = 8;
-                public const int MaxNESBytesPerRecord = MaxNESItemsPerRecord * 4;
+                public const int MAX_NES_ITEMS_PER_RECORD = 8;
+                public const int MAX_NES_BYTES_PER_RECORD = MAX_NES_ITEMS_PER_RECORD * 4;
 
                 List<NonExecutableSection> _sections = [];
 
@@ -211,9 +211,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     {
                         throw new ArgumentException("Section length must be greater than zero.");
                     }
-                    if (section.ItemsPerLine > MaxNESBytesPerRecord)
+                    if (section.ItemsPerLine > MAX_NES_BYTES_PER_RECORD)
                     {
-                        throw new ArgumentException($"itemsPerLine must be no more than MaxNESBytesPerRecord {MaxNESBytesPerRecord}");
+                        throw new ArgumentException($"itemsPerLine must be no more than MaxNESBytesPerRecord {MAX_NES_BYTES_PER_RECORD}");
                     }
                     ClearNonExecutableRange(section.Address, section.Length);
                     _sections.Add(section);
@@ -232,9 +232,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// <param name="itemOpSize">OpSize (B, L, W)</param>
                 public void SetNonExecutableRange(uint startAddress, uint length, OpSize itemOpSize = OpSize.Byte, uint itemsPerLine = 1, uint displayRadix = 16)
                 {
-                    if (itemsPerLine > MaxNESBytesPerRecord)
+                    if (itemsPerLine > MAX_NES_BYTES_PER_RECORD)
                     {
-                        throw new ArgumentException($"itemsPerLine must be no more than MaxNESBytesPerRecord {MaxNESBytesPerRecord}");
+                        throw new ArgumentException($"itemsPerLine must be no more than MaxNESBytesPerRecord {MAX_NES_BYTES_PER_RECORD}");
                     }
                     ClearNonExecutableRange(startAddress, length);
                     _sections.Add(new(startAddress, length, itemOpSize, itemsPerLine, displayRadix));
@@ -357,6 +357,25 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         }
                     }
 
+                    return null;
+                }
+
+                /// <summary>
+                /// Get the next non-executable section after the given address.  Does not include
+                /// sections that contain the address.
+                /// </summary>
+                /// <param name="address"></param>
+                /// <returns>next section not containing the address or null if none found</returns>
+                public NonExecutableSection? GetNextSectionAfter(uint address)
+                {
+                    // Sections are ordered by address ascending.
+                    foreach (var section in _sections)
+                    {
+                        if (section.Address > address)
+                        {
+                            return section;
+                        }
+                    }
                     return null;
                 }
 
