@@ -45,15 +45,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// <summary>
                 /// Create in instance of the <see cref="DisassemblyRecord"/> class.
                 /// </summary>
+                /// <param name="op">Directive or Operation</param>
                 /// <param name="endOfData">Set to <c>true</c> if the disassembler
                 /// ran out of bytes prior to completing disassembly of this instruction.</param>
-                /// <param name="address">Address of this instruction</param>
-                /// <param name="machineCode">Actual instruction bytes</param>
-                /// <param name="assembly">Instruction, e.g., "MOVEQ.L #1,D0".  This text
-                /// is suitable for round-tripping through the VASM assembler.  Uses
-                /// only spaces, no tabs.</param>
-                /// <param name="comment"></param>
-                public DisassemblyRecord(bool endOfData, DirectiveOrOperation op)
+                public DisassemblyRecord(DirectiveOrOperation op, bool endOfData = false)
                 {
                     Op = op;
                     EndOfData = endOfData;
@@ -561,7 +556,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
 
                 NonExecutableDataDisassembly(dir, length, address, section.DisplayRadix);
-                var record = new DisassemblyRecord(false, dir);
+                var record = new DisassemblyRecord(dir);
                 return record;
             }
 
@@ -779,7 +774,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             byte[] machineCode = [.. codeBytes];
                             op!.MachineCode = machineCode;
                             op.Assembly = sb.ToString();
-                            record = new DisassemblyRecord(IsEndOfData, op);
+                            record = new DisassemblyRecord(op, IsEndOfData);
                         }
                     } while (false);
                 }
