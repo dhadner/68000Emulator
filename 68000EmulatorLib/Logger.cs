@@ -48,6 +48,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             return enabled;
         }
 
+        /// <summary>
+        /// Delegate for the <see cref="FeatureChanged"/> event.
+        /// </summary>
+        /// <param name="feature"></param>
+        /// <param name="enabled"></param>
+        public delegate void FeatureChangedEventHandler(string feature, bool enabled);
+
+        /// <summary>
+        /// Event raised when a feature is added, enabled, or disabled.
+        /// </summary>
+        public static event FeatureChangedEventHandler? FeatureChanged;
+
         public static void SetFeature(string feature, bool enabled = false)
         {
             bool exists = _features.TryGetValue(feature, out bool currentValue);
@@ -75,22 +87,44 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     _features["All"] = false;
                 }
             }
+            FeatureChanged?.Invoke(feature, enabled);
         }
 
         /// <summary>
-        /// Current log level.
+        /// Delegate for <see cref="LevelChanged"/> event.
         /// </summary>
-        public static LogLevel Level { get; set; } = LogLevel.Error;
+        /// <param name="newLevel"></param>
+        public delegate void LogLevelChangedEventHandler(LogLevel newLevel);
 
         /// <summary>
-        /// Subscribe to this event to receive log entries.
+        /// Event raised when the log level is changed.
+        /// </summary>
+        public static event LogLevelChangedEventHandler? LevelChanged;
+
+        /// <summary>
+        /// Get or set log level.
+        /// Setting raises the <see cref="LevelChanged"/> event.
+        /// </summary>
+        public static LogLevel Level
+        {
+            get => field;
+            set 
+            {
+                field = value;
+                LevelChanged?.Invoke(value);
+            }
+        } = LogLevel.Error;
+
+        /// <summary>
+        /// Delegate for <see cref="LogEvent"/> event handler.
         /// </summary>
         /// <param name="e"></param>
         public delegate void LogEventHandler(LogEntry e);
 
         /// <summary>
-        /// Providers register event handlers here, they are
-        /// called in turn.
+        /// Event raised when <see cref="Log(LogLevel, string, Func{string}, string, string, int)"/>
+        /// or <see cref="Log(LogLevel, string, string, string, string, int)"/> is called.
+        /// If this event is not subscribed to, log messages are ignored.
         /// </summary>
         public static event LogEventHandler? LogEvent;
 
@@ -108,10 +142,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             if (!IsEnabled(level)) return;
             if (!IsEnabled(feature)) return;
 
-            string logMessage = $"[{Path.GetFileName(sourceFilePath)}:{sourceLineNumber}:{memberName}] {message}";
+            string caller = $"{Path.GetFileName(sourceFilePath)}:{sourceLineNumber}:{memberName}";
 
-            var logEntry = new LogEntry(level, feature, logMessage);
-            LogEvent?.Invoke(logEntry);
+            var entry = new LogEntry(level, feature, caller, message);
+            LogEvent?.Invoke(entry);
         }
 
         /// <summary>
@@ -130,24 +164,27 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             if (!IsEnabled(level)) return;
             if (!IsEnabled(feature)) return;
 
-            string logMessage = $"[{Path.GetFileName(sourceFilePath)}:{sourceLineNumber}:{memberName}] {messageFactory()}";
+            string caller = $"{Path.GetFileName(sourceFilePath)}:{sourceLineNumber}:{memberName}";
+            string logMessage = $"{messageFactory()}";
 
-            var logEntry = new LogEntry(level, feature, logMessage);
-            LogEvent?.Invoke(logEntry);
+            var entry = new LogEntry(level, feature, caller, logMessage);
+            LogEvent?.Invoke(entry);
         }
     }
 
     public record LogEntry
     {
-        public LogEntry(LogLevel level, string feature, string message)
+        public LogEntry(LogLevel level, string feature, string caller, string message)
         {
             Level = level;
             Feature = feature;
+            Caller = caller;
             Message = message;
         }
 
         public LogLevel Level;
         public string Feature;
+        public string Caller;
         public string Message;
     }
 
