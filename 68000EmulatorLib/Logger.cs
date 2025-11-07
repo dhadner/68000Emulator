@@ -10,6 +10,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     {
         static readonly ConcurrentDictionary<string, bool> _features = [];
 
+        private static long _sequenceNumber = 0;
+
+        /// <summary>
+        /// Current sequence number. Debugger can reset.
+        /// Thread-safe using Interlocked operations.
+        /// </summary>
+        public static long SequenceNumber
+        {
+            get => Interlocked.Read(ref _sequenceNumber);
+            set => Interlocked.Exchange(ref _sequenceNumber, value);
+        }
+
         /// <summary>
         /// Return a sorted list of features and their enabled status.
         /// </summary>
@@ -108,7 +120,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public static LogLevel Level
         {
             get => field;
-            set 
+            set
             {
                 field = value;
                 LevelChanged?.Invoke(value);
@@ -136,7 +148,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="message"></param>
         public static void Log(LogLevel level, string feature, string message,
                                [CallerMemberName] string memberName = "",
-                               [CallerFilePath]   string sourceFilePath = "",
+                               [CallerFilePath] string sourceFilePath = "",
                                [CallerLineNumber] int sourceLineNumber = 0)
         {
             if (!IsEnabled(level)) return;
@@ -144,7 +156,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             string caller = $"{Path.GetFileName(sourceFilePath)}:{sourceLineNumber}:{memberName}";
 
-            var entry = new LogEntry(level, feature, caller, message);
+            var entry = new LogEntry(Interlocked.Increment(ref _sequenceNumber), level, feature, caller, message);
+
             LogEvent?.Invoke(entry);
         }
 
@@ -167,21 +180,23 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             string caller = $"{Path.GetFileName(sourceFilePath)}:{sourceLineNumber}:{memberName}";
             string logMessage = $"{messageFactory()}";
 
-            var entry = new LogEntry(level, feature, caller, logMessage);
+            var entry = new LogEntry(Interlocked.Increment(ref _sequenceNumber), level, feature, caller, logMessage);
             LogEvent?.Invoke(entry);
         }
     }
 
     public record LogEntry
     {
-        public LogEntry(LogLevel level, string feature, string caller, string message)
+        public LogEntry(long sequenceNumber, LogLevel level, string feature, string caller, string message)
         {
+            SequenceNumber = sequenceNumber;
             Level = level;
             Feature = feature;
             Caller = caller;
             Message = message;
         }
 
+        public long SequenceNumber;
         public LogLevel Level;
         public string Feature;
         public string Caller;

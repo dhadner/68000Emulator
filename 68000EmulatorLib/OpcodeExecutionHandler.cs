@@ -482,9 +482,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
 #endif
 #if CHECK_PC_FOR_ZERO
-                    if (Machine.CPU.PC < 0x400)
+                    if (Machine.CPU.PC < 0x100)
                     {
-                        Logger.Log(LogLevel.Critical, "CPU", $"PC < 0x400: original PC = {oldPC:x8}, new PC = {Machine.CPU.PC:x8}");
+                        Logger.Log(LogLevel.Critical, "CPU", $"PC < 0x100: original PC = {oldPC:x8}, new PC = {Machine.CPU.PC:x8}");
                         Machine.IsEndOfExecution = true;
                     }
 #endif
