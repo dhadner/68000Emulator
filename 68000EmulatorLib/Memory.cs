@@ -31,6 +31,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns><c>true</c> if the data was loaded into memory, otherwise <c>false</c>.</returns>
         public virtual bool LoadData(byte[] data, uint loadAddress, bool clearBeforeLoad = true)
         {
+            loadAddress &= 0x00FFFFFF;
+
             // Check that the data being loaded will actually fit at the specified load address.
             if (loadAddress + data.Length > Data.Length)
             {
@@ -61,6 +63,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns>Read-only copy of the requested memory.</returns>
         public virtual ReadOnlySpan<byte> DumpMemory(uint address, uint length)
         {
+            address &= 0x00FFFFFF;
+
             if (address + length > Data.Length)
             {
                 return null;
@@ -77,6 +81,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns>The value that was read from the specified address.</returns>
         public virtual byte ReadByte(uint address)
         {
+            address &= 0x00FFFFFF;
             if (address >= Data.Length)
             {
                 Helpers.RaiseTRAPException(TrapVector.AddressError);
@@ -91,6 +96,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns>The 16-bit value that was read from the specified address.</returns>
         public virtual ushort ReadWord(uint address)
         {
+            address &= 0x00FFFFFF;
             if ((address % 0x00000002) != 0 || address > Data.Length - 2)
             {
                 Helpers.RaiseTRAPException(TrapVector.AddressError);
@@ -105,6 +111,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns>The 32-bit value that was read from the specified address.</returns>
         public virtual uint ReadLong(uint address)
         {
+            address &= 0x00FFFFFF;
             if ((address % 0x00000002) != 0 || address > Data.Length - 4)
             {
                 Helpers.RaiseTRAPException(TrapVector.AddressError);
@@ -119,6 +126,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="value">The value to be written to the specified address.</param>
         public virtual void WriteByte(uint address, byte value)
         {
+            address &= 0x00FFFFFF;
             if (address >= Data.Length)
             {
                 Helpers.RaiseTRAPException(TrapVector.AddressError);
@@ -136,6 +144,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="value">The value to be written to the specified address.</param>
         public virtual void WriteWord(uint address, ushort value)
         {
+            address &= 0x00FFFFFF;
             if ((address % 0x00000002) != 0 || address > Data.Length - 2)
             {
                 Helpers.RaiseTRAPException(TrapVector.AddressError);
@@ -154,6 +163,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="value">The value to be written to the specified address.</param>
         public virtual void WriteLong(uint address, uint value)
         {
+            address &= 0x00FFFFFF;
             if ((address % 0x00000002) != 0 || address > Data.Length - 4)
             {
                 Helpers.RaiseTRAPException(TrapVector.AddressError);

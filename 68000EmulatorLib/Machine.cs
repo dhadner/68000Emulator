@@ -19,7 +19,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Single lock object for entire machine (==> no deadlocks)
         /// </summary>
-        public static System.Threading.Lock Lock { get; } = new();
+        public static System.Threading.Lock MachineLock { get; } = new();
 
         /// <summary>
         /// True when loading a file into memory.
@@ -100,7 +100,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Optional debugger.  Subclasses can provide debug features.
         /// </summary>
-        public IDebugger? Debugger { get; set; }
+        public IDebugger? Debugger { get; set; } = null;
 
         /// <summary>
         /// Configuration Option: True if machine should
