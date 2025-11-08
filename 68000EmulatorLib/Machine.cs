@@ -1,5 +1,4 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
-using System;
 using System.Text;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
