@@ -1154,7 +1154,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected Operation? PEA(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
-                op.Size = AppendSizeAndTab(inst, sb);
+                op.Size = OpSize.Long;
+                sb.AppendTab(EA_COLUMN);
 
                 op.Operands.Add(EffectiveAddressOp(inst, EAType.Source));
 

@@ -1523,6 +1523,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
                 uint dRegVal = Machine.CPU.ReadDataRegister(dRegNum);
+
+                // Is D(n) the destination?  If so we need to do any address incrementing on the read. I.e., do NOT suppress it.
                 bool dnDest = (inst.Opcode & 0x0100) == 0;
                 var value = ReadEAValue(inst, EAType.Destination, !dnDest);
                 if (value.HasValue)
@@ -1547,6 +1549,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 OpSize size = inst.Size ?? OpSize.Word;
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
                 int dRegVal = Helpers.SignExtendValue(Machine.CPU.ReadDataRegister(dRegNum), size);
+
+                // Is D(n) the destination?  If so we need to do any address incrementing on the read. I.e., do NOT suppress it.
                 bool dnDest = (inst.Opcode & 0x0100) == 0;
                 var value = ReadEAValue(inst, EAType.Destination, !dnDest);
                 if (value.HasValue)
@@ -1789,6 +1793,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
                 uint dRegVal = Machine.CPU.ReadDataRegister(dRegNum);
+
+                // Is D(n) the destination?  If so we need to do any address incrementing on the read. I.e., do NOT suppress it.
                 bool dnDest = (inst.Opcode & 0x0100) == 0;
                 var value = ReadEAValue(inst, EAType.Destination, !dnDest);
                 if (value.HasValue)
@@ -1813,6 +1819,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 OpSize size = inst.Size ?? OpSize.Word;
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
                 int dRegVal = Helpers.SignExtendValue(Machine.CPU.ReadDataRegister(dRegNum), size);
+
+                // Is D(n) the destination?  If so we need to do any address incrementing on the read. I.e., do NOT suppress it.
                 bool dnDest = (inst.Opcode & 0x0100) == 0;
                 var value = ReadEAValue(inst, EAType.Destination, !dnDest);
                 if (value.HasValue)
