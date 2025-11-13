@@ -13,6 +13,32 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public ushort Vector { get; protected set; }
 
         /// <summary>
+        /// Standard trap exception descriptions
+        /// </summary>
+        /// <param name="vector"></param>
+        /// <returns></returns>
+        public static string Description(ushort vector)
+        {
+            return vector switch
+            {
+                0 => "Reset SSP",
+                1 => "Reset SSP",
+                2 => "Reset SSP",
+                3 => "Reset SSP",
+                4 => "Reset SSP",
+                5 => "Reset SSP",
+                6 => "Reset SSP",
+                7 => "Reset SSP",
+                8 => "Reset SSP",
+                9 => "Reset SSP",
+                10 => "Reset SSP",
+                11 => "Reset SSP",
+                12 => "Reset SSP",
+                _ => $"Unknown vector #{vector}"
+            };
+        }
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="TrapException"/> class.
         /// </summary>
         protected TrapException() : base()
@@ -22,7 +48,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Initializes a new instance of the <see cref="TrapException"/> class.
         /// </summary>
         /// <param name="vector">The TRAP vector value.</param>
-        public TrapException(ushort vector) : base(String.Format("A TRAP #{0} exception was thrown.", vector))
+        public TrapException(ushort vector) : base(Description(vector))
         {
             Vector = vector;
         }

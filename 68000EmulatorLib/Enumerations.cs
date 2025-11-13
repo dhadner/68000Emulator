@@ -89,10 +89,65 @@ namespace PendleCodeMonkey.MC68000EmulatorLib.Enumerations
     };
 
     /// <summary>
-    /// Enumeration of TRAP vector values.
+    /// This enumeration doubles as the vector number.  Multiply by 4
+    /// to get the low-memory address used by the vector).
+    /// <c>
+    /// 
+    /// Vector Numbers       Address     Space(6)    Assignment
+    /// ===================  ==========  ==========  ===============================
+    /// Hex      Decimal     Dec   Hex   
+    ///  0        0           0    000   SP          Reset: Initial SSP(2)
+    ///  1        1           4    004   SP          Reset: Initial PC(2)
+    ///  2        2           8    008   SD          Bus Error
+    ///  3        3          12    00C   SD          Address Error
+    ///  4        4          16    010   SD          Illegal instruction
+    ///  5        5          20    014   SD          Zero Divide
+    ///  6        6          24    018   SD          CHK Instruction
+    ///  7        7          28    01C   SD          TRAPV Instruction
+    ///  8        8          32    020   SD          Privilege Violation
+    ///  9        9          36    024   SD          Trace
+    ///  A       10          40    028   SD          Line 1010 Emulator
+    ///  B       11          44    02C   SD          Line 1111 Emulator
+    ///  C       12(1)       48    030   SD          (Unassigned, Reserved)
+    ///  D       13(1)       52    034   SD          (Unassigned, Reserved)
+    ///  E       14          56    038   SD          Format Error(5)
+    ///  F       15          60    03C   SD          Uninitialized Interrupt Vector
+    /// 10-17    16-23(1)    64    040   SD          (Unassigned, Reserved)
+    ///                      92    05C               -
+    /// 18       24          96    060   SD          Spurious Interrupt(3)
+    /// 19       25          100   064   SD          Level 1 Interrupt Autovector
+    /// 1A       26          104   068   SD          Level 2 Interrupt Autovector
+    /// 1B       27          108   06C   SD          Level 3 Interrupt Autovector
+    /// 1C       28          112   070   SD          Level 4 Interrupt Autovector
+    /// 1D       29          116   074   SD          Level 5 Interrupt Autovector
+    /// 1E       30          120   078   SD          Level 6 Interrupt Autovector
+    /// 1F       31          124   07C   SD          Level 7 Interrupt Autovector
+    /// 20-2F    32-47       128   080   SD          TRAP Instruction Vectors(4)
+    ///                      188   0BC               -
+    /// 30-3F    48-63(1)    192   0C0   SD          (Unassigned, Reserved)
+    ///                      255   0FF               -
+    /// 40-FF    64-255      256   100   SD          User Interrupt Vectors
+    ///                      1020  3FC               -
+    ///                      
+    /// NOTES:
+    /// 1. Vector numbers 12, 13, 16–23, and 48–63 are reserved for future
+    /// enhancements by Motorola.No user peripheral devices should be
+    /// assigned these numbers.
+    /// 2. Reset vector (0) requires four words, unlike the other vectors which only
+    /// require two words, and is located in the supervisor program space.
+    /// 3. The spurious interrupt vector is taken when there is a bus error
+    /// indication during interrupt processing.
+    /// 4. TRAP #n uses vector number 32+ n.
+    /// 5. MC68010 only. This vector is unassigned, reserved on the MC68000
+    /// and MC68008.
+    /// 6. SP denotes supervisor program space, and SD denotes
+    /// supervisor data space.
+    /// </c>
     /// </summary>
     public enum TrapVector : ushort
     {
+        ResetSSP = 0,
+        ResetPC = 1,
         BusError = 2,
         AddressError = 3,
         IllegalInstruction = 4,
@@ -100,8 +155,116 @@ namespace PendleCodeMonkey.MC68000EmulatorLib.Enumerations
         CHKInstruction = 6,
         TRAPVInstruction = 7,
         PrivilegeViolation = 8,
+        Trace = 9,
         LineAInstruction = 10,
-        LineFInstruction = 11
+        LineFInstruction = 11,
+        UninitializedInterrupt = 15,
+        SpuriousInterrupt = 24,
+        Interrupt = 25,
+        MaxInterrupt = 31,
+        TrapInstruction = 32,
+        MaxTrapInstruction = 47,
+        UserInterrupt = 64,
+        MaxUserInterrupt = 255
+    }
+
+    /// <summary>
+    /// Function codes.
+    /// <c>
+    /// 
+    /// NOTES:
+    /// 1. Vector numbers 12, 13, 16-23, and 48-63 are reserved for future
+    ///    enhancements by Motorola. No user peripheral devices should be
+    ///    assigned these numbers.
+    /// 2. Reset vector (0) requires four words, unlike the other vectors which only
+    ///    require two words, and is located in the supervisor program space.
+    /// 3. The spurious interrupt vector is taken when there is a bus error
+    ///    indication during interrupt processing.
+    /// 4. TRAP #n uses vector number 32 + n.
+    /// 5. MC68010 only. This vector is unassigned, reserved on the MC68000
+    ///    and MC68008.
+    /// 6. SP denotes supervisor program space, and SD denotes
+    ///    supervisor data space.
+    ///
+    ///    M68000 Microprocessors User's Manual
+    ///    Ninth Edition
+    ///    
+    ///    Function Code Output
+    ///    FC2   FC1   FC0   Code  Address Space Type
+    ///    ====  ====  ====  ====  =====================
+    ///    Low   Low   Low   000   (Undefined, Reserved)*
+    ///    Low   Low   High  001   User Data
+    ///    Low   High  Low   010   User Program
+    ///    Low   High  High  011   (Undefined, Reserved)*
+    ///    High  Low   Low   100   (Undefined, Reserved)*
+    ///    High  Low   High  101   Supervisor Data
+    ///    High  High  Low   110   Supervisor Program
+    ///    High  High  High  111   CPU Space
+    /// 
+    ///    * Address space 3 is reserved for user definition, while 0 and
+    ///      4 are reserved for future use by Motorola.
+    /// </c>
+    /// </summary>
+    public enum FC : byte
+    {
+        Undef0 = 0b000,
+        UserData = 0b001,
+        UserProgram = 0b010,
+        Undef4 = 0b011,
+        Undef5 = 0b100,
+        SupervisorData = 0b101,
+        SupervisorProgram = 0b110,
+        CPUSpace = 0b111
+    }
+
+    /// <summary>
+    /// Exception Read/Write flag
+    /// </summary>
+    public enum ERW { Read, Write }
+
+    /// <summary>
+    /// Exception Groups
+    /// <c>
+    ///   Exception Grouping and Priority
+    ///   Group  Kind           Exception Processing
+    ///   =====  =============  =================================================================
+    ///   0      Reset
+    ///          Address Error
+    ///          Bus Error
+    ///                         Exception Processing Begins within Two Clock Cycles, current 
+    ///                         instruction is aborted
+    ///   1      Trace
+    ///          Interrupt
+    ///          Illegal
+    ///          Privilege
+    ///                         Exception Processing Begins before the Next Instruction
+    ///   2      TRAP 
+    ///          TRAPV
+    ///          CHK
+    ///          Zero Divide
+    ///                         Exception Processing Is Started by Normal Instruction Execution
+    ///</c>
+    /// </summary>
+    public enum EG : byte
+    {
+        Group0 = 0,
+        Group1 = 1,
+        Group2 = 2
+    }
+
+    public struct EVEntry
+    {
+        public EVEntry(TrapVector _vector, EG _group, FC _fc, string _description)
+        {
+            vector = _vector;
+            group = _group;
+            fc = _fc;
+            description = _description;
+        }
+        public TrapVector vector;
+        public EG group;
+        public FC fc;
+        public string description;
     };
 
     /// <summary>

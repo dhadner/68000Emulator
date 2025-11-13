@@ -430,8 +430,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <exception cref="TrapException">Some TrapExceptions are thrown for low-level bus
         /// errors, odd address access by word instructions, etc. Most TrapExceptions expected 
         /// during normal operation (e.g., LINEA and machine interrupts) are returned by this 
-        /// routine to the caller for handling
-        /// without the overhead of stack frame crawling, etc.</exception>
+        /// routine to the caller for handling without the overhead of .NET stack frame 
+        /// crawling, etc.</exception>
         public virtual TrapException? ExecuteInstruction()
         {
             var instruction = Decoder.FetchInstruction();
@@ -445,5 +445,182 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         {
             ExecutionStopped = true;
         }
+
+        /// <summary>
+        /// Set interrupt priority lines.
+        /// </summary>
+        /// <param name="newIPL"></param>
+        public virtual void SetFCOutputs(byte newIPL)
+        {
+        }
+
+        /// <summary>
+        /// Current Program Counter at beginning of instruction.
+        /// </summary>
+        public uint CurrentPC { get; protected set; } = 0;
+
+        /// <summary>
+        /// Current Status Register at the beginning of instruction.
+        /// </summary>
+        public SRFlags CurrentSR { get; protected set; } = 0;
+
+        /// <summary>
+        /// Singleton object to minimize garbage collection.
+        /// </summary>
+        protected CPUState TrapCPUState = new();
+
+        /// <summary>
+        /// A trap used to represent an interrupt.
+        /// </summary>
+        protected class InterruptException : TrapException
+        {
+            public InterruptException() : base(0)
+            {
+            }
+            public new ushort Vector
+            {
+                get { return base.Vector; }
+                set { base.Vector = value; }
+            }
+        }
+
+        /// <summary>
+        /// True if there is an interrupt pending.  Set to false
+        /// by the machine interrupt handler when it is either processed
+        /// or ignored due to interrupt masking.  Stays high until
+        /// interrupt acknowledge: interrupt acknowledge (FC2–FC0 and A19–A16 high).
+        /// </summary>
+        public bool InterruptPending { get; set; } = false;
+
+        /// <summary>
+        /// Past value of <see cref="InterruptPending"/>.
+        /// </summary>
+        public bool InterruptPendingPV { get; set; } = false;
+
+        /// <summary>
+        /// Exception used to handle all interrupts - prevents
+        /// having to create a new one each interrupt.
+        /// </summary>
+        protected InterruptException _interruptException = new();
+
+        /// <summary>
+        /// Handle a trap exception.
+        /// </summary>
+        /// <param name="te"></param>
+        protected void HandleTrapException(TrapException te)
+        {
+            uint trapVectorContents = Memory.ReadLong((uint)te.Vector * 4) & 0x00ffffff;
+            EVEntry eVEntry = default;
+            bool handled = false;
+            bool isInterrupt = false;
+            switch (te.Vector)
+            {
+                case ushort v when v >= (ushort)TrapVector.Interrupt && v <= (ushort)TrapVector.MaxInterrupt:
+                    handled = EVTable.TryGetValue(TrapVector.Interrupt, out eVEntry);
+                    isInterrupt = handled;
+                    break;
+                case ushort v when v >= (ushort)TrapVector.TrapInstruction && v <= (ushort)TrapVector.MaxTrapInstruction:
+                    handled = EVTable.TryGetValue(TrapVector.TrapInstruction, out eVEntry);
+                    break;
+                case ushort v when v >= (ushort)TrapVector.UserInterrupt && v <= (ushort)TrapVector.MaxUserInterrupt:
+                    handled = EVTable.TryGetValue(TrapVector.UserInterrupt, out eVEntry);
+                    break;
+                default:
+                    if (Enum.IsDefined(typeof(TrapVector), te.Vector))
+                    {
+                        TrapVector vector = (TrapVector)te.Vector;
+                        handled = EVTable.TryGetValue(vector, out eVEntry);
+                    }
+                    break;
+            }
+            if (handled)
+            {
+                GetCPUState(ref TrapCPUState);
+                uint nextInstructionPC = TrapCPUState.PC!.Value;
+                uint oldPC = CurrentPC;
+                SRFlags oldSR = TrapCPUState.SR!.Value;
+                TrapCPUState.PC = trapVectorContents;
+                TrapCPUState.SR |= SRFlags.SupervisorMode;
+                TrapCPUState.SR &= ~SRFlags.TraceMode;
+                if (isInterrupt)
+                {
+                    // Set priority = interrupt priority
+                    TrapCPUState.SR &= ~SRFlags.InterruptLevel;
+                    ushort level = (ushort)(te.Vector - (byte)TrapVector.Interrupt + 1);
+                    TrapCPUState.SR |= (SRFlags)(level << 8);
+                }
+                SetCPUState(TrapCPUState);
+
+                switch (eVEntry.group)
+                {
+                    case EG.Group0:
+                        Logger.Log(LogLevel.Debug, "CPU", () => $"Group 0 Trap Exception handled: {te.Vector} Trap handler: {trapVectorContents:x8} Called from: {oldPC:x8}");
+
+                        ushort fcWord = (ushort)eVEntry.fc;
+                        fcWord |= 0x0018;               // Default to read and not an instruction
+                        PushLong(nextInstructionPC);
+                        PushWord((ushort)oldSR);
+                        PushWord(CurrentInstruction.Opcode);
+                        if (CurrentInstruction.AccessAddress.HasValue)
+                        {
+                            PushLong(CurrentInstruction.AccessAddress.Value);
+                            if (CurrentInstruction.AccessAddressType.HasValue && CurrentInstruction.AccessAddressType.Value == EAType.Destination)
+                            {
+                                fcWord &= 0xffef; // Clear the "read" bit
+                            }
+                        }
+                        else
+                        {
+                            PushLong(0);
+                        }
+                        PushWord(fcWord);
+                        break;
+                    case EG.Group1:
+                        Logger.Log(LogLevel.Debug, "CPU", () => $"Group 1 Trap Exception handled: {te.Vector} Trap handler: {trapVectorContents:x8} Called from: {oldPC:x8}");
+                        PushLong(nextInstructionPC);
+                        PushWord((ushort)oldSR);
+                        break;
+                    case EG.Group2:
+                        Logger.Log(LogLevel.Debug, "CPU", () => $"Group 2 Trap Exception handled: {te.Vector} Trap handler: {trapVectorContents:x8} Called from: {oldPC:x8}");
+                        PushLong(oldPC);
+                        PushWord((ushort)oldSR);
+                        break;
+                    default:
+                        Logger.Log(LogLevel.Critical, "CPU", $"Trap exception handler error - error in EVTable.  Called from: {oldPC:x8}");
+                        break;
+                }
+                SetFCOutputs((byte)eVEntry.fc);
+
+                if (trapVectorContents == 0)
+                {
+                    Logger.Log(LogLevel.Critical, "CPU", () => $"Trap Exception  -> address = 0: {te}");
+                }
+                return;
+            }
+        }
+
+        protected Dictionary<TrapVector, EVEntry> EVTable = new()
+        {
+            {TrapVector.ResetSSP,               new EVEntry(TrapVector.ResetSSP,               EG.Group0, FC.SupervisorProgram, TrapException.Description((ushort)TrapVector.ResetSSP              ))},
+            {TrapVector.ResetPC,                new EVEntry(TrapVector.ResetPC,                EG.Group0, FC.SupervisorProgram, TrapException.Description((ushort)TrapVector.ResetPC               ))},
+            {TrapVector.BusError,               new EVEntry(TrapVector.BusError,               EG.Group0, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.BusError              ))},
+            {TrapVector.AddressError,           new EVEntry(TrapVector.AddressError,           EG.Group0, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.AddressError          ))},
+            {TrapVector.IllegalInstruction,     new EVEntry(TrapVector.IllegalInstruction,     EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.IllegalInstruction    ))},
+            {TrapVector.DivideByZero,           new EVEntry(TrapVector.DivideByZero,           EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.DivideByZero          ))},
+            {TrapVector.CHKInstruction,         new EVEntry(TrapVector.CHKInstruction,         EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.CHKInstruction        ))},
+            {TrapVector.TRAPVInstruction,       new EVEntry(TrapVector.TRAPVInstruction,       EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.TRAPVInstruction      ))},
+            {TrapVector.PrivilegeViolation,     new EVEntry(TrapVector.PrivilegeViolation,     EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.PrivilegeViolation    ))},
+            {TrapVector.Trace,                  new EVEntry(TrapVector.Trace,                  EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.Trace                 ))},
+            {TrapVector.LineAInstruction,       new EVEntry(TrapVector.LineAInstruction,       EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.LineAInstruction      ))},
+            {TrapVector.LineFInstruction,       new EVEntry(TrapVector.LineFInstruction,       EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.LineFInstruction      ))},
+            {TrapVector.UninitializedInterrupt, new EVEntry(TrapVector.UninitializedInterrupt, EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.UninitializedInterrupt))},
+            {TrapVector.SpuriousInterrupt,      new EVEntry(TrapVector.SpuriousInterrupt,      EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.SpuriousInterrupt     ))},
+            {TrapVector.Interrupt,              new EVEntry(TrapVector.Interrupt,              EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.Interrupt             ))},
+            {TrapVector.MaxInterrupt,           new EVEntry(TrapVector.MaxInterrupt,           EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.MaxInterrupt          ))},
+            {TrapVector.TrapInstruction,        new EVEntry(TrapVector.TrapInstruction,        EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.TrapInstruction       ))},
+            {TrapVector.MaxTrapInstruction,     new EVEntry(TrapVector.MaxTrapInstruction,     EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.MaxTrapInstruction    ))},
+            {TrapVector.UserInterrupt,          new EVEntry(TrapVector.UserInterrupt,          EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.UserInterrupt         ))},
+            {TrapVector.MaxUserInterrupt,       new EVEntry(TrapVector.MaxUserInterrupt,       EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.MaxUserInterrupt      ))}
+        };
     }
 }
