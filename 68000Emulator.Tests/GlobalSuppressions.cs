@@ -6,3 +6,5 @@
 using System.Diagnostics.CodeAnalysis;
 
 [assembly: SuppressMessage("Performance", "CA1822:Mark members as static", Justification = "<Pending>", Scope = "member", Target = "~M:PendleCodeMonkey.MC68000Emulator.Tests.OpcodeExecutionHandlerTests.CreateMachine~PendleCodeMonkey.MC68000Emulator.Tests.Machine")]
+[assembly: SuppressMessage("Minor Code Smell", "S101:Types should be named in PascalCase", Justification = "<Pending>", Scope = "type", Target = "~T:PendleCodeMonkey.MC68000Emulator.Tests.M68kTestcaseState")]
+[assembly: SuppressMessage("Minor Code Smell", "S101:Types should be named in PascalCase", Justification = "<Pending>", Scope = "type", Target = "~T:PendleCodeMonkey.MC68000Emulator.Tests.M68kJsonTestCase")]
