@@ -32,7 +32,7 @@ namespace PendleCodeMonkey.MC68000EmulatorConsoleApp
             {
 
                 // Execute the 68000 code .
-                machine.Execute();
+                machine.ExecuteUntilException();
 
                 // Dump out the final CPU status.
                 Console.WriteLine("CPU status dump:");
@@ -78,7 +78,7 @@ namespace PendleCodeMonkey.MC68000EmulatorConsoleApp
             Console.WriteLine();
 
             // Execute the 68000 code (which should sort the 8-bit values that have been loaded into memory).
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Dump out the sorted 8-bit value list (to show that the 68000 code has successfully sorted the values).
             var memDump = machine.DumpMemory(0x00002000, 51);

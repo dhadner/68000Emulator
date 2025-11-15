@@ -343,7 +343,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(SRFlags.Zero | SRFlags.Extend, machine.CPU.SR);
@@ -363,7 +363,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(SRFlags.Zero | SRFlags.SupervisorMode, machine.CPU.SR);
@@ -386,7 +386,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00129234, machine.CPU.ReadDataRegister(1));
@@ -420,7 +420,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -440,7 +440,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(SRFlags.Negative | SRFlags.SupervisorMode, machine.CPU.SR);
@@ -460,7 +460,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(SRFlags.Negative | SRFlags.Carry, machine.CPU.SR);
@@ -483,7 +483,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00120505, machine.CPU.ReadDataRegister(2));
@@ -517,7 +517,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -542,7 +542,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00125545, machine.CPU.ReadDataRegister(2));
@@ -567,7 +567,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -591,7 +591,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00125565, machine.CPU.ReadDataRegister(2));
@@ -617,7 +617,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -637,7 +637,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(SRFlags.Zero | SRFlags.Negative | SRFlags.Extend, machine.CPU.SR);
@@ -657,7 +657,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(SRFlags.Zero | SRFlags.SupervisorMode, machine.CPU.SR);
@@ -680,7 +680,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x0012A5A5, machine.CPU.ReadDataRegister(7));
@@ -714,7 +714,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -748,7 +748,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -773,7 +773,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x000000BC, machine.CPU.ReadDataRegister(3));
@@ -801,7 +801,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00005678, machine.CPU.ReadAddressRegister(1));
@@ -824,7 +824,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x12342006, machine.CPU.ReadDataRegister(1));
@@ -847,7 +847,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((ushort)0x2015, (ushort)machine.CPU.SR);
@@ -870,7 +870,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((ushort)0x2012, (ushort)machine.CPU.SR);
@@ -914,7 +914,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
@@ -951,7 +951,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -975,7 +975,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x12345600, machine.CPU.ReadDataRegister(7));
@@ -1009,7 +1009,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
@@ -1043,7 +1043,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
@@ -1074,7 +1074,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
@@ -1097,7 +1097,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(6));
@@ -1118,7 +1118,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00002FFC, machine.CPU.ReadAddressRegister(7));
@@ -1133,7 +1133,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadExecutableData(code, 0x0200);
 
             // Act and Assert
-            Assert.Throws<TrapException>(() => machine.Execute());
+            Assert.Throws<TrapException>(() => machine.ExecuteUntilException());
         }
 
         [Theory]
@@ -1163,7 +1163,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -1177,7 +1177,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadExecutableData(code, 0x0200);
 
             // Act and Assert
-            Assert.Throws<TrapException>(() => machine.Execute());
+            Assert.Throws<TrapException>(() => machine.ExecuteUntilException());
         }
 
         [Fact]
@@ -1195,7 +1195,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00654321, machine.CPU.USP);
@@ -1215,7 +1215,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act and Assert
-            Assert.Throws<TrapException>(() => machine.Execute());
+            Assert.Throws<TrapException>(() => machine.ExecuteUntilException());
         }
 
         [Fact]
@@ -1233,7 +1233,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00003000, machine.CPU.ReadAddressRegister(1));
@@ -1247,7 +1247,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadExecutableData(code, 0x0200);
 
             // Act and Assert
-            Assert.Throws<TrapException>(() => machine.Execute());
+            Assert.Throws<TrapException>(() => machine.ExecuteUntilException());
         }
 
         [Fact]
@@ -1266,7 +1266,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00003006, machine.CPU.SSP);
@@ -1282,7 +1282,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadExecutableData(code, 0x0200);
 
             // Act and Assert
-            Assert.Throws<TrapException>(() => machine.Execute());
+            Assert.Throws<TrapException>(() => machine.ExecuteUntilException());
         }
 
         [Fact]
@@ -1302,7 +1302,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00003004, machine.CPU.USP);
@@ -1327,12 +1327,12 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             if (!shouldThrow)
             {
                 // Shouldn't throw an exception so just execute the code. If it does throw then the test will fail.
-                machine.Execute();
+                machine.ExecuteUntilException();
             }
             else
             {
                 // We're expecting the code to throw an exception .
-                Assert.Throws<TrapException>(() => machine.Execute());
+                Assert.Throws<TrapException>(() => machine.ExecuteUntilException());
             }
         }
 
@@ -1352,7 +1352,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00003006, machine.CPU.SSP);
@@ -1374,7 +1374,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00002FFC, machine.CPU.USP);
@@ -1390,7 +1390,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadExecutableData(code, 0x0200);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00014466, machine.CPU.PC);
@@ -1409,7 +1409,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x000166A6, machine.CPU.ReadAddressRegister(1));
@@ -1437,12 +1437,12 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             if (!shouldThrow)
             {
                 // Shouldn't throw an exception so just execute the code. If it does throw then the test will fail.
-                machine.Execute();
+                machine.ExecuteUntilException();
             }
             else
             {
                 // We're expecting the code to throw an exception .
-                Assert.Throws<TrapException>(() => machine.Execute());
+                Assert.Throws<TrapException>(() => machine.ExecuteUntilException());
                 Assert.Equal(expectedNegFlag, machine.CPU.NegativeFlag);
             }
         }
@@ -1466,7 +1466,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
@@ -1491,7 +1491,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadAddressRegister(1));
@@ -1520,7 +1520,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(4));
@@ -1545,7 +1545,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadAddressRegister(4));
@@ -1602,7 +1602,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, (byte)(machine.CPU.ReadDataRegister(4) & 0x000000FF));
@@ -1777,7 +1777,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(6));
@@ -1804,7 +1804,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
@@ -1825,7 +1825,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act and Assert
-            Assert.Throws<TrapException>(() => machine.Execute());
+            Assert.Throws<TrapException>(() => machine.ExecuteUntilException());
         }
 
         [Theory]
@@ -1848,7 +1848,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
@@ -1869,7 +1869,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act and Assert
-            Assert.Throws<TrapException>(() => machine.Execute());
+            Assert.Throws<TrapException>(() => machine.ExecuteUntilException());
         }
 
         [Theory]
@@ -1896,7 +1896,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
@@ -1929,7 +1929,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
@@ -1968,7 +1968,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadLong(0x0003000));
@@ -1998,7 +1998,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadAddressRegister(1));
@@ -2028,7 +2028,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
@@ -2064,7 +2064,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -2099,7 +2099,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -2127,7 +2127,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -2152,7 +2152,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
@@ -2179,7 +2179,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
@@ -2204,7 +2204,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(0x87654321, machine.CPU.ReadDataRegister(0));
@@ -2239,7 +2239,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
@@ -2273,7 +2273,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
@@ -2314,7 +2314,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadLong(0x0003000));
@@ -2348,7 +2348,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadAddressRegister(1));
@@ -2386,7 +2386,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
@@ -2412,7 +2412,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
@@ -2454,7 +2454,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
@@ -2480,7 +2480,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
@@ -2519,7 +2519,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
@@ -2545,7 +2545,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
@@ -2587,7 +2587,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
@@ -2613,7 +2613,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
@@ -2654,7 +2654,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
@@ -2680,7 +2680,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
@@ -2721,7 +2721,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
@@ -2747,7 +2747,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
@@ -2789,7 +2789,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
@@ -2817,7 +2817,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
@@ -2859,7 +2859,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
@@ -2888,7 +2888,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
@@ -2912,7 +2912,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -2940,7 +2940,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -2963,7 +2963,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -2992,7 +2992,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -3016,7 +3016,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -3045,7 +3045,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -3069,7 +3069,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -3098,7 +3098,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -3120,7 +3120,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedSP, machine.CPU.USP);
@@ -3143,7 +3143,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002FFC, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00003000, machine.CPU.USP);
@@ -3162,7 +3162,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(SRFlags.SupervisorMode | SRFlags.Extend, machine.CPU.SR);
@@ -3183,7 +3183,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act and Assert
-            Assert.Throws<TrapException>(() => machine.Execute());
+            Assert.Throws<TrapException>(() => machine.ExecuteUntilException());
         }
 
         [Theory]
@@ -3203,7 +3203,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -3231,7 +3231,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -3261,7 +3261,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -3291,7 +3291,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -3321,7 +3321,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002000, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -3349,7 +3349,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
@@ -3369,7 +3369,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(0x56, machine.Memory.ReadByte(0x00003100));
@@ -3389,7 +3389,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(0x12, machine.Memory.ReadByte(0x00003100));
@@ -3413,7 +3413,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003100, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal(0xAAAA5678, machine.CPU.ReadDataRegister(0));
@@ -3434,7 +3434,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00003100, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x12345678, machine.CPU.ReadDataRegister(0));
@@ -3458,7 +3458,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00002FF4, machine.CPU.USP);
@@ -3488,7 +3488,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.SetCPUState(initState);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00002FE8, machine.CPU.USP);
@@ -3514,7 +3514,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002FF4, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00003000, machine.CPU.USP);
@@ -3546,7 +3546,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002FE8, false);
 
             // Act
-            machine.Execute();
+            machine.ExecuteUntilException();
 
             // Assert
             Assert.Equal((uint)0x00003000, machine.CPU.USP);

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Numerics;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib.Enumerations
 {
@@ -144,7 +145,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib.Enumerations
     /// supervisor data space.
     /// </c>
     /// </summary>
-    public enum TrapVector : ushort
+    public enum TrapVector : byte
     {
         ResetSSP = 0,
         ResetPC = 1,
@@ -207,7 +208,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib.Enumerations
     /// </summary>
     public enum FC : byte
     {
-        Undef0 = 0b000,
+        Zero = 0b000,
         UserData = 0b001,
         UserProgram = 0b010,
         Undef4 = 0b011,
@@ -254,18 +255,91 @@ namespace PendleCodeMonkey.MC68000EmulatorLib.Enumerations
 
     public struct EVEntry
     {
-        public EVEntry(TrapVector _vector, EG _group, FC _fc, string _description)
+        public EVEntry(TrapVector vector, EG group, FC fc, string description)
         {
-            vector = _vector;
-            group = _group;
-            fc = _fc;
-            description = _description;
+            Vector = vector;
+            Group = group;
+            Fc = fc;
+            IsInterrupt = vector >= TrapVector.Interrupt && vector <= TrapVector.MaxInterrupt;
+            Description = description;
         }
-        public TrapVector vector;
-        public EG group;
-        public FC fc;
-        public string description;
+
+        public EVEntry(EVEntry entry)
+        {
+            Vector = entry.Vector;
+            Group = entry.Group;
+            Fc = entry.Fc;
+            IsInterrupt = entry.IsInterrupt;
+            Description = entry.Description;
+        }
+
+        public TrapVector Vector { get; private set; }
+        public EG Group { get; private set; }
+        public FC Fc { get; private set; }
+        public bool IsInterrupt { get; private set; }
+        public string Description { get; private set; }
+
+        /// <summary>
+        /// Get an EVEntry for the specified vector.
+        /// </summary>
+        /// <param name="vector"></param>
+        /// <returns></returns>
+        public static EVEntry? FromVector(TrapVector vector)
+        {
+            EVEntry evEntry;
+            bool setVector = false;
+            switch (vector)
+            {
+                case TrapVector v when v >= TrapVector.Interrupt && v <= TrapVector.MaxInterrupt:
+                    setVector = EVTable.TryGetValue(TrapVector.Interrupt, out evEntry);
+                    break;
+                case TrapVector v when v >= TrapVector.TrapInstruction && v <= TrapVector.MaxTrapInstruction:
+                    setVector = EVTable.TryGetValue(TrapVector.TrapInstruction, out evEntry);
+                    break;
+                case TrapVector v when v >= TrapVector.UserInterrupt && v <= TrapVector.MaxUserInterrupt:
+                    setVector = EVTable.TryGetValue(TrapVector.UserInterrupt, out evEntry);
+                    break;
+                default:
+                    if (!EVTable.TryGetValue(vector, out evEntry))
+                    {
+                        return null;
+                    }
+                    break;
+            }
+            if (setVector)
+            {
+                evEntry = new(evEntry);
+                evEntry.Vector = vector;
+            }
+            return evEntry;
+        }
+
+        public static Dictionary<TrapVector, EVEntry> EVTable { get; } = new()
+        {
+            {TrapVector.ResetSSP,               new EVEntry(TrapVector.ResetSSP,               EG.Group0, FC.SupervisorProgram, TrapException.Description((ushort)TrapVector.ResetSSP              ))},
+            {TrapVector.ResetPC,                new EVEntry(TrapVector.ResetPC,                EG.Group0, FC.SupervisorProgram, TrapException.Description((ushort)TrapVector.ResetPC               ))},
+            {TrapVector.BusError,               new EVEntry(TrapVector.BusError,               EG.Group0, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.BusError              ))},
+            {TrapVector.AddressError,           new EVEntry(TrapVector.AddressError,           EG.Group0, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.AddressError          ))},
+            {TrapVector.IllegalInstruction,     new EVEntry(TrapVector.IllegalInstruction,     EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.IllegalInstruction    ))},
+            {TrapVector.DivideByZero,           new EVEntry(TrapVector.DivideByZero,           EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.DivideByZero          ))},
+            {TrapVector.CHKInstruction,         new EVEntry(TrapVector.CHKInstruction,         EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.CHKInstruction        ))},
+            {TrapVector.TRAPVInstruction,       new EVEntry(TrapVector.TRAPVInstruction,       EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.TRAPVInstruction      ))},
+            {TrapVector.PrivilegeViolation,     new EVEntry(TrapVector.PrivilegeViolation,     EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.PrivilegeViolation    ))},
+            {TrapVector.Trace,                  new EVEntry(TrapVector.Trace,                  EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.Trace                 ))},
+            {TrapVector.LineAInstruction,       new EVEntry(TrapVector.LineAInstruction,       EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.LineAInstruction      ))},
+            {TrapVector.LineFInstruction,       new EVEntry(TrapVector.LineFInstruction,       EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.LineFInstruction      ))},
+            {TrapVector.UninitializedInterrupt, new EVEntry(TrapVector.UninitializedInterrupt, EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.UninitializedInterrupt))},
+            {TrapVector.SpuriousInterrupt,      new EVEntry(TrapVector.SpuriousInterrupt,      EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.SpuriousInterrupt     ))},
+            {TrapVector.Interrupt,              new EVEntry(TrapVector.Interrupt,              EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.Interrupt             ))},
+            {TrapVector.MaxInterrupt,           new EVEntry(TrapVector.MaxInterrupt,           EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.MaxInterrupt          ))},
+            {TrapVector.TrapInstruction,        new EVEntry(TrapVector.TrapInstruction,        EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.TrapInstruction       ))},
+            {TrapVector.MaxTrapInstruction,     new EVEntry(TrapVector.MaxTrapInstruction,     EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.MaxTrapInstruction    ))},
+            {TrapVector.UserInterrupt,          new EVEntry(TrapVector.UserInterrupt,          EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.UserInterrupt         ))},
+            {TrapVector.MaxUserInterrupt,       new EVEntry(TrapVector.MaxUserInterrupt,       EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.MaxUserInterrupt      ))}
+        };
+
     };
+
 
     /// <summary>
     /// Enumeration of Operation Handler identifiers.

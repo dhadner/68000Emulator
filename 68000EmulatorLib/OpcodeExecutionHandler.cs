@@ -465,9 +465,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             /// <param name="instruction">The <see cref="Instruction"/> instance of the instruction to be executed.</param>
             /// <exception cref="TrapException"/>
-            public TrapException? Execute(Instruction? instruction)
+            public TrapException? Execute(Instruction instruction)
             {
-                if (instruction != null && _handlers.TryGetValue(instruction.Info.HandlerID, out OpHandler? value))
+                if (_handlers.TryGetValue(instruction.Info.HandlerID, out OpHandler? value))
                 {
 #if CHECK_PC_FOR_ZERO
                     uint oldPC = Machine.CPU.PC;
@@ -490,8 +490,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 #endif
                     return e;
                 }
-                Helpers.RaiseTRAPException(TrapVector.IllegalInstruction);
-                return null; // Never get here
+                return Helpers.CreateTRAPException(TrapVector.IllegalInstruction);
             }
 
             /// <summary>

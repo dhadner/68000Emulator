@@ -1,20 +1,173 @@
+using PendleCodeMonkey.MC68000EmulatorLib;
+using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
-using PendleCodeMonkey.MC68000EmulatorLib;
-using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using Xunit;
 using Xunit.Abstractions;
 
 namespace PendleCodeMonkey.MC68000Emulator.Tests
 {
-
-    public class SnowSingleStepTests
+    /// <summary>
+    /// Uses the test cases from the modified TomHarte M68000 JSON test suite to verify single-step instruction execution.
+    /// See https://github.com/SingleStepTests/ProcessorTests/tree/main/680x0/68000/v1 for the original test cases and description.
+    /// See https://github.com/SingleStepTests/m68000 for the test cases used here.
+    /// See https://github.com/mamedev/mame/tree/master/src/devices/cpu/m68000 for the microcode truth model.
+    /// 
+    /// Description of the test format:
+    /// 
+    ///  Valid opcodes are bucketed by operation; slightly more than 8,000 tests per operation are provided, giving 
+    ///  a total of a little over 1,000,000 tests.
+    ///  
+    ///  Further:
+    ///  
+    ///    - 99% of the time, all address pointers begin the test with word-aligned values; and   
+    ///    - a separate 99% of the time, the processor begins the test in supervisor mode.
+    ///    
+    ///  Sample test:
+    ///  
+    ///  {
+    ///  	"name": "e3ae [LSL.l D1, D6] 5",
+    ///  	"initial": {
+    ///  		"d0": 727447539,
+    ///  		"d1": 123414203,
+    ///  		"d2": 2116184600,
+    ///  		"d3": 613751030,
+    ///  		"d4": 3491619782,
+    ///  		"d5": 3327815506,
+    ///  		"d6": 2480544920,
+    ///  		"d7": 2492542949,
+    ///  		"a0": 2379291595,
+    ///  		"a1": 1170063127,
+    ///  		"a2": 3877821425,
+    ///  		"a3": 480834161,
+    ///  		"a4": 998208767,
+    ///  		"a5": 2493287663,
+    ///  		"a6": 1026412676,
+    ///  		"usp": 1546990282,
+    ///  		"ssp": 2048,
+    ///  		"sr": 9994,
+    ///  		"pc": 3072,
+    ///  		"prefetch": [58286, 50941],
+    ///  		"ram": [
+    ///  			[3077, 34],
+    ///  			[3076, 42]
+    ///  		]
+    ///  	},
+    ///  	"final": {
+    ///  		"d0": 727447539,
+    ///  		"d1": 123414203,
+    ///  		"d2": 2116184600,
+    ///  		"d3": 613751030,
+    ///  		"d4": 3491619782,
+    ///  		"d5": 3327815506,
+    ///  		"d6": 0,
+    ///  		"d7": 2492542949,
+    ///  		"a0": 2379291595,
+    ///  		"a1": 1170063127,
+    ///  		"a2": 3877821425,
+    ///  		"a3": 480834161,
+    ///  		"a4": 998208767,
+    ///  		"a5": 2493287663,
+    ///  		"a6": 1026412676,
+    ///  		"usp": 1546990282,
+    ///  		"ssp": 2048,
+    ///  		"sr": 9988,
+    ///  		"pc": 3074,
+    ///  		"prefetch": [50941, 10786],
+    ///  		"ram": [
+    ///  			[3077, 34],
+    ///  			[3076, 42]
+    ///  		]
+    ///  	},
+    ///  	"length": 126,
+    ///  	"transactions": [
+    ///  		["r", 4, 6, 3076, ".w", 10786],
+    ///  		["n", 122]
+    ///  	]
+    ///  }
+    ///  
+    ///  name is provided for human consumption and has no formal meaning.
+    ///  
+    ///  initial is the initial state of the processor:
+    ///  
+    ///    - d0–d7 are the data registers;
+    ///    - a0–a6 are the fixed address registers;
+    ///    - usp is the user stack pointer;
+    ///    - ssp is the supervisor stack pointer;
+    ///    - sr is the status register;
+    ///    - pc is the formal program counter, providing a pointer to the location that the next instruction resides at;
+    ///    - prefetch is the current contents of the prefetch queue, with the first item having been fetched earlier than the second; and
+    ///    - ram contains a list of byte values to store in memory prior to execution, each one in the form [address, value].
+    ///    
+    ///  final is the state of the processor and relevant memory contents after execution.
+    ///  
+    ///  length provides the total number of cycles spent in this instruction.
+    ///  
+    ///  transactions provides a list of bus transactions that occurred during execution, in one of two forms:
+    ///  
+    ///    - ["n", 122] indicates an idle bus for a duration of 122 cycles;
+    ///    - ["r", 4, 6, 3076, ".w", 10786] indicates:
+    ///    - "r" indicates that the cycle was a read. Other options are "w" for a write, or "t" for a TAS indivisible read-modify-write;
+    ///    - 4 is the length in cycles of the transaction;
+    ///    - 6 is the posted function code for this transaction — bit 0 is FC0, bit 1 is FC1 and bit 2 is FC2;
+    ///    - 3072 is the address posted for this operation;
+    ///    - ".w" indicates that this was a word access. The alternative is ".b" for a byte access; and
+    ///    - 10786 is the value on the data bus during the transaction. If it was a TAS cycle, it is the final value as written; before 
+    ///      and after can be verified via before-and-after RAM state.
+    ///  
+    ///  All cycle counts assume an immediate DTACK.
+    ///  
+    ///  For byte accesses:
+    ///  
+    ///    - you can infer UDS or LDS by inspecting the lowest bit of the posted address; and
+    ///    - the value recorded is that from whichever half of the bus was active — so it'll always be in the range 0 to 255.
+    ///    
+    /// 
+    ///  
+    ///  Further details from https://github.com/SingleStepTests/m68000:
+    ///  
+    ///    STATUS: all of the tests except TAS and TRAPV are verified as good.
+    ///    
+    ///    Caveats:
+    ///    
+    ///      - There's a new cycle type in addition to idle, read, write, and TAS. "re" for read address error, and "we" for write address error. 
+    ///        On real m68k, they still happen, AS just isn't asserted, so the results aren't committed. The transactions are left in here with 
+    ///        the new type to simplify correctly catching address errors
+    ///    
+    ///      - TAS doesn't properly handle the special 5-cycle TAS read-modify-write timing.
+    ///    
+    ///      - There's some strange issue I don't understand with the TRAPV tests.Or maybe I'm just interpreting them wrong. It appears to 
+    ///        trigger incorrectly based on the S bit?
+    ///    
+    ///      - Any bugs that exist in Mame's microcoded M68000 emulator will exist here too
+    ///    
+    ///    Use decode.py to convert from .json.bin to .json.
+    ///    
+    ///    They are in ALMOST the same format as the TomHarte tests, just generated with a better emulator, and:
+    ///    
+    ///      - RAM pieces are now in 16 bits, as it is on the real processor.
+    ///      
+    ///      - There are the new "re" and "we" cycle types as mentioned above
+    ///      
+    ///      - PC is now set using m_au from MAME.To clarify, it has a number of registers, m_pc, m_ipc, m_au, all of which work as a sort of 
+    ///        PC, but are updated differently. m_au seems to be consistent though. It's "next prefetch address" so it's +4 from where the 
+    ///        test starts executing.
+    ///    
+    ///      - Data bus now always is as real processor (i.e.only UDS is on, and you read 0xAB, you will get 0xAB00 for data bus. This differs 
+    ///        from TomHarte where it would would give 0xAB)
+    ///    
+    ///      - The tests now include UDS and LDS in the transaction logs, since the real M68K can't output A0.
+    ///        These may not be the final form; I may add new features, or adjust so that certain things go better, etc., but they're worth using now.
+    ///    
+    ///    Thanks to the MAME project for the awesome microcoded emulator! Thanks to TomHarte for the idea for the JSON tests!
+    /// </summary>
+    public class SingleStepTests
     {
         private readonly ITestOutputHelper _output;
 
-        public SnowSingleStepTests(ITestOutputHelper output)
+        public SingleStepTests(ITestOutputHelper output)
         {
             _output = output;
         }
@@ -114,23 +267,10 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 // Set PC to the start of the instruction.
                 cpu.PC = instructionStartAddr;
 
-                TrapException? trapException = null;
-                bool stepException = false;
-                try
-                {
-                    // Execute one instruction
-                    trapException = machine.ExecuteInstruction();
-                }
-                catch (TrapException ex)
-                {
-                    trapException = ex;
-                }
-                finally
-                {
-                    stepException = trapException != null;
-                }
+                // Execute one instruction
+                TrapException? trapException = machine.ExecuteInstruction();
 
-                if (stepException)
+                if (trapException != null)
                 {
                     _output.WriteLine($"Instruction: {instruction}, Test Case: {testcase.Name} had exception: {trapException}");
                 }

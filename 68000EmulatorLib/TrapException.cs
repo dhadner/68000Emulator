@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
+using System;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -11,6 +12,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Gets the TRAP vector value.
         /// </summary>
         public ushort Vector { get; protected set; }
+
+        public EVEntry Details { get; protected set; }
 
         /// <summary>
         /// Standard trap exception descriptions
