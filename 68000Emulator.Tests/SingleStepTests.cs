@@ -165,6 +165,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
     /// </summary>
     public class SingleStepTests
     {
+        private const string TEST_DATA_PATH = @"..\..\..\..\TestData\m68000\v1";
         private readonly ITestOutputHelper _output;
 
         public SingleStepTests(ITestOutputHelper output)
@@ -172,25 +173,23 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             _output = output;
         }
 
-        public static IEnumerable<object[]> GetInstructionTestFiles()
+        public static TheoryData<string> GetInstructionTestNames()
         {
-            var testDataDir = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), @"..\..\..\..\..\snow\testdata\m68000\v1"));
-            if (!Directory.Exists(testDataDir))
-            {
-                // If running in a different environment (like a CI pipeline), the path might be different.
-                // This is a fallback to the absolute path from your local machine.
-                testDataDir = @"C:\Users\danhe\OneDrive\Documents\GitHub\MacView\snow\testdata\m68000\v1";
-            }
-
+            var testDataDir = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), TEST_DATA_PATH));
             var files = Directory.GetFiles(testDataDir, "*.json");
-            return files.Select(f => new object[] { Path.GetFileNameWithoutExtension(f) });
+            var data = new TheoryData<string>();
+            foreach (var f in files)
+            {
+                data.Add(Path.GetFileNameWithoutExtension(f));
+            }
+            return data;
         }
 
         [Theory]
-        [MemberData(nameof(GetInstructionTestFiles))]
+        [MemberData(nameof(GetInstructionTestNames))]
         public void RunInstructionTest(string instruction)
         {
-            var filePath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), @$"..\..\..\..\TestData\m68000\v1\{instruction}.json"));
+            var filePath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), @$"{TEST_DATA_PATH}\{instruction}.json"));
 
             using var fileStream = File.OpenRead(filePath);
             using var reader = new StreamReader(fileStream);
