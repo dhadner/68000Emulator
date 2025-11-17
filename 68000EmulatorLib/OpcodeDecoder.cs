@@ -1,5 +1,4 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
-using System.Collections.Generic;
 using static PendleCodeMonkey.MC68000EmulatorLib.Machine;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
@@ -10,9 +9,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     internal class OpcodeDecoder
     {
         /// <summary>
-        /// Dictionary of instructions.
+        /// Dictionary of instruction handler info.
         /// </summary>
-        internal static Dictionary<byte, List<InstructionInfo>> Instructions
+        internal static Dictionary<byte, List<InstructionInfo>> InstructionInfos
         { get; } = new Dictionary<byte, List<InstructionInfo>>()
         {
             {
@@ -211,7 +210,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         internal Instruction? GetLegalInstruction(ushort opcode)
         {
             byte group = (byte)((opcode & 0xF000) >> 12);
-            if (Instructions.TryGetValue(group, out var groupList))
+            if (InstructionInfos.TryGetValue(group, out var groupList))
             {
                 foreach (var inst in groupList)
                 {
@@ -228,7 +227,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Dictionary of cached valid instructions with sizes and valid addressing modes.
         /// </summary>
-        private readonly Dictionary<ushort, Instruction> _instructionCache = new();
+        private readonly Dictionary<ushort, Instruction> InstructionCache = [];
 
         /// <summary>
         /// Retrieve instruction details (decoding any operands, etc.)
@@ -239,7 +238,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// null if the opcode is illegal.</returns>
         private Instruction? ValidateOpcode(ushort opcode, InstructionInfo instInfo)
         {
-            if (_instructionCache.TryGetValue(opcode, out var cachedInst))
+            if (InstructionCache.TryGetValue(opcode, out var cachedInst))
             {
                 return cachedInst;
             }
@@ -247,7 +246,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             byte? sourceEA = null;
             byte? destEA = null;
             OpSize opSize = OpSize.Word;        // Defaults to Word sized operations.
-            byte? opMode = null;
+            byte? opMode;
 
             switch (instInfo.HandlerID)
             {
@@ -343,7 +342,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.MOVE:
                     sourceEA = Helpers.GetEAMode(opcode);
                     destEA = Helpers.GetReversedEAMode(opcode);
-                    // Get the operation size (which is in an alternative format and must therefore be translated to an OpSize enum value)
+
+                    // Get the operation size (which is in an alternative format and must therefore be translated
+                    // to an OpSize enum value)
                     byte size = (byte)((opcode & 0x3000) >> 12);
                     switch (size)
                     {
@@ -377,7 +378,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.MOVEA:
                     sourceEA = Helpers.GetEAMode(opcode);
                     destEA = Helpers.GetReversedEAMode(opcode);
-                    // Get the operation size (which is in an alternative format and must therefore be translated to an OpSize enum value)
+
+                    // Get the operation size (which is in an alternative format and must therefore be translated
+                    // to an OpSize enum value)
                     byte sizeA = (byte)((opcode & 0x3000) >> 12);
                     switch (sizeA)
                     {
@@ -421,13 +424,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                     break;
 
+                case OpHandlerID.CHK:
                 case OpHandlerID.DIVU:
                 case OpHandlerID.DIVS:
                 case OpHandlerID.MULU:
                 case OpHandlerID.MULS:
                 case OpHandlerID.MOVEtoSR:
                     sourceEA = Helpers.GetEAMode(opcode);
-                    opSize = OpSize.Word;
                     if ((sourceEA & 0b111000) == 0b001000)
                     {
                         // Address register direct mode not allowed
@@ -596,16 +599,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                     break;
 
-                case OpHandlerID.CHK:
-                    sourceEA = Helpers.GetEAMode(opcode);
-
-                    // All but A(n) allowed
-                    if ((sourceEA & 0b111000) == 0b001000)
-                    {
-                        return null;
-                    }
-                    break;
-
                 case OpHandlerID.MOVEM:
                     opSize = (opcode & 0x0040) == 0 ? OpSize.Word : OpSize.Long;
                     destEA = Helpers.GetEAMode(opcode);
@@ -639,12 +632,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.BSR:
                 case OpHandlerID.Bcc:
                     // If the byte displacement value held within the opcode is zero then
-                    // we're using a 16-bit displacement in the extension word operand.
-                    if ((opcode & 0x00FF) == 0)
-                    {
-                        opSize = OpSize.Word;
-                    }
-                    else
+                    // we're using a 16-bit displacement in the extension word operand,
+                    // otherwise use the byte displacement.
+                    if ((opcode & 0x00FF) != 0)
                     {
                         opSize = OpSize.Byte;
                     }
@@ -704,12 +694,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             // also one we haven't seen yet since it would have been in the cache.
 
             // Construct an Instruction object containing all the required operand info except for extension words.
-            // Those will be filed in based on the current instruction stream position when the instruction is executed.
+            // Those will be filled in based on the current instruction stream position when the instruction is executed.
             Instruction inst = new(opcode, instInfo, opSize, sourceEA, null, null, destEA, null, null);
 
             // Cache the legal instruction for future use.  One instruction per opcode, or a max of
             // 65536 entries if all opcodes were valid (but of course that is not the case).
-            _instructionCache[opcode] = inst;
+            InstructionCache[opcode] = inst;
 
             // and return it.
             return inst;

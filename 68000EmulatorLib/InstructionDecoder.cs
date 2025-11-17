@@ -1,5 +1,6 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System;
+using System.Diagnostics;
 using System.Reflection.Metadata.Ecma335;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
@@ -71,14 +72,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             public Instruction? FetchInstruction()
             {
                 // Read the next word (which contains the instruction opcode)
-                var value = ReadNextPCWord();
+                var opcode = ReadNextPCWord();
 
-                // Attempt to locate info about this instruction (mainly the ID of the instruction handler)
-                var instInfo = _handler.GetLegalInstruction(value);
-                if (instInfo != null)
+                // Locate the instruction for this opcode.
+                var inst = _handler.GetLegalInstruction(opcode);
+                if (inst != null)
                 {
-                    var inst = GetInstruction(value, instInfo);  // May be null if illegal instruction
-                    return inst;
+                    // Fill in any immediate data and extension words for the instruction
+                    return ReadImmDataAndExtWords(opcode, inst);
                 }
 
                 // Return null if this is not a recognised opcode (i.e. an illegal instruction)
@@ -86,23 +87,21 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Retrieve instruction details (decoding any operands, etc.)
+            /// Read any immediate data and extension words for the specified instruction and fill
+            /// in the appropriate fields in the <see cref="Instruction"/> instance.
             /// </summary>
             /// <param name="opcode">The 16-bit opcode value for the instruction.</param>
             /// <param name="instInfo">The <see cref="InstructionInfo"/> instance for the instruction.</param>
             /// <returns>An <see cref="Instruction"/> object containing details of the instruction.</returns>
-            private Instruction? GetInstruction(ushort opcode, Instruction inst)
+            private Instruction ReadImmDataAndExtWords(ushort opcode, Instruction inst)
             {
-                InstructionInfo instInfo = inst.Info;
-                byte? sourceEA = inst.SourceAddrMode;
-                byte? destEA = inst.DestAddrMode;
                 OpSize? opSize = inst.Size;
                 ushort? srcExt1 = null;
                 ushort? srcExt2 = null;
                 ushort? destExt1 = null;
                 ushort? destExt2 = null;
 
-                switch (instInfo.HandlerID)
+                switch (inst.Info.HandlerID)
                 {
                     case OpHandlerID.ORItoCCR:
                     case OpHandlerID.ANDItoCCR:
@@ -116,6 +115,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     case OpHandlerID.ADDI:
                     case OpHandlerID.EORI:
                     case OpHandlerID.CMPI:
+                        Debug.Assert(inst.SourceAddrMode == null);
                         (srcExt1, srcExt2) = ReadImmediateOperandData(opSize!.Value);
                         break;
 
@@ -127,6 +127,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         {
                             // Static bit number
                             // Read the bit number in the extension word
+                            Debug.Assert(inst.SourceAddrMode == null);
                             srcExt1 = ReadNextPCWord();
                         }
                         break;
@@ -136,6 +137,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     case OpHandlerID.STOP:
                     case OpHandlerID.DBcc:
                     case OpHandlerID.MOVEP:
+                        Debug.Assert(inst.SourceAddrMode == null);
                         // Read the displacement value (which is a word).
                         srcExt1 = ReadNextPCWord();
                         break;
@@ -145,6 +147,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     case OpHandlerID.Bcc:
                         if (opSize == OpSize.Word)
                         {
+                            Debug.Assert(inst.SourceAddrMode == null);
                             srcExt1 = ReadNextPCWord();
                         }
                         break;
@@ -154,13 +157,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         break;
                 }
 
-                if (sourceEA.HasValue)
+                if (inst.SourceAddrMode.HasValue)
                 {
-                    (srcExt1, srcExt2) = ReadExtensionWordData(sourceEA.Value, opSize!.Value);
+                    (srcExt1, srcExt2) = ReadExtensionWordData(inst.SourceAddrMode.Value, opSize!.Value);
                 }
-                if (destEA.HasValue)
+                if (inst.DestAddrMode.HasValue)
                 {
-                    (destExt1, destExt2) = ReadExtensionWordData(destEA.Value, opSize!.Value);
+                    (destExt1, destExt2) = ReadExtensionWordData(inst.DestAddrMode.Value, opSize!.Value);
                 }
 
                 // Set the extension words if any
