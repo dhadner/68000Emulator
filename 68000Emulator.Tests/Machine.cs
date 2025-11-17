@@ -10,7 +10,7 @@
         /// Initializes a new instance of the <see cref="Machine"/> class.
         /// </summary>
         /// <param name="memorySize">The size (in bytes) of memory to be allocated for the emulator [optional].</param>
-        public Machine(uint? memorySize = null) : this(new Memory(memorySize ?? _memorySize))
+        public Machine(uint? memorySize = null) : this(new Memory(memorySize ?? MAX_MEMORY_SIZE))
         {
         }
 

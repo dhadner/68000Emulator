@@ -121,11 +121,11 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         {
             OpcodeDecoder decoder = new OpcodeDecoder();
 
-            var info = decoder.GetInstructionInfo(opcode);
+            var info = decoder.GetLegalInstruction(opcode);
 
             // Assert
             Assert.NotNull(info);
-            Assert.Equal(expectedHandlerID, info.HandlerID);
+            Assert.Equal(expectedHandlerID, info.Info.HandlerID);
         }
 
         [Fact]
@@ -133,7 +133,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         {
             OpcodeDecoder decoder = new OpcodeDecoder();
 
-            var info = decoder.GetInstructionInfo(0x4e7a); // MOVEC (MC68010 and above)
+            var info = decoder.GetLegalInstruction(0x4e7a); // MOVEC (MC68010 and above)
 
             // Assert
             Assert.Null(info);

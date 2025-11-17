@@ -1,7 +1,4 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
-using System;
-using System.Diagnostics;
-using System.Numerics;
 using System.Text;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
@@ -13,7 +10,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     /// </summary>
     public partial class Machine
     {
-        internal const uint _memorySize = 0x01000000;     // Default to 16MB of memory allocated for emulator (the max an actual 68000 processor can address).
+        internal const uint MAX_MEMORY_SIZE = 0x01000000;     // Default to 16MB of memory allocated for emulator (the max an actual 68000 processor can address).
 
         protected uint _loadedAddress;
         protected uint _dataLength;
@@ -46,7 +43,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Initializes a new instance of the <see cref="Machine"/> class.
         /// </summary>
         /// <param name="memorySize">The size (in bytes) of memory to be allocated for the emulator [optional].</param>
-        public Machine(uint? memorySize = null) : this(new Memory(memorySize ?? _memorySize))
+        public Machine(uint? memorySize = null) : this(new Memory(memorySize ?? MAX_MEMORY_SIZE))
         {
         }
 
@@ -79,9 +76,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Currently-executing instruction.
         /// </summary>
-        /// <remarks>Singleton for this machine to keep
-        /// garbage collection to a minimum.
-        /// </remarks>
         /// 
         protected Instruction CurrentInstruction { get; set; }
 

@@ -74,7 +74,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 var value = ReadNextPCWord();
 
                 // Attempt to locate info about this instruction (mainly the ID of the instruction handler)
-                var instInfo = _handler.GetInstructionInfo(value);
+                var instInfo = _handler.GetLegalInstruction(value);
                 if (instInfo != null)
                 {
                     var inst = GetInstruction(value, instInfo);  // May be null if illegal instruction
@@ -91,12 +91,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="opcode">The 16-bit opcode value for the instruction.</param>
             /// <param name="instInfo">The <see cref="InstructionInfo"/> instance for the instruction.</param>
             /// <returns>An <see cref="Instruction"/> object containing details of the instruction.</returns>
-            private Instruction? GetInstruction(ushort opcode, InstructionInfo instInfo)
+            private Instruction? GetInstruction(ushort opcode, Instruction inst)
             {
-                byte? sourceEA = null;
-                byte? destEA = null;
-                OpSize opSize = OpSize.Word;        // Defaults to Word sized operations.
-                byte? opMode = null;
+                InstructionInfo instInfo = inst.Info;
+                byte? sourceEA = inst.SourceAddrMode;
+                byte? destEA = inst.DestAddrMode;
+                OpSize? opSize = inst.Size;
                 ushort? srcExt1 = null;
                 ushort? srcExt2 = null;
                 ushort? destExt1 = null;
@@ -107,523 +107,70 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     case OpHandlerID.ORItoCCR:
                     case OpHandlerID.ANDItoCCR:
                     case OpHandlerID.EORItoCCR:
-                        opSize = OpSize.Byte;
-                        (srcExt1, srcExt2) = ReadImmediateOperandData(opSize);
-                        break;
-
                     case OpHandlerID.ORItoSR:
                     case OpHandlerID.ANDItoSR:
                     case OpHandlerID.EORItoSR:
-                        (srcExt1, srcExt2) = ReadImmediateOperandData(opSize);
-                        break;
-
                     case OpHandlerID.ORI:
                     case OpHandlerID.ANDI:
                     case OpHandlerID.SUBI:
                     case OpHandlerID.ADDI:
                     case OpHandlerID.EORI:
                     case OpHandlerID.CMPI:
-                        destEA = Helpers.GetEAMode(opcode);
-                        if ((destEA & 0b111000) == 0b001000 || // A(n) or
-                            (destEA & 0b111111) == 0b111100 || // Immediate or
-                            (destEA & 0b111010) == 0b111010)   // PCDisp or PCIndex
-                        {
-                            // Address mode not allowed
-                            return null;
-                        }
-
-                        opSize = Helpers.GetOpSize(opcode);
-                        if ((int)opSize == 0x03)
-                        {
-                            // Illegal OpSize
-                            return null;
-                        }
-                        (srcExt1, srcExt2) = ReadImmediateOperandData(opSize);
-                        break;
-
-                    case OpHandlerID.BTST:
-                        destEA = Helpers.GetEAMode(opcode);
-
-                        // When EA is D(n), size is long.  Otherwise, size it byte.
-                        if ((destEA & 0b111000) == 0b000000)
-                        {
-                            opSize = OpSize.Long;
-                        }
-                        else
-                        {
-                            opSize = OpSize.Byte;
-                        }
-                        if ((opcode & 0x0100) == 0)
-                        {
-                            // Static bit number
-                            // EA cannot be address register or immediate
-                            if ((destEA & 0b111000) == 0b001000 ||
-                                (destEA & 0b111111) == 0b111100)
-                            {
-                                return null; // A(n) and immediate not allowed
-                            }
-
-                            // Read the bit number in the extension word
-                            srcExt1 = ReadNextPCWord();
-                        }
-                        else
-                        {
-                            // Dynamic bit number in a data register. EA cannot be address register.
-                            if ((destEA & 0b111000) == 0b001000)
-                            {
-                                return null; // A(n) not allowed
-                            }
-                        }
+                        (srcExt1, srcExt2) = ReadImmediateOperandData(opSize!.Value);
                         break;
 
                     case OpHandlerID.BCHG:
                     case OpHandlerID.BCLR:
                     case OpHandlerID.BSET:
-                        destEA = Helpers.GetEAMode(opcode);
-
-                        // When EA is D(n), size is long.  Otherwise, size it byte.
-                        if ((destEA & 0b111000) == 0b000000)
-                        {
-                            opSize = OpSize.Long;
-                        }
-                        else
-                        {
-                            opSize = OpSize.Byte;
-                        }
-                        // EA cannot be address register, immediate, PCDisp, or PCIndex
-                        if ((destEA & 0b111000) == 0b001000 || // A(n)
-                            (destEA & 0b111111) == 0b111100 || // immediate
-                            (destEA & 0b111010) == 0b111010)   // PCDisp or PCIndex
-                        {
-                            return null; // A(n), immediate, PCDisp, and PCIndex not allowed
-                        }
-
+                    case OpHandlerID.BTST:
                         if ((opcode & 0x0100) == 0)
                         {
                             // Static bit number
-
                             // Read the bit number in the extension word
                             srcExt1 = ReadNextPCWord();
                         }
                         break;
 
+                    case OpHandlerID.MOVEM:
+                    case OpHandlerID.LINK:
+                    case OpHandlerID.STOP:
+                    case OpHandlerID.DBcc:
                     case OpHandlerID.MOVEP:
                         // Read the displacement value (which is a word).
                         srcExt1 = ReadNextPCWord();
                         break;
 
-                    case OpHandlerID.MOVE:
-                        sourceEA = Helpers.GetEAMode(opcode);
-                        destEA = Helpers.GetReversedEAMode(opcode);
-                        // Get the operation size (which is in an alternative format and must therefore be translated to an OpSize enum value)
-                        byte size = (byte)((opcode & 0x3000) >> 12);
-                        switch (size)
-                        {
-                            case 0x01:
-                                if ((sourceEA & 0b111000) == 0b001000)
-                                {
-                                    // Address register direct mode not allowed
-                                    return null;
-                                }
-                                opSize = OpSize.Byte;
-                                break;
-                            case 0x02:
-                                opSize = OpSize.Long;
-                                break;
-                            case 0x03:
-                                opSize = OpSize.Word;
-                                break;
-                            default:
-                                // Illegal OpSize
-                                return null;
-                        }
-                        break;
-
-                    case OpHandlerID.MOVEA:
-                        sourceEA = Helpers.GetEAMode(opcode);
-                        destEA = Helpers.GetReversedEAMode(opcode);
-                        // Get the operation size (which is in an alternative format and must therefore be translated to an OpSize enum value)
-                        byte sizeA = (byte)((opcode & 0x3000) >> 12);
-                        switch (sizeA)
-                        {
-                            case 0x02:
-                                opSize = OpSize.Long;
-                                break;
-                            case 0x03:
-                                opSize = OpSize.Word;
-                                break;
-                            default:
-                                // Illegal OpSize
-                                return null;
-                        }
-                        break;
-
-                    case OpHandlerID.MOVEfromSR:
-                        destEA = Helpers.GetEAMode(opcode);
-
-                        // EA cannot be address register, immediate, PCDisp, or PCIndex
-                        if ((destEA & 0b111000) == 0b001000 || // A(n)
-                            (destEA & 0b111111) == 0b111100 || // immediate
-                            (destEA & 0b111010) == 0b111010)   // PCDisp or PCIndex
-                        {
-                            return null; // A(n), immediate, PCDisp, and PCIndex not allowed
-                        }
-                        break;
-
-                    case OpHandlerID.MOVEtoCCR:
-                        sourceEA = Helpers.GetEAMode(opcode);
-                        opSize = OpSize.Byte;
-                        if ((sourceEA & 0b111000) == 0b001000)
-                        {
-                            // Address register direct mode not allowed
-                            return null;
-                        }
-                        break;
-
-                    case OpHandlerID.DIVU:
-                    case OpHandlerID.DIVS:
-                    case OpHandlerID.MULU:
-                    case OpHandlerID.MULS:
-                    case OpHandlerID.MOVEtoSR:
-                        sourceEA = Helpers.GetEAMode(opcode);
-                        opSize = OpSize.Word;
-                        if ((sourceEA & 0b111000) == 0b001000)
-                        {
-                            // Address register direct mode not allowed
-                            return null;
-                        }
-                        break;
-
-                    case OpHandlerID.CMP:
-                        destEA = Helpers.GetEAMode(opcode);
-                        opSize = Helpers.GetOpSize(opcode);
-                        if ((int)opSize == 0x03)
-                        {
-                            // Illegal OpSize
-                            return null;
-                        }
-                        if ((destEA & 0b111000) == 0b001000 && opSize != OpSize.Long)
-                        {
-                            // An not allowed unless Long
-                            return null;
-                        }
-                        break;
-
-                    case OpHandlerID.TST:
-                        destEA = Helpers.GetEAMode(opcode);
-                        opSize = Helpers.GetOpSize(opcode);
-                        if ((int)opSize == 0x03)
-                        {
-                            // Illegal OpSize
-                            return null;
-                        }
-
-                        if ((destEA & 0b111000) == 0b001000 || // An or
-                            (destEA & 0b111111) == 0b111100 || // Immediate or
-                            (destEA & 0b111010) == 0b111010)   // PCDisp or PCIndex
-                        {
-                            // Address mode not allowed
-                            return null;
-                        }
-                        break;
-
-                    case OpHandlerID.NEGX:
-                    case OpHandlerID.CLR:
-                    case OpHandlerID.NEG:
-                    case OpHandlerID.NOT:
-                        destEA = Helpers.GetEAMode(opcode);
-                        if ((destEA & 0b111000) == 0b001000 || // An or
-                            (destEA & 0b111111) == 0b111100 || // Immediate or
-                            (destEA & 0b111010) == 0b111010)   // PCDisp or PCIndex
-                        {
-                            // Address mode not allowed
-                            return null;
-                        }
-
-                        opSize = Helpers.GetOpSize(opcode);
-                        if ((int)opSize == 0x03)
-                        {
-                            // Illegal OpSize
-                            return null;
-                        }
-                        break;
-
-                    case OpHandlerID.ADDQ:
-                    case OpHandlerID.SUBQ:
-                        destEA = Helpers.GetEAMode(opcode);
-                        if ((destEA & 0b111111) == 0b111100 || // Immediate or
-                            (destEA & 0b111010) == 0b111010)   // PCDisp or PCIndex
-                        {
-                            // Address mode not allowed
-                            return null;
-                        }
-                        opSize = Helpers.GetOpSize(opcode);
-                        if ((int)opSize == 0x03)
-                        {
-                            // Illegal OpSize
-                            return null;
-                        }
-                        break;
-
-                    case OpHandlerID.SUB:
-                    case OpHandlerID.ADD:
-                        destEA = Helpers.GetEAMode(opcode);
-                        opSize = Helpers.GetOpSize(opcode);
-                        opMode = Helpers.GetOpMode(opcode);
-                        if ((opMode & 0b100) == 0b100 &&        // EA is destination
-                            ((destEA & 0b110000) == 0b000000 || // Dn or An or
-                             (destEA & 0b111111) == 0b111100 || // Immediate or
-                             (destEA & 0b111010) == 0b111010))  // PCDisp or PCIndex
-                        {
-                            // Address mode not allowed
-                            return null;
-                        }
-                        if ((int)opSize == 0x03)
-                        {
-                            // Illegal OpSize
-                            return null;
-                        }
-                        else if (opSize == OpSize.Byte && (opMode & 0b100) == 0b000 && (destEA & 0b111000) == 0b001000)
-                        {
-                            // EA is source, can't do byte read from A(n)
-                            return null;
-                        }
-                        break;
-
-                    case OpHandlerID.AND:
-                    case OpHandlerID.OR:
-                        destEA = Helpers.GetEAMode(opcode);
-                        if ((destEA & 0b111000) == 0b001000)
-                        {
-                            // An not allowed
-                            return null;
-                        }
-                        opSize = Helpers.GetOpSize(opcode);
-                        if ((int)opSize == 0x03)
-                        {
-                            // Illegal OpSize
-                            return null;
-                        }
-                        opMode = Helpers.GetOpMode(opcode);
-                        if ((opMode & 0b100) == 0b100 &&        // EA is destination
-                            ((destEA & 0b110000) == 0b000000 || // Dn or An or
-                             (destEA & 0b111111) == 0b111100 || // Immediate or
-                             (destEA & 0b111010) == 0b111010))  // PCDisp or PCIndex
-                        {
-                            // Address mode not allowed
-                            return null;
-                        }
-                        break;
-
-                    case OpHandlerID.EOR:
-                        destEA = Helpers.GetEAMode(opcode);
-                        if ((destEA & 0b111000) == 0b001000)
-                        {
-                            // An not allowed
-                            return null;
-                        }
-                        opSize = Helpers.GetOpSize(opcode);
-                        if ((int)opSize == 0x03)
-                        {
-                            // Illegal OpSize
-                            return null;
-                        }
-                        opMode = Helpers.GetOpMode(opcode);
-                        if ((opMode & 0b100) == 0b100 &&        // EA is destination
-                            ((destEA & 0b111000) == 0b001000 || // An or
-                             (destEA & 0b111111) == 0b111100 || // Immediate or
-                             (destEA & 0b111010) == 0b111010))  // PCDisp or PCIndex
-                        {
-                            // Address mode not allowed
-                            return null;
-                        }
-                        break;
-
-                    case OpHandlerID.NBCD:
-                    case OpHandlerID.TAS:
-                    case OpHandlerID.Scc:
-                        destEA = Helpers.GetEAMode(opcode);
-                        opSize = OpSize.Byte;
-                        break;
-
-                    case OpHandlerID.PEA:
-                        sourceEA = Helpers.GetEAMode(opcode);
-                        opSize = OpSize.Long;
-                        if ((sourceEA & 0b111000) == 0b000000 || // Dn
-                            (sourceEA & 0b111000) == 0b001000 || // An
-                            (sourceEA & 0b111000) == 0b011000 || // (An)+
-                            (sourceEA & 0b111000) == 0b100000 || // -(An)
-                            (sourceEA & 0b111111) == 0b111100)   // Immed
-                        {
-                            // Address mode not allowed
-                            return null;
-                        }
-                        break;
-
-                    case OpHandlerID.LINK:
-                    case OpHandlerID.STOP:
-                    case OpHandlerID.DBcc:
-                        // Read an extension word which is as follows:
-                        // LINK - Displacement value.
-                        // STOP - Immediate operand.
-                        // DBcc - Displacement value.
-                        srcExt1 = ReadNextPCWord();
-                        break;
-
-                    case OpHandlerID.JSR:
-                    case OpHandlerID.JMP:
-                    case OpHandlerID.LEA:
-                        sourceEA = Helpers.GetEAMode(opcode);
-
-                        // (An)+, -(An), Dn, An, and immed not allowed
-                        if ((sourceEA & 0b111000) == 0b000000 || // Dn
-                            (sourceEA & 0b111000) == 0b001000 || // An
-                            (sourceEA & 0b111000) == 0b011000 || // (An)+
-                            (sourceEA & 0b111000) == 0b100000 || // -(An)
-                            (sourceEA & 0b111111) == 0b111100)   // Immed
-                        {
-                            return null;
-                        }
-                        break;
-
-                    case OpHandlerID.CHK:
-                        sourceEA = Helpers.GetEAMode(opcode);
-
-                        // All but A(n) allowed
-                        if ((sourceEA & 0b111000) == 0b001000)
-                        {
-                            return null;
-                        }
-                        break;
-
-                    case OpHandlerID.MOVEM:
-                        // Read an extension word which is the Register List Mask
-                        srcExt1 = ReadNextPCWord();
-                        opSize = (opcode & 0x0040) == 0 ? OpSize.Word : OpSize.Long;
-                        destEA = Helpers.GetEAMode(opcode);
-                        bool regToMem = (opcode & 0b0000_0100_0000_0000) == 0;
-                        if ((destEA & 0b111000) == 0b000000 || // Dn
-                            (destEA & 0b111000) == 0b001000 || // An
-                            (destEA & 0b111111) == 0b111100)   // Immed
-                        {
-                            return null;
-                        }
-                        if (regToMem)
-                        {
-                            // (An)+, PCDisp and PCIndex not allowed
-                            if ((destEA & 0b111000) == 0b011000 || // (An)+
-                                (destEA & 0b111010) == 0b111010)  // PCDisp or PCIndex
-                            {
-                                return null;
-                            }
-                        }
-                        else
-                        {
-                            // -(An) not allowed
-                            if ((destEA & 0b111000) == 0b100000)  // -(An)
-                            {
-                                return null;
-                            }
-                        }
-                        break;
-
                     case OpHandlerID.BRA:
                     case OpHandlerID.BSR:
                     case OpHandlerID.Bcc:
-                        // If the byte displacement value held within the opcode is zero then
-                        // we're using a 16-bit displacement in the extension word operand.
-                        if ((opcode & 0x00FF) == 0)
+                        if (opSize == OpSize.Word)
                         {
                             srcExt1 = ReadNextPCWord();
-                            opSize = OpSize.Word;
-                        }
-                        else
-                        {
-                            opSize = OpSize.Byte;
                         }
                         break;
 
-                    case OpHandlerID.SUBA:
-                    case OpHandlerID.CMPA:
-                    case OpHandlerID.ADDA:
-                        sourceEA = Helpers.GetEAMode(opcode);
-                        opSize = (opcode & 0x0100) == 0 ? OpSize.Word : OpSize.Long;
-                        break;
-
-                    case OpHandlerID.ASL:
-                    case OpHandlerID.ASR:
-                    case OpHandlerID.LSL:
-                    case OpHandlerID.LSR:
-                    case OpHandlerID.ROXL:
-                    case OpHandlerID.ROXR:
-                    case OpHandlerID.ROL:
-                    case OpHandlerID.ROR:
-                        // If a memory shift then determine the effective address mode.
-                        if (((opcode & 0x00C0) >> 6) == 0x03)
-                        {
-                            sourceEA = Helpers.GetEAMode(opcode);
-                            opSize = OpSize.Word;
-                            if ((sourceEA & 0b111000) == 0b000000 || // Dn
-                                (sourceEA & 0b111000) == 0b001000 || // An
-                                (sourceEA & 0b111100) == 0b111100 || // not (xxx).W or (xxx).L
-                                (sourceEA & 0b111010) == 0b111010)
-                            {
-                                return null;
-                            }
-                        }
-                        else
-                        {
-                            opSize = Helpers.GetOpSize(opcode);
-                        }
-                        break;
-
-                    case OpHandlerID.SUBX:
-                    case OpHandlerID.ADDX:
-                    case OpHandlerID.CMPM:
-                        opSize = Helpers.GetOpSize(opcode);
-                        if ((int)opSize == 0x03)
-                        {
-                            // Illegal OpSize
-                            return null;
-                        }
-                        break;
-
-                    case OpHandlerID.EXT:
-                    case OpHandlerID.SWAP:
-                    case OpHandlerID.ILLEGAL:
-                    case OpHandlerID.TRAP:
-                    case OpHandlerID.UNLK:
-                    case OpHandlerID.MOVEUSP:
-                    case OpHandlerID.RESET:
-                    case OpHandlerID.NOP:
-                    case OpHandlerID.RTE:
-                    case OpHandlerID.RTS:
-                    case OpHandlerID.TRAPV:
-                    case OpHandlerID.RTR:
-                    case OpHandlerID.MOVEQ:
-                    case OpHandlerID.SBCD:
-                    case OpHandlerID.ABCD:
-                    case OpHandlerID.EXG:
-                    case OpHandlerID.LINEA:
-                    case OpHandlerID.LINEF:
-                        // No additional operand extension words required for these instructions.
+                    default:
+                        // All that don't need special handling.
                         break;
                 }
 
                 if (sourceEA.HasValue)
                 {
-                    (srcExt1, srcExt2) = ReadExtensionWordData(sourceEA.Value, opSize);
+                    (srcExt1, srcExt2) = ReadExtensionWordData(sourceEA.Value, opSize!.Value);
                 }
                 if (destEA.HasValue)
                 {
-                    (destExt1, destExt2) = ReadExtensionWordData(destEA.Value, opSize);
+                    (destExt1, destExt2) = ReadExtensionWordData(destEA.Value, opSize!.Value);
                 }
 
-                // Construct an Instruction object containing all the required operand info, etc.
-                // Re-uses current instruction to reduce GC activity.
-                Instruction inst = Machine.CurrentInstruction.SetInstruction(opcode, instInfo, opSize, sourceEA, srcExt1, srcExt2, destEA, destExt1, destExt2);
+                // Set the extension words if any
+                inst.SourceExtWord1 = srcExt1;
+                inst.SourceExtWord2 = srcExt2;
+                inst.DestExtWord1 = destExt1;
+                inst.DestExtWord2 = destExt2;
 
-                // and return it.
+                // Return the instruction
+                Machine.CurrentInstruction = inst;
                 return inst;
             }
 
