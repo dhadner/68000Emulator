@@ -501,21 +501,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
 
         /// <summary>
-        /// Set FC outputs automatcally based on the current bus cycle.
-        /// </summary>
-        public virtual void SetFCOutputs()
-        {
-            if (CPU.SupervisorMode)
-            {
-                SetFCOutputs(FC.SupervisorProgram);
-            }
-            else
-            {
-                SetFCOutputs(FC.UserProgram);
-            }
-        }
-
-        /// <summary>
         /// Count of instructions executed since Reset.
         /// </summary>
         public ulong InstructionCount { get; set; }
@@ -524,12 +509,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Current IPL.
         /// </summary>
-        public byte IPL { get; private set; }
+        public virtual byte IPL { get; protected set; }
 
         /// <summary>
         /// Current Function Code (FC) outputs.
         /// </summary>
-        public FC Fc { get; private set; } = FC.SupervisorProgram;
+        public virtual FC Fc { get; protected set; } = FC.SupervisorProgram;
 
         /// <summary>
         /// Current Program Counter at beginning of instruction.
@@ -560,38 +545,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public bool InterruptPendingPV { get; set; } = false;
 
         /// <summary>
-        /// Read interrupt lines.  May be overridden to handle reading
-        /// simulated wires, etc.
-        /// </summary>
-        public virtual byte ReadIPLPins()
-        {
-            return IPL;
-        }
-
-        /// <summary>
-        /// Set the simulated IPL pins.  Calls
-        /// <see cref="IPLChangeNotify"/> if the new IPL
-        /// is different from the old IPL and then sets
-        /// the new IPL.
-        /// </summary>
-        /// <param name="ipl"></param>
-        public virtual void SetIPLPins(byte ipl)
-        {
-            IPLChangeNotify();
-            IPL = ipl;
-        }
-
-        /// <summary>
         /// Called when IPL pins change.  Sets
         /// <see cref="InterruptPending"/> if the new
         /// IPL is different from the old IPL and is non-zero.
         /// </summary>
-        public virtual void IPLChangeNotify()
+        public virtual void IPLChangeNotify(byte newIPL)
         {
-            byte ipl = ReadIPLPins();
-            if (ipl != IPL)
+            if (newIPL != IPL)
             {
-                InterruptPending = ipl != 0;
+                InterruptPending = newIPL != 0;
             }
         }
 
@@ -602,7 +564,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns>true if an interrupt was pending</returns>
         protected virtual (TrapException? exception, bool handled) HandleInterrupt()
         {
-            IPL = ReadIPLPins();
             if (InterruptPendingPV && !InterruptPending)
             {
                 // Clear FC outputs.
