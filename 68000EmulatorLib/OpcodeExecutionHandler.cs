@@ -19,6 +19,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         {
             delegate TrapException? OpHandler(Instruction instruction);
 
+            private const string EXT_WORD_NOT_AVAILABLE = "Required extension word is not available";
             private readonly Dictionary<OpHandlerID, OpHandler> _handlers = [];
 
             private readonly uint[] _bit = [ 0x00000001, 0x00000002, 0x00000004, 0x00000008, 0x00000010, 0x00000020, 0x00000040, 0x00000080,
@@ -712,15 +713,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             }
                             break;
                         case (byte)AddrMode.AddressDisp:
-                            Debug.Assert(ext1.HasValue, "Required extension word is not available");
-                            if (ext1.HasValue)
-                            {
-                                address = (uint)((int)Machine.CPU.ReadAddressRegister(regNum) + (short)ext1.Value);
-                            }
+                            Debug.Assert(ext1.HasValue, EXT_WORD_NOT_AVAILABLE);
+                            address = (uint)((int)Machine.CPU.ReadAddressRegister(regNum) + (short)ext1.Value);
                             break;
                         case (byte)AddrMode.AddressIndex:
-                            Debug.Assert(ext1.HasValue, "Required extension word is not available");
-                            if (ext1.HasValue)
+                            Debug.Assert(ext1.HasValue, EXT_WORD_NOT_AVAILABLE);
                             {
                                 int disp = (sbyte)(byte)(ext1.Value & 0x00FF);
                                 byte indexRegNum = (byte)((ext1.Value & 0x7000) >> 12);
@@ -747,23 +744,16 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             switch (ea)
                             {
                                 case (byte)AddrMode.AbsShort:
-                                    Debug.Assert(ext1.HasValue, "Required extension word is not available");
-                                    if (ext1.HasValue)
-                                    {
-                                        address = (uint)(int)(short)ext1.Value;
-                                    }
+                                    Debug.Assert(ext1.HasValue, EXT_WORD_NOT_AVAILABLE);
+                                    address = (uint)(int)(short)ext1.Value;
                                     break;
                                 case (byte)AddrMode.AbsLong:
-                                    Debug.Assert(ext1.HasValue && ext2.HasValue, "Required extension word is not available");
-                                    if (ext1.HasValue && ext2.HasValue)
-                                    {
-                                        address = (uint)((ext1.Value << 16) + ext2.Value);
-                                    }
+                                    Debug.Assert(ext1.HasValue && ext2.HasValue, EXT_WORD_NOT_AVAILABLE);
+                                    address = (uint)((ext1.Value << 16) + ext2.Value);
                                     break;
                                 case (byte)AddrMode.PCDisp:
-                                    Debug.Assert(ext1.HasValue, "Required extension word is not available");
-                                    if (ext1.HasValue)
                                     {
+                                        Debug.Assert(ext1.HasValue, EXT_WORD_NOT_AVAILABLE);
                                         int pcDecrement = 2; // Assume source, PC just after ext1 or dest, PC just after ext1
                                         if (eaType == EAType.Source && instruction.DestExtWord1 != null)
                                         {
@@ -774,8 +764,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     }
                                     break;
                                 case (byte)AddrMode.PCIndex:
-                                    Debug.Assert(ext1.HasValue, "Required extension word is not available");
-                                    if (ext1.HasValue)
+                                    Debug.Assert(ext1.HasValue, EXT_WORD_NOT_AVAILABLE);
                                     {
                                         byte disp = (byte)(ext1.Value & 0x00FF);
                                         byte indexRegNum = (byte)((ext1.Value & 0x7000) >> 12);
@@ -796,12 +785,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     }
                                     break;
                                 case (byte)AddrMode.Immediate:
-                                    Debug.Assert(ext1.HasValue, "Required extension word is not available");
-                                    if (ext1.HasValue)
+                                    Debug.Assert(ext1.HasValue, EXT_WORD_NOT_AVAILABLE);
                                     {
                                         if (size == OpSize.Long)
                                         {
-                                            Debug.Assert(ext2.HasValue, "Required extension word is not available");
+                                            Debug.Assert(ext2.HasValue, EXT_WORD_NOT_AVAILABLE);
                                             if (ext2.HasValue)
                                             {
                                                 immVal = (uint)((ext1.Value << 16) + ext2.Value);
