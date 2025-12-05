@@ -81,12 +81,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 switch (inst.Info.HandlerID)
                 {
-                    case OpHandlerID.ADDA:
-                    case OpHandlerID.SUBA:
-                        Debug.Assert(inst.SourceAddrMode != null);
-                        (srcExt1, srcExt2) = ReadImmediateOperandData(opSize!.Value);
-                        break;
-
                     case OpHandlerID.ORItoCCR:
                     case OpHandlerID.ANDItoCCR:
                     case OpHandlerID.EORItoCCR:
