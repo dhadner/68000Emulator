@@ -416,7 +416,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             foreach (var testcase in testcases)
             {
-                if (testcase.Name.StartsWith("047 ASL.w (d8, A0, Xn) e1f0"))
+                if (testcase.Name.StartsWith("011 TST.w (d8, A2, Xn) 4a72"))
                 {
                     _output.WriteLine($"Looking at failing test case {testcase.Name}");
                 }

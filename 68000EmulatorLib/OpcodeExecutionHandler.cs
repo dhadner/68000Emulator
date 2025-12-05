@@ -722,15 +722,25 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             Debug.Assert(ext1.HasValue, "Required extension word is not available");
                             if (ext1.HasValue)
                             {
-                                byte disp = (byte)(ext1.Value & 0x00FF);
+                                int disp = (sbyte)(byte)(ext1.Value & 0x00FF);
                                 byte indexRegNum = (byte)((ext1.Value & 0x7000) >> 12);
                                 OpSize indexSize = (ext1.Value & 0x0800) == 0 ? OpSize.Word : OpSize.Long;
-                                uint indexValue = Machine.CPU.ReadDataRegister(indexRegNum);
+                                bool useAddressAsIndex = (ext1.Value & 0x8000) != 0;
+                                uint indexValue;
+                                if (useAddressAsIndex)
+                                {
+                                    indexValue = Machine.CPU.ReadAddressRegister(indexRegNum);
+                                }
+                                else
+                                {
+                                    indexValue = Machine.CPU.ReadDataRegister(indexRegNum);
+                                }
                                 if (indexSize == OpSize.Word)
                                 {
                                     indexValue = (uint)(int)(short)(ushort)indexValue;
                                 }
-                                address = (uint)((int)Machine.CPU.ReadAddressRegister(regNum) + (int)indexValue + (sbyte)disp);
+                                uint addressRegValue = Machine.CPU.ReadAddressRegister(regNum);
+                                address = (uint)((int)addressRegValue + (int)indexValue + disp);
                             }
                             break;
                         case 0x0038:
