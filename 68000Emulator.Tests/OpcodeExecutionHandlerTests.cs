@@ -175,6 +175,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         {
             // Arrange - start PC = 0x4000, D0 = 0x0011
             var machine = CreateMachine();
+            uint startPC = machine.CPU.PC;
 
             // Create an instance of the Instruction class. We pass a zero opcode value and a null InstructionInfo object here
             // because these are not used when evaluating the effective address (so we don't need to worry about supplying
@@ -238,7 +239,10 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             if (destExt1 != null) machine.CPU.PC += 2;  // Bump past destExt1 if present
             if (destExt2 != null) machine.CPU.PC += 2;  // Bump past destExt2 if present
 
-            Instruction inst = new Instruction(0, null, size, addrMode, srcExt1, srcExt2, addrMode, destExt1, destExt2);
+            machine.CPU.Prefetch.Clear();
+
+            InstructionInfo info = new(0, 0xffff, "NONE", OpHandlerID.NONE);
+            Instruction inst = new Instruction(0, info, size, addrMode, srcExt1, srcExt2, addrMode, destExt1, destExt2);
             var (dataRegNum, addrRegNum, address, immValue) = machine.ExecutionHandler.EvaluateEffectiveAddress(inst, eaType);
 
             // Assert
@@ -265,7 +269,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             // 'proper' values).
             // We also only supply the source addressing mode parameter and data size (as this is enough to test the postincrement and
             // predecrement modes).
-            Instruction inst = new Instruction(0, null, size, addrMode);
+            InstructionInfo info = new(0, 0xffff, "NONE", OpHandlerID.NONE);
+            Instruction inst = new Instruction(0, info, size, addrMode);
 
             // Act
             var (_, _, _, _) = machine.ExecutionHandler.EvaluateEffectiveAddress(inst, EAType.Source);
@@ -291,7 +296,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             // 'proper' values).
             // We also only supply the source addressing mode parameter and data size (as this is enough to test the postincrement and
             // predecrement modes).
-            Instruction inst = new Instruction(0, null, size, addrMode);
+            InstructionInfo info = new(0, 0xffff, "NONE", OpHandlerID.NONE);
+            Instruction inst = new Instruction(0, info, size, addrMode);
 
             // Act
             var (_, _, _, _) = machine.ExecutionHandler.EvaluateEffectiveAddress(inst, EAType.Source);
@@ -358,7 +364,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
             {
-                SR = SRFlags.Zero
+                SR = SRFlags.Zero | SRFlags.SupervisorMode
             };
             machine.SetCPUState(initState);
 
@@ -652,15 +658,15 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
             {
-                SR = SRFlags.Zero | SRFlags.TraceMode
+                SR = SRFlags.Zero | SRFlags.TraceMode | SRFlags.SupervisorMode
             };
             machine.SetCPUState(initState);
 
             // Act
-            machine.ExecuteUntilException();
+            Assert.Throws<TrapException>(() => machine.ExecuteUntilException());
 
             // Assert
-            Assert.Equal(SRFlags.Zero | SRFlags.SupervisorMode, machine.CPU.SR);
+            Assert.Equal(SRFlags.Zero, machine.CPU.SR);
         }
 
         [Fact]
@@ -863,7 +869,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
             {
-                SR = SRFlags.Overflow | SRFlags.Zero
+                SR = SRFlags.Overflow | SRFlags.Zero | SRFlags.SupervisorMode
             };
             machine.SetCPUState(initState);
             ushort[] data = [0x2012];
@@ -1289,7 +1295,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         public void RTS()
         {
             Machine machine = new Machine();
-            machine.ExecutionHandler._numberOfJSRCalls = 1;         // To ensure that the RTS is actually performed.
+            machine.ExecutionHandler.CallDepth = 1;         // To ensure that the RTS is actually performed.
 
             ushort[] code = new ushort[] { 0x4E75 };  // rts
             machine.LoadExecutableData(code, 0x0200);
@@ -1929,7 +1935,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002000, false);
 
             // Act
-            machine.ExecuteUntilException();
+            machine.ExecuteInstruction();
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
@@ -2099,7 +2105,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadData(data, 0x00002000, false);
 
             // Act
-            machine.ExecuteUntilException();
+            machine.ExecuteInstruction();
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);

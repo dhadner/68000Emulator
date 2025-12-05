@@ -221,7 +221,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib.Enumerations
     /// <summary>
     /// Exception Read/Write flag
     /// </summary>
-    public enum ERW { Read, Write }
+    public enum Erw { Read, Write }
 
     /// <summary>
     /// Exception Groups
@@ -253,9 +253,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib.Enumerations
         Group2 = 2
     }
 
-    public struct EVEntry
+    public struct ExceptionDetails
     {
-        public EVEntry(TrapVector vector, EG group, FC fc, string description)
+        public ExceptionDetails(TrapVector vector, EG group, FC fc, string description)
         {
             Vector = vector;
             Group = group;
@@ -264,7 +264,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib.Enumerations
             Description = description;
         }
 
-        public EVEntry(EVEntry entry)
+        public ExceptionDetails(ExceptionDetails entry)
         {
             Vector = entry.Vector;
             Group = entry.Group;
@@ -278,17 +278,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib.Enumerations
         public FC Fc { get; private set; }
         public bool IsInterrupt { get; private set; }
         public string Description { get; private set; }
+        public bool IsDefined { get; private set; } = true;
 
         /// <summary>
         /// Get an EVEntry for the specified vector.
         /// </summary>
         /// <param name="vector"></param>
         /// <returns></returns>
-        public static EVEntry? FromVector(TrapVector vector)
+        public static ExceptionDetails FromVector(TrapVector vector)
         {
-            EVEntry evEntry;
+            ExceptionDetails evEntry;
             bool setVector = false;
-            switch (vector)
+            switch ((TrapVector)(byte)vector)
             {
                 case TrapVector v when v >= TrapVector.Interrupt && v <= TrapVector.MaxInterrupt:
                     setVector = EVTable.TryGetValue(TrapVector.Interrupt, out evEntry);
@@ -302,7 +303,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib.Enumerations
                 default:
                     if (!EVTable.TryGetValue(vector, out evEntry))
                     {
-                        return null;
+                        evEntry = new(vector, EG.Group2, FC.SupervisorData, "Undefined ExceptionDetails");
+                        evEntry.IsDefined = false;
+                        return evEntry;
                     }
                     break;
             }
@@ -314,28 +317,28 @@ namespace PendleCodeMonkey.MC68000EmulatorLib.Enumerations
             return evEntry;
         }
 
-        public static Dictionary<TrapVector, EVEntry> EVTable { get; } = new()
+        public static Dictionary<TrapVector, ExceptionDetails> EVTable { get; } = new()
         {
-            {TrapVector.ResetSSP,               new EVEntry(TrapVector.ResetSSP,               EG.Group0, FC.SupervisorProgram, TrapException.Description((ushort)TrapVector.ResetSSP              ))},
-            {TrapVector.ResetPC,                new EVEntry(TrapVector.ResetPC,                EG.Group0, FC.SupervisorProgram, TrapException.Description((ushort)TrapVector.ResetPC               ))},
-            {TrapVector.BusError,               new EVEntry(TrapVector.BusError,               EG.Group0, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.BusError              ))},
-            {TrapVector.AddressError,           new EVEntry(TrapVector.AddressError,           EG.Group0, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.AddressError          ))},
-            {TrapVector.IllegalInstruction,     new EVEntry(TrapVector.IllegalInstruction,     EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.IllegalInstruction    ))},
-            {TrapVector.DivideByZero,           new EVEntry(TrapVector.DivideByZero,           EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.DivideByZero          ))},
-            {TrapVector.CHKInstruction,         new EVEntry(TrapVector.CHKInstruction,         EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.CHKInstruction        ))},
-            {TrapVector.TRAPVInstruction,       new EVEntry(TrapVector.TRAPVInstruction,       EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.TRAPVInstruction      ))},
-            {TrapVector.PrivilegeViolation,     new EVEntry(TrapVector.PrivilegeViolation,     EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.PrivilegeViolation    ))},
-            {TrapVector.Trace,                  new EVEntry(TrapVector.Trace,                  EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.Trace                 ))},
-            {TrapVector.LineAInstruction,       new EVEntry(TrapVector.LineAInstruction,       EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.LineAInstruction      ))},
-            {TrapVector.LineFInstruction,       new EVEntry(TrapVector.LineFInstruction,       EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.LineFInstruction      ))},
-            {TrapVector.UninitializedInterrupt, new EVEntry(TrapVector.UninitializedInterrupt, EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.UninitializedInterrupt))},
-            {TrapVector.SpuriousInterrupt,      new EVEntry(TrapVector.SpuriousInterrupt,      EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.SpuriousInterrupt     ))},
-            {TrapVector.Interrupt,              new EVEntry(TrapVector.Interrupt,              EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.Interrupt             ))},
-            {TrapVector.MaxInterrupt,           new EVEntry(TrapVector.MaxInterrupt,           EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.MaxInterrupt          ))},
-            {TrapVector.TrapInstruction,        new EVEntry(TrapVector.TrapInstruction,        EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.TrapInstruction       ))},
-            {TrapVector.MaxTrapInstruction,     new EVEntry(TrapVector.MaxTrapInstruction,     EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.MaxTrapInstruction    ))},
-            {TrapVector.UserInterrupt,          new EVEntry(TrapVector.UserInterrupt,          EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.UserInterrupt         ))},
-            {TrapVector.MaxUserInterrupt,       new EVEntry(TrapVector.MaxUserInterrupt,       EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.MaxUserInterrupt      ))}
+            {TrapVector.ResetSSP,               new ExceptionDetails(TrapVector.ResetSSP,               EG.Group0, FC.SupervisorProgram, TrapException.Description((ushort)TrapVector.ResetSSP              ))},
+            {TrapVector.ResetPC,                new ExceptionDetails(TrapVector.ResetPC,                EG.Group0, FC.SupervisorProgram, TrapException.Description((ushort)TrapVector.ResetPC               ))},
+            {TrapVector.BusError,               new ExceptionDetails(TrapVector.BusError,               EG.Group0, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.BusError              ))},
+            {TrapVector.AddressError,           new ExceptionDetails(TrapVector.AddressError,           EG.Group0, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.AddressError          ))},
+            {TrapVector.IllegalInstruction,     new ExceptionDetails(TrapVector.IllegalInstruction,     EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.IllegalInstruction    ))},
+            {TrapVector.DivideByZero,           new ExceptionDetails(TrapVector.DivideByZero,           EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.DivideByZero          ))},
+            {TrapVector.CHKInstruction,         new ExceptionDetails(TrapVector.CHKInstruction,         EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.CHKInstruction        ))},
+            {TrapVector.TRAPVInstruction,       new ExceptionDetails(TrapVector.TRAPVInstruction,       EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.TRAPVInstruction      ))},
+            {TrapVector.PrivilegeViolation,     new ExceptionDetails(TrapVector.PrivilegeViolation,     EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.PrivilegeViolation    ))},
+            {TrapVector.Trace,                  new ExceptionDetails(TrapVector.Trace,                  EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.Trace                 ))},
+            {TrapVector.LineAInstruction,       new ExceptionDetails(TrapVector.LineAInstruction,       EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.LineAInstruction      ))},
+            {TrapVector.LineFInstruction,       new ExceptionDetails(TrapVector.LineFInstruction,       EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.LineFInstruction      ))},
+            {TrapVector.UninitializedInterrupt, new ExceptionDetails(TrapVector.UninitializedInterrupt, EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.UninitializedInterrupt))},
+            {TrapVector.SpuriousInterrupt,      new ExceptionDetails(TrapVector.SpuriousInterrupt,      EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.SpuriousInterrupt     ))},
+            {TrapVector.Interrupt,              new ExceptionDetails(TrapVector.Interrupt,              EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.Interrupt             ))},
+            {TrapVector.MaxInterrupt,           new ExceptionDetails(TrapVector.MaxInterrupt,           EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.MaxInterrupt          ))},
+            {TrapVector.TrapInstruction,        new ExceptionDetails(TrapVector.TrapInstruction,        EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.TrapInstruction       ))},
+            {TrapVector.MaxTrapInstruction,     new ExceptionDetails(TrapVector.MaxTrapInstruction,     EG.Group2, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.MaxTrapInstruction    ))},
+            {TrapVector.UserInterrupt,          new ExceptionDetails(TrapVector.UserInterrupt,          EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.UserInterrupt         ))},
+            {TrapVector.MaxUserInterrupt,       new ExceptionDetails(TrapVector.MaxUserInterrupt,       EG.Group1, FC.SupervisorData   , TrapException.Description((ushort)TrapVector.MaxUserInterrupt      ))}
         };
 
     };

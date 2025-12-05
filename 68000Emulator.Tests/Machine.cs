@@ -19,7 +19,7 @@
         /// </summary>
         internal new Memory Memory
         {
-            get { return base.Memory as Memory; }
+            get { return (Memory)base.Memory; }
         }
 
         internal new MC68000EmulatorLib.CPU CPU

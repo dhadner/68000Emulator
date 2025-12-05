@@ -1,5 +1,9 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
+using System.Diagnostics;
+using System.Net;
+using System.Security;
 using System.Text;
+using System.Transactions;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -10,7 +14,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     /// </summary>
     public partial class Machine
     {
-        internal const uint MAX_MEMORY_SIZE = 0x01000000;     // Default to 16MB of memory allocated for emulator (the max an actual 68000 processor can address).
+        internal const uint MAX_MEMORY_SIZE = 0x01000000;        // Default to 16MB of memory allocated for emulator (the max an actual 68000 processor can address).
+        public const ushort SR_IMPLEMENTED_BITS_68000 = 0xA71F;  // Only these bits are implemented in the SR for the 68000. Others always 0.
 
         protected uint _loadedAddress;
         protected uint _dataLength;
@@ -74,15 +79,21 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         internal OpcodeExecutionHandler ExecutionHandler { get; set; }
 
         /// <summary>
-        /// Currently-executing instruction.
+        /// Currently-executing instruction.  Equivalent to Instruction
+        /// Decode Register (IDR) and associated logic.
         /// </summary>
         /// 
-        protected Instruction CurrentInstruction { get; set; }
+        public Instruction CurrentInstruction { get; protected set; }
+
+        /// <summary>
+        /// Address of the currently-executing (or about to be executed) instruction.
+        /// </summary>
+        public uint ExecutingAtAddress { get; protected set; }
 
         /// <summary>
         /// Gets a value indicating if the machine has reached the end of the loaded executable data.
         /// </summary>
-        public virtual bool IsEndOfData => CPU.PC >= _loadedAddress + _dataLength;
+        public virtual bool IsEndOfData => (CPU.PC - CPU.Prefetch.ByteCount) >= _loadedAddress + _dataLength;
 
         /// <summary>
         /// Gets a value indicating if the execution of code has been terminated.
@@ -116,10 +127,31 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         {
             Memory.Clear();
             CPU.Reset(initializing);
+            ExecutingAtAddress = CPU.PC;
             IsEndOfExecution = false;
             ExecutionStopped = false;
+            Exception = null;
+            InstructionCount = 0;
             _loadedAddress = 0;
-            _dataLength = 0;
+            _dataLength = 0xffffffff;
+        }
+
+        /// <summary>
+        /// Loads the prefetch queue (if not already loaded)
+        /// and update the PC accordingly.
+        /// </summary>
+        public void LoadPrefetch(bool flush = true)
+        {
+            if (flush)
+            {
+                CPU.Prefetch.Clear();
+            }
+            while (CPU.Prefetch.Count < CPU.Prefetch.Capacity && !IsEndOfData)
+            {
+                ushort word = Memory.ReadWord(CPU.PC);
+                CPU.Prefetch.PushBack(word);
+                CPU.PC += 2;
+            }
         }
 
         /// <summary>
@@ -197,10 +229,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
 
         /// <summary>
-        /// Get the current CPU control state.
+        /// Get the current CPU execution state with the PC adjusted back
+        /// by the length of the prefetch queue.
         /// </summary>
         /// <returns></returns>
-        public (uint pc, SRFlags sr) GetCPUControlState()
+        public (uint pc, SRFlags sr) GetExecutionState()
         {
             return (CPU.PC, CPU.SR);
         }
@@ -221,7 +254,76 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Get the current call depth to support debugging (step-out, step-over).
         /// </summary>
-        public int CallDepth => ExecutionHandler._numberOfJSRCalls;
+        public int CallDepth {
+            get => ExecutionHandler.CallDepth;
+            set => ExecutionHandler.CallDepth = value;
+        }
+
+        /// <summary>
+        /// Read word at PC and increment the PC to the next word.
+        /// </summary>
+        /// <returns></returns>
+        internal ushort ReadNextPCWord()
+        {
+            ushort value;
+            if (!IsEndOfData)
+            {
+                value = Memory.ReadWord(CPU.PC);
+                CPU.IncrementPC(2);
+            }
+            else
+            {
+                value = 0;
+            }
+            return value;
+        }
+
+        /// <summary>
+        /// Return the word located at the Program Counter, and then increment the Program Counter.
+        /// </summary>
+        /// <returns>The word located at the Program Counter.</returns>
+        internal ushort ReadPrefetch(bool force = false)
+        {
+            ushort value;
+            if (IsEndOfData)
+            {
+                if (CPU.Prefetch.IsEmpty)
+                {
+                    throw new InvalidOperationException("Execution has run past the end of the loaded data.");
+                }
+                value = CPU.Prefetch.PopFront();
+            }
+            else
+            {
+                if (CPU.Prefetch.Count == CPU.Prefetch.Capacity)
+                {
+                    // Prefetch queue is full - normal case
+                    value = CPU.Prefetch.PopFront();
+                    if (force)
+                    {
+                        CPU.Prefetch.PushBack(ReadNextPCWord());
+                    }
+                }
+                else
+                {
+                    if (CPU.Prefetch.IsEmpty)
+                    {
+                        value = ReadNextPCWord();
+                    }
+                    else
+                    {
+                        value = CPU.Prefetch.PopFront();
+                    }
+                    // Prefetch queue is not full - initial filling of the queue
+                    while (CPU.Prefetch.Count < CPU.Prefetch.Capacity && !IsEndOfData && force)
+                    {
+                        CPU.Prefetch.PushBack(ReadNextPCWord());
+                    }
+                }
+            }
+            return value;
+        }
+
 
         /// <summary>
         /// Load executable data into memory at the specified address.
@@ -238,6 +340,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             if (Memory.LoadData(data, loadAddress, clearBeforeLoad))
             {
                 CPU.PC = loadAddress;
+                CPU.Prefetch.Clear();
                 _loadedAddress = loadAddress;
                 _dataLength = (uint)data.Length;
                 return true;
@@ -261,6 +364,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             if (Memory.LoadData(bData, loadAddress, clearBeforeLoad))
             {
                 CPU.PC = loadAddress;
+                CPU.Prefetch.Clear();
                 _loadedAddress = loadAddress;
                 _dataLength = (uint)bData.Length;
                 return true;
@@ -314,6 +418,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 if (startingAddress.HasValue)
                 {
                     CPU.PC = startingAddress.Value;
+                    CPU.Prefetch.Clear();
                 }
                 _loadedAddress = lowestAddress;
                 _dataLength = highestAddress - lowestAddress;
@@ -358,8 +463,28 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         {
             uint stack = CPU.ReadAddressRegister(7);
             stack -= 4;
-            CPU.WriteAddressRegister(7, stack);
             Memory.WriteLong(stack, value);
+            CPU.WriteAddressRegister(7, stack);
+        }
+
+        /// <summary>
+        /// Push long value to stack, return exception if bus or address error occurs.
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        protected TrapException? PushLongCheck(uint value)
+        {
+            uint stack = CPU.ReadAddressRegister(7);
+            try
+            {
+                PushLong(value);
+                return null;
+            }
+            catch (TrapException e)
+            {
+                CPU.WriteAddressRegister(7, stack);
+                return e;
+            }
         }
 
         /// <summary>
@@ -370,8 +495,28 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         {
             uint stack = CPU.ReadAddressRegister(7);
             stack -= 2;
-            CPU.WriteAddressRegister(7, stack);
             Memory.WriteWord(stack, value);
+            CPU.WriteAddressRegister(7, stack);
+        }
+
+        /// <summary>
+        /// Push long value to stack, return exception if bus or address error occurs.
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        protected TrapException? PushWordCheck(ushort value)
+        {
+            uint stack = CPU.ReadAddressRegister(7);
+            try
+            {
+                PushWord(value);
+                return null;
+            }
+            catch (TrapException e)
+            {
+                CPU.WriteAddressRegister(7, stack);
+                return e;
+            }
         }
 
         /// <summary>
@@ -388,6 +533,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
 
         /// <summary>
+        /// Check for exception and return if so.
+        /// </summary>
+        /// <returns></returns>
+        protected (uint? value, TrapException? exception) PopLongCheck()
+        {
+            try
+            {
+                return (PopLong(), null);
+            }
+            catch (TrapException e)
+            {
+                return (null, e);
+            }
+        }
+
+        /// <summary>
         /// Pop a 16-bit value from the top of the stack.
         /// </summary>
         /// <returns>The 16-bit value popped off the top of the stack.</returns>
@@ -398,6 +559,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             stack += 2;
             CPU.WriteAddressRegister(7, stack);
             return value;
+        }
+
+        /// <summary>
+        /// Check for exception and return if so.
+        /// </summary>
+        /// <returns></returns>
+        protected (ushort? value, TrapException? exception) PopWordCheck()
+        {
+            try
+            {
+                return (PopWord(), null);
+            }
+            catch (TrapException e)
+            {
+                return (null, e);
+            }
         }
 
         /// <summary>
@@ -436,12 +613,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns>null or TrapException</returns>
         /// <exception cref="IllegalInstruction">Illegal Instructions not returned, thrown
         /// instead</exception>
-        /// <exception cref="TrapException">Some TrapExceptions are thrown for low-level bus
-        /// errors, odd address access by word instructions, etc. Most TrapExceptions expected 
-        /// during normal operation (e.g., LINEA and machine interrupts) are returned by this 
-        /// routine to the caller for handling without the overhead of .NET stack frame 
-        /// crawling, etc.</exception>
-        public virtual TrapException? ExecuteBareInstruction()
+        public virtual TrapException? ExecuteOpCode()
         {
             var instruction = Decoder.FetchInstruction();
             if (instruction == null)
@@ -451,37 +623,124 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             return ExecutionHandler.Execute(instruction);
         }
 
+        public bool EnableTracing { get; set; } = true;
+        public TrapException? Exception { get; protected set; } = null;
+
+        /// <summary>
+        /// Execute an instruction and handle any traps/exceptions that arise.
+        /// </summary>
+        /// <returns>Exception raised in this cycle or null.</returns>
         public virtual TrapException? ExecuteInstruction()
         {
-            TrapException? exception = null;
-            InstructionCount++;
-            bool traceMode = (CurrentSR & SRFlags.TraceMode) != 0;
+            // Exception that propagates to the next cycle.
+            TrapException? exception = Exception;
+            TrapException? group0Exception = null;
+            TrapException? group12Exception = null;
 
-            try
+            InstructionCount++;
+
+            if (exception != null && exception.TrapDetails.Vector == TrapVector.Trace)
             {
-                exception = ExecuteBareInstruction();
-                if (exception != null)
-                {
-                    traceMode = false;
-                    HandleTrapException(exception);
-                }
+                // Handle trace exception here before execution of the next instruction.
+                // Pushes PC and SR and sets the PC to the Trace trap vector with SR in
+                // Supervisor mode and trace flag off.
+                HandleTrapException(exception);
+                exception = null;
             }
-            catch (TrapException te)
+
+            SRFlags oldSR = CPU.SR;
+            bool traceMode = (oldSR & SRFlags.TraceMode) != 0 && EnableTracing;
+            if (!traceMode)
             {
-                // Handle any missed by the opcode handlers or generated by low-level I/O
-                traceMode = false;
-                HandleTrapException(te);
+                exception = HandleInterrupt();
+            }
+
+            // Execute the instruction.  If an exception is returned, it
+            // may be an illegal instruction, Group 0 exception, or
+            // anything but an interrupt.
+            //
+            // Most expected exceptions (such as LINEA exceptions) are returned
+            // here rather than thrown to minimize overhead.
+            ExecutingAtAddress = CPU.PC;
+            TrapException? e = ExecuteOpCode();
+            if (e != null)
+            {
+                exception = e;
+            }
+
+            if (exception != null)
+            {
+                // Handle Group0 and Group1/2 exceptions here.
+                try
+                {
+                    if (exception?.TrapDetails.Group == 0)
+                    {
+                        group0Exception = exception;
+                        HandleGroup0Exception(group0Exception);
+                        exception = null;
+                    }
+                    if (exception != null && !exception.TrapDetails.IsInterrupt)
+                    {
+                        // Handle Group 1 and Group 2 exceptions before executing the next instruction.
+                        // Any Group 0 exception should have already been processed.
+                        group12Exception = HandleTrapException(exception);
+                        exception = null;
+                    }
+                }
+                catch (TrapException eh)
+                {
+                    if (exception != null &&
+                        (exception.TrapDetails.Vector == TrapVector.BusError ||
+                         exception.TrapDetails.Vector == TrapVector.AddressError)
+                        &&
+                        (eh.TrapDetails.Vector == TrapVector.BusError ||
+                         eh.TrapDetails.Vector == TrapVector.AddressError))
+                    {
+                        // Halt and return for double bus/address faults
+                        ExecutionStopped = true;
+                        Exception = eh;
+                        return eh;
+                    }
+                    exception = eh;
+                }
             }
             if (traceMode)
             {
-                HandleTrapException(new TrapException((ushort)TrapVector.Trace));
+                TrapException? traceException = new TrapException((ushort)TrapVector.Trace);
+
+                switch ((exception != null, group12Exception != null, group0Exception != null, CPU.SupervisorMode))
+                {
+                    case (false, false, true, false):
+                    case (false, false, true, true):
+                    case (false, true, false, true):
+                    case (false, true, false, false):
+                    case (false, true, true, true):
+                    case (false, true, true, false):
+                        exception = traceException;
+                        CPU.TraceMode = false;
+                        break;
+                    case (true, true, true, true):
+                    case (true, true, false, false):
+                    case (true, true, false, true):
+                    case (true, false, false, true):
+                    case (true, false, false, false):
+                    case (true, false, true, false):
+                    case (true, false, true, true): 
+                        CPU.TraceMode = true;
+                        break;
+                    case (false, false, false, true):
+                        exception = traceException;
+                        break;
+                    case (false, false, false, false):
+                        exception = traceException;
+                        break;
+                    case (true, true, true, false):
+                        break;
+                }
             }
-            (var interruptException, var _) = HandleInterrupt();
 
-            // CurrentPC for the next instruction.
-            (CurrentPC, CurrentSR) = GetCPUControlState();
-
-            return exception ?? interruptException;
+            Exception = exception;
+            return Exception ?? group12Exception ?? group0Exception;
         }
 
         /// <summary>
@@ -520,7 +779,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         public ulong InstructionCount { get; set; }
 
-
         /// <summary>
         /// Current IPL.
         /// </summary>
@@ -530,21 +788,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Current Function Code (FC) outputs.
         /// </summary>
         public FC Fc { get; private set; } = FC.SupervisorProgram;
-
-        /// <summary>
-        /// Current Program Counter at beginning of instruction.
-        /// </summary>
-        public uint CurrentPC { get; protected set; } = 0;
-
-        /// <summary>
-        /// Current Status Register at the beginning of instruction.
-        /// </summary>
-        public SRFlags CurrentSR { get; protected set; } = 0;
-
-        /// <summary>
-        /// Singleton object to minimize garbage collection.
-        /// </summary>
-        protected CPUState TrapCPUState = new();
 
         /// <summary>
         /// True if there is an interrupt pending.  Set to false
@@ -600,7 +843,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Acknowledge interrupt (FC2–FC0 and A19–A16 high).
         /// </summary>
         /// <returns>true if an interrupt was pending</returns>
-        protected virtual (TrapException? exception, bool handled) HandleInterrupt()
+        public virtual TrapException? HandleInterrupt()
         {
             IPL = ReadIPLPins();
             if (InterruptPendingPV && !InterruptPending)
@@ -612,83 +855,136 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             InterruptPendingPV = InterruptPending;
             if (!InterruptPending)
             {
-                return (null, false);
+                return null;
             }
 
             // Interrupt is pending, clear the flag for next time.
             InterruptPending = false;
-            GetCPUState(ref TrapCPUState);
 
-            byte interruptMask = (byte)(((ushort)TrapCPUState.SR!.Value & 0x0700) >> 8);
+            byte interruptMask = (byte)(((ushort)CPU.SR & 0x0700) >> 8);
             byte vector = (byte)((int)TrapVector.Interrupt + IPL - 1);
-            TrapException interruptException = new(vector);
             bool handled = IPL == 7 || IPL > interruptMask;
             if (handled)
             {
+                TrapException interruptException = new(vector);
                 HandleTrapException(interruptException);
 
                 // Acknowledge interrupt to devices.
-                SetFCOutputs(FC.CPUSpace);
+                SetFCOutputs(interruptException.TrapDetails.Fc);
                 Memory.ReadByte(0x000f0000);
+                return interruptException;
             }
-            return (interruptException, handled);
+            return null;
+        }
+
+        protected bool SetupException(TrapException te, out ExceptionDetails evEntry)
+        {
+            if (!te.TrapDetails.IsDefined)
+            {
+                Logger.Log(LogLevel.Critical, "CPU", () => $"Unknown Trap Exception vector: {te.Vector}");
+                evEntry = te.TrapDetails;
+                return false;
+            }
+            evEntry = te.TrapDetails;
+            uint trapVectorPC = Memory.ReadLong((uint)te.Vector * 4);
+
+            CPU.PC = trapVectorPC;
+            CPU.SR |= SRFlags.SupervisorMode;
+            CPU.SR &= ~SRFlags.TraceMode;
+            if (evEntry.IsInterrupt)
+            {
+                // Set priority = interrupt priority
+                CPU.SR &= ~SRFlags.InterruptLevel;
+                ushort level = (ushort)(te.Vector - (byte)TrapVector.Interrupt + 1);
+                CPU.SR |= (SRFlags)(level << 8);
+            }
+            CPU.Prefetch.Clear();
+
+            return true;
         }
 
         /// <summary>
-        /// Handle a trap exception.
+        /// Handle a Group 0 trap exception.  This is done within 2 (8 MHz) clock cycles and interrupts the
+        /// current instruction processing.
         /// </summary>
         /// <param name="te"></param>
-        protected void HandleTrapException(TrapException te)
+        protected void HandleGroup0Exception(TrapException te)
         {
-            var eVEntry = EVEntry.FromVector((TrapVector)te.Vector);
-            if (eVEntry == null)
+            uint nextInstructionPC = CPU.PC;
+            uint oldPC = ExecutingAtAddress;
+            SRFlags oldSR = CPU.SR;
+
+            if (!SetupException(te, out ExceptionDetails evEntry))
             {
-                Logger.Log(LogLevel.Error, "CPU", () => $"Unknown Trap Exception: {te}");
                 return;
             }
 
-            GetCPUState(ref TrapCPUState);
-            uint nextInstructionPC = TrapCPUState.PC!.Value;
-            uint oldPC = CurrentPC;
-            SRFlags oldSR = TrapCPUState.SR!.Value;
+            EG group = te.TrapDetails.Group;
+            if (group != EG.Group0)
+            {
+                throw new ArgumentException($"Trap exception is not Group 0, it is Group {(byte)group}", nameof(te));
+            }
+
+            Logger.Log(LogLevel.Debug, "CPU", () => $"Group 0 Trap Exception handled: {te.Vector} Trap handler: {CPU.PC:x8} Called from: {oldPC:x8}");
+
+            ushort fcWord = (ushort)evEntry.Fc;
+            fcWord |= 0x0018;               // Default to read and not an instruction
+            PushLong(nextInstructionPC);
+            PushWord((ushort)oldSR);
+            PushWord(CurrentInstruction.Opcode);
+            if (CurrentInstruction.AccessAddress.HasValue)
+            {
+                PushLong(CurrentInstruction.AccessAddress.Value);
+                if (CurrentInstruction.AccessAddressType.HasValue && CurrentInstruction.AccessAddressType.Value == EAType.Destination)
+                {
+                    fcWord &= 0xffef; // Clear the "read" bit
+                }
+            }
+            else
+            {
+                PushLong(0);
+            }
+            PushWord(fcWord);
+            SetFCOutputs(evEntry.Fc);
+        }
+
+        /// <summary>
+        /// Handle a Group 1 or 2 trap exception.
+        /// </summary>
+        /// <param name="te"></param>
+        protected TrapException? HandleTrapException(TrapException te)
+        {
+            uint nextInstructionPC = CPU.PC;
+            uint oldPC = ExecutingAtAddress;
+            SRFlags oldSR = CPU.SR;
+
+            if (!SetupException(te, out ExceptionDetails evEntry))
+            {
+                return null;
+            }
+            EG group = te.TrapDetails.Group;
+            if (group != EG.Group1 && group != EG.Group2)
+            {
+                throw new ArgumentException("Trap exception is not Group 1 or Group 2", nameof(te));
+            }
 
             uint trapVectorContents = Memory.ReadLong((uint)te.Vector * 4) & 0x00ffffff;
-            TrapCPUState.PC = trapVectorContents;
-            TrapCPUState.SR |= SRFlags.SupervisorMode;
-            TrapCPUState.SR &= ~SRFlags.TraceMode;
-            if (eVEntry.Value.IsInterrupt)
+            Logger.Log(LogLevel.Debug, "CPU", () => $"Group {(int)group} Trap Exception handled: {te.Vector} Trap handler: {trapVectorContents:x8} Called from: {oldPC:x8}");
+
+            CPU.PC = trapVectorContents;
+            CPU.SR |= SRFlags.SupervisorMode;
+            CPU.SR &= ~SRFlags.TraceMode;
+            if (evEntry.IsInterrupt)
             {
                 // Set priority = interrupt priority
-                TrapCPUState.SR &= ~SRFlags.InterruptLevel;
+                CPU.SR &= ~SRFlags.InterruptLevel;
                 ushort level = (ushort)(te.Vector - (byte)TrapVector.Interrupt + 1);
-                TrapCPUState.SR |= (SRFlags)(level << 8);
+                CPU.SR |= (SRFlags)(level << 8);
             }
-            SetCPUState(TrapCPUState);
+            CPU.Prefetch.Clear();
 
-            switch (eVEntry.Value.Group)
+            switch (evEntry.Group)
             {
-                case EG.Group0:
-                    Logger.Log(LogLevel.Debug, "CPU", () => $"Group 0 Trap Exception handled: {te.Vector} Trap handler: {trapVectorContents:x8} Called from: {oldPC:x8}");
-
-                    ushort fcWord = (ushort)eVEntry.Value.Fc;
-                    fcWord |= 0x0018;               // Default to read and not an instruction
-                    PushLong(nextInstructionPC);
-                    PushWord((ushort)oldSR);
-                    PushWord(CurrentInstruction.Opcode);
-                    if (CurrentInstruction.AccessAddress.HasValue)
-                    {
-                        PushLong(CurrentInstruction.AccessAddress.Value);
-                        if (CurrentInstruction.AccessAddressType.HasValue && CurrentInstruction.AccessAddressType.Value == EAType.Destination)
-                        {
-                            fcWord &= 0xffef; // Clear the "read" bit
-                        }
-                    }
-                    else
-                    {
-                        PushLong(0);
-                    }
-                    PushWord(fcWord);
-                    break;
                 case EG.Group1:
                     Logger.Log(LogLevel.Debug, "CPU", () => $"Group 1 Trap Exception handled: {te.Vector} Trap handler: {trapVectorContents:x8} Called from: {oldPC:x8}");
                     PushLong(nextInstructionPC);
@@ -700,16 +996,16 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     PushWord((ushort)oldSR);
                     break;
                 default:
-                    Logger.Log(LogLevel.Critical, "CPU", $"Trap exception handler error - error in EVTable.  Called from: {oldPC:x8}");
-                    break;
+                    throw new ArgumentException("SHOULD NOT HAPPEN!");
             }
-            SetFCOutputs(eVEntry.Value.Fc);
+            SetFCOutputs(evEntry.Fc);
 
             if (trapVectorContents == 0)
             {
                 Logger.Log(LogLevel.Critical, "CPU", () => $"Trap Exception  -> address = 0: {te}");
             }
-            return;
+
+            return te;
         }
     }
 }

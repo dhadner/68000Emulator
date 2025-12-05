@@ -26,7 +26,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                              0x00010000, 0x00020000, 0x00040000, 0x00080000, 0x00100000, 0x00200000, 0x00400000, 0x00800000,
                                              0x01000000, 0x02000000, 0x04000000, 0x08000000, 0x10000000, 0x20000000, 0x40000000, 0x80000000 ];
 
-            internal int _numberOfJSRCalls = 0;
+            internal int CallDepth { get; set; } = 0;
 
             /// <summary>
             /// Initializes a new instance of the <see cref="OpcodeExecutionHandler"/> class.
@@ -464,7 +464,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Execute the specified instruction.
             /// </summary>
             /// <param name="instruction">The <see cref="Instruction"/> instance of the instruction to be executed.</param>
-            /// <exception cref="TrapException"/>
             public TrapException? Execute(Instruction instruction)
             {
                 if (_handlers.TryGetValue(instruction.Info.HandlerID, out OpHandler? value))
@@ -472,7 +471,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 #if CHECK_PC_FOR_ZERO
                     uint oldPC = Machine.CPU.PC;
 #endif
-                    TrapException? e = value?.Invoke(instruction);          // Call the handler Action.
+                    TrapException? e;
+                    try
+                    {
+                        e = value?.Invoke(instruction);          // Call the handler Action.
+                    }
+                    catch (TrapException ex)
+                    {
+                        e = ex;
+                    }
 #if CHECK_STACK_POINTER
                     var sr = Machine.CPU.SR;
                     var sp = (sr & SRFlags.SupervisorMode) != 0 ? Machine.CPU.SSP : Machine.CPU.USP;
@@ -491,6 +498,28 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     return e;
                 }
                 return Helpers.CreateTRAPException(TrapVector.IllegalInstruction);
+            }
+
+            /// <summary>
+            /// Read effective address and return exceptions rather than throw them.
+            /// </summary>
+            /// <param name="instruction"></param>
+            /// <param name="eaType"></param>
+            /// <param name="suppressIncDec"></param>
+            /// <returns>value and exception, if any (Address Error or Bus Error are the only two possible exceptions here)</returns>
+            private (uint? value, TrapException? exception) ReadEAValueChecked(Instruction instruction, EAType eaType, bool suppressIncDec = false)
+            {
+                uint? value = null;
+                TrapException? exception = null;
+                try
+                {
+                    value = ReadEAValue(instruction, eaType, suppressIncDec);
+                }
+                catch (TrapException e)
+                {
+                    exception = e;
+                }
+                return (value, exception);
             }
 
             /// <summary>
@@ -649,6 +678,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 sizeInBytes = 2;
                             }
                             address = Machine.CPU.ReadAddressRegister(regNum);
+                            if ((address!.Value & 1) != 0 && sizeInBytes > 1)
+                            {
+                                // Address error will be thrown when EA is read or written the first time, so ensure
+                                // the postInc happens anyway.
+                                //
+                                // TODO: This will not work for Bus Errors!
+                                suppressIncDec = false;
+                            }
                             if (!suppressIncDec)
                             {
                                 Machine.CPU.WriteAddressRegister(regNum, address.Value + sizeInBytes);
@@ -661,6 +698,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 sizeInBytes = 2;
                             }
                             address = Machine.CPU.ReadAddressRegister(regNum) - sizeInBytes;
+                            if ((address!.Value & 1) != 0 && sizeInBytes > 1)
+                            {
+                                // Address error will be thrown when EA is read or written the first time, so ensure
+                                // the postInc happens anyway.
+                                //
+                                // TODO: This will not work for Bus Errors!
+                                suppressIncDec = false;
+                            }
                             if (!suppressIncDec)
                             {
                                 Machine.CPU.WriteAddressRegister(regNum, address.Value);
@@ -714,7 +759,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         {
                                             pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
                                         }
-                                    
+
                                         address = (uint)((int)Machine.CPU.PC - pcDecrement + (short)ext1.Value);
                                     }
                                     break;
@@ -772,6 +817,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return (dRegNum, aRegNum, address, immVal);
             }
 
+            private TrapException? MustBeSupervisor(SRFlags sr)
+            {
+                if ((sr & SRFlags.SupervisorMode) == 0)
+                {
+                    return Helpers.CreateTRAPException(TrapVector.PrivilegeViolation);
+                }
+                return null;
+            }
+
             // *************************
             //
             // Operation handler methods
@@ -792,6 +846,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? ORItoSR(Instruction inst)
             {
+                var trap = MustBeSupervisor(Machine.CPU.SR);
+                if (trap != null)
+                {
+                    return trap;
+                }
                 // SourceExtWord1 holds the immediate operand value.
                 if (inst.SourceExtWord1.HasValue)
                 {
@@ -833,6 +892,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? ANDItoSR(Instruction inst)
             {
+                var trap = MustBeSupervisor(Machine.CPU.SR);
+                if (trap != null)
+                {
+                    return trap;
+                }
                 // SourceExtWord1 holds the immediate operand value.
                 if (inst.SourceExtWord1.HasValue)
                 {
@@ -908,6 +972,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? EORItoSR(Instruction inst)
             {
+                var trap = MustBeSupervisor(Machine.CPU.SR);
+                if (trap != null)
+                {
+                    return trap;
+                }
                 // SourceExtWord1 holds the immediate operand value.
                 if (inst.SourceExtWord1.HasValue)
                 {
@@ -1000,6 +1069,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? MOVEtoSR(Instruction inst)
             {
+                var trap = MustBeSupervisor(Machine.CPU.SR);
+                if (trap != null)
+                {
+                    return trap;
+                }
                 var value = ReadEAValue(inst, EAType.Source);
                 if (value.HasValue)
                 {
@@ -1169,6 +1243,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     ushort sr = Machine.PopWord();
                     Machine.CPU.PC = Machine.PopLong();
+                    Machine.CPU.Prefetch.Clear();
                     Machine.CPU.SR = (SRFlags)sr;
                 }
                 else
@@ -1181,7 +1256,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             private TrapException? RTS(Instruction inst)
             {
                 // if no JSR/BSR instruction has been executed then this RTS marks the termination of the code execution.
-                if (_numberOfJSRCalls == 0)
+                if (CallDepth == 0)
                 {
                     if (Machine.EndWhenCallDepthIsZero)
                     {
@@ -1191,12 +1266,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     else
                     {
                         // Keep call depth from going negative
-                        _numberOfJSRCalls++;
+                        CallDepth++;
                     }
                 }
                 Machine.CPU.PC = Machine.PopLong();
+                Machine.CPU.Prefetch.Clear();
 
-                _numberOfJSRCalls--;
+                CallDepth--;
 
                 return null;
             }
@@ -1217,6 +1293,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 srValue = (ushort)((srValue & 0xFFE0) | (ccr & 0x001F));
                 Machine.CPU.SR = (SRFlags)srValue;
                 Machine.CPU.PC = Machine.PopLong();
+                Machine.CPU.Prefetch.Clear();
+
                 return null;
             }
 
@@ -1225,9 +1303,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 var (_, _, address, _) = EvaluateEffectiveAddress(inst, EAType.Source);
                 if (address.HasValue)
                 {
-                    Machine.PushLong(Machine.CPU.PC);
+                    Machine.PushLong((Machine.CPU.PC - Machine.CPU.Prefetch.ByteCount));
                     Machine.CPU.PC = address.Value;
-                    _numberOfJSRCalls++;
+                    Machine.CPU.Prefetch.Clear();
+                    CallDepth++;
                 }
                 return null;
             }
@@ -1238,6 +1317,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 if (address.HasValue)
                 {
                     Machine.CPU.PC = address.Value;
+                    Machine.CPU.Prefetch.Clear();
                 }
                 return null;
             }
@@ -1372,6 +1452,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         {
                             int disp = Helpers.SignExtendValue(inst.SourceExtWord1.Value, OpSize.Word) - 2;
                             Machine.CPU.PC = (uint)(Machine.CPU.PC + disp);
+                            Machine.CPU.Prefetch.Clear();
                         }
                     }
                 }
@@ -1401,6 +1482,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
 
                 Machine.CPU.PC = (uint)(pc + disp);
+                Machine.CPU.Prefetch.Clear();
                 return null;
             }
 
@@ -1424,8 +1506,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
 
                 Machine.PushLong(Machine.CPU.PC);
-                Machine.CPU.PC = (uint)(pc + disp);
-                _numberOfJSRCalls++;
+                Machine.CPU.PC = (uint)(pc + disp); 
+                Machine.CPU.Prefetch.Clear();
+
+                CallDepth++;
                 return null;
             }
 
@@ -1452,6 +1536,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
 
                     Machine.CPU.PC = (uint)(pc + disp);
+                    Machine.CPU.Prefetch.Clear();
                 }
                 return null;
             }
@@ -2163,25 +2248,37 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? LINK(Instruction inst)
             {
-                if (inst.SourceExtWord1.HasValue)
+                TrapException? e = null;
+                byte regNum = (byte)(inst.Opcode & 0x0007);
+                uint regValue = Machine.CPU.ReadAddressRegister(regNum);
+                e = Machine.PushLongCheck(regValue);
+                if (e == null)
                 {
-                    byte regNum = (byte)(inst.Opcode & 0x0007);
-                    uint regValue = Machine.CPU.ReadAddressRegister(regNum);
-                    Machine.PushLong(regValue);
                     uint sp = Machine.CPU.ReadAddressRegister(7);
                     Machine.CPU.WriteAddressRegister(regNum, sp);
-                    int disp = Helpers.SignExtendValue((uint)inst.SourceExtWord1, OpSize.Word);
+                    int disp = Helpers.SignExtendValue(inst.SourceExtWord1!.Value, OpSize.Word);
                     Machine.CPU.WriteAddressRegister(7, (uint)((int)sp + disp));
                 }
-                return null;
+                return e;
             }
 
             private TrapException? UNLK(Instruction inst)
             {
-                byte regNum = (byte)(inst.Opcode & 0x0007);
-                Machine.CPU.WriteAddressRegister(7, Machine.CPU.ReadAddressRegister(regNum));
-                Machine.CPU.WriteAddressRegister(regNum, Machine.PopLong());
-                return null;
+                uint a7 = Machine.CPU.ReadAddressRegister(7);
+                byte linkRegNum = (byte)(inst.Opcode & 0x0007);
+                uint linkAddress = Machine.CPU.ReadAddressRegister(linkRegNum);
+                Machine.CPU.WriteAddressRegister(7, linkAddress);
+                (uint? tos, TrapException? e) = Machine.PopLongCheck();
+                if (e != null)
+                {
+                    // Back out changes to A7
+                    Machine.CPU.WriteAddressRegister(7, a7);
+                }
+                else
+                {
+                    Machine.CPU.WriteAddressRegister(linkRegNum, tos!.Value);
+                }
+                return e;
             }
 
             private TrapException? STOP(Instruction inst)

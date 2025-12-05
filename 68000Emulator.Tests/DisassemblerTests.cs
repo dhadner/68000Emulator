@@ -546,7 +546,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Assert.True(sections.IsNonExecutable(address + length / 2));
 
             var section0 = sections.GetSectionIncluding(address);
-            Assert.Equal(address, section0.Address);
+            Assert.Equal(address, section0!.Address);
             Assert.Equal(length, section0.Length);
             Assert.Equal(itemOpSize, section0.ItemOpSize);
             Assert.Equal(itemsPerLine, section0.ItemsPerLine);

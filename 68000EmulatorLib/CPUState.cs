@@ -1,4 +1,5 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
+using System.Net.Http.Headers;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -121,6 +122,30 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public uint? PC { get; set; }
 
         /// <summary>
+        /// Current PC taking into account the prefetch queue.
+        /// </summary>
+        public uint? CurrentPC
+        {
+            get
+            {
+                if (PC.HasValue)
+                {
+                    if (Prefetch != null)
+                    {
+                        return PC.Value - Prefetch.ByteCount;
+                    }
+                    return PC.Value;
+                }
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Prefetch queue state.
+        /// </summary>
+        public PrefetchQueue? Prefetch { get; set; }
+
+        /// <summary>
         /// Transfer values from this <see cref="CPUState"/> instance into the settings in
         /// specified <see cref="CPU"/> instance.
         /// </summary>
@@ -214,6 +239,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 cpu.PC = PC.Value;
             }
+
+            if (Prefetch != null)
+            {
+                cpu.Prefetch.From(Prefetch!);
+            }
         }
 
         /// <summary>
@@ -246,6 +276,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             SR = cpu.SR;
 
             PC = cpu.PC;
+
+            Prefetch = cpu.Prefetch.Clone();
         }
     }
 }

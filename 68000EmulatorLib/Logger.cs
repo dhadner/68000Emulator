@@ -214,6 +214,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         Warning = 3,
         Error = 4,
         Critical = 5,
-        None = 6
+        Always = 6,
+        None = 7
     }
 }

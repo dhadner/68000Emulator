@@ -79,8 +79,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         public void LoadProgram_Loads()
         {
             Machine machine = new Machine();
-            string msg = machine.LoadProgram("program.h68");
-            Assert.Null(msg);
+            string? error = machine.LoadProgram("program.h68");
+            Assert.Null(error);
         }
 
         [Fact]
@@ -95,18 +95,18 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             };
             machine.SetCPUState(initState);
 
-            string msg = machine.LoadProgram("program.h68");
-            Assert.Null(msg);
+            string? error = machine.LoadProgram("program.h68");
+            Assert.Null(error);
 
             machine.ExecuteUntilException();
 
             CPUState state = machine.GetCPUState();
-            Assert.Equal(state.D5, (uint)0x20000);      // Total loop count
-            Assert.Equal(state.D4, (uint)0);            // Count-down counter
-            Assert.Equal(state.D6, (uint)0x0badf00d);   // Marker register
-            Assert.Equal(state.USP, (uint)0x00002000);
-            Assert.Equal(state.SSP, (uint)0x00001800);
-            Assert.Equal(state.PC, (uint)0x0001006c);
+            Assert.Equal((uint)0x20000, state.D5!.Value);      // Total loop count
+            Assert.Equal((uint)0, state.D4!.Value);            // Count-down counter
+            Assert.Equal((uint)0x0badf00d, state.D6!.Value);   // Marker register
+            Assert.Equal((uint)0x00002000, state.USP!.Value);
+            Assert.Equal((uint)0x00001800, state.SSP!.Value);
+            Assert.Equal((uint)0x0001006c, state.PC!.Value);
         }
 
         [Fact]

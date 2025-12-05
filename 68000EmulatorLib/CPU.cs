@@ -42,7 +42,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Gets or sets the Status Register value.
         /// </summary>
-        internal SRFlags SR { get; set; }
+        public SRFlags SR 
+        { 
+            get { return field; } 
+            set { field = value & (SRFlags)Machine.SR_IMPLEMENTED_BITS_68000; } 
+        } = 0;
 
 
         // **********************
@@ -209,6 +213,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             SSP = 0;
             PC = 0;
             SR = 0;
+            Prefetch.Clear();
         }
 
         /// <summary>
@@ -411,6 +416,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         /// <param name="numBytes">The number of bytes by which the program counter should be incremented.</param>
         internal void IncrementPC(byte numBytes) => PC += numBytes;
+
+        /// <summary>
+        /// CPU prefetch queue.
+        /// </summary>
+        public PrefetchQueue Prefetch { get; } = new();
 
         /// <summary>
         /// Reset action event.

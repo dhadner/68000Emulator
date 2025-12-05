@@ -1,7 +1,5 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
-using System;
 using System.Diagnostics;
-using System.Reflection.Metadata.Ecma335;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -34,37 +32,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             private Machine Machine { get; set; }
 
             /// <summary>
-            /// Return the byte located at the Program Counter, and then increment the Program Counter.
-            /// </summary>
-            /// <returns>The byte located at the Program Counter.</returns>
-            internal byte ReadNextPCByte()
-            {
-                if (Machine.IsEndOfData)
-                {
-                    throw new InvalidOperationException("Execution has run past the end of the loaded data.");
-                }
-                byte value = Machine.Memory.ReadByte(Machine.CPU.PC);
-                Machine.CPU.IncrementPC(1);
-                return value;
-            }
-
-            /// <summary>
-            /// Return the word located at the Program Counter, and then increment the Program Counter.
-            /// </summary>
-            /// <returns>The word located at the Program Counter.</returns>
-            internal ushort ReadNextPCWord()
-            {
-                if (Machine.IsEndOfData)
-                {
-                    throw new InvalidOperationException("Execution has run past the end of the loaded data.");
-                }
-                ushort value = Machine.Memory.ReadWord(Machine.CPU.PC);
-                Machine.CPU.IncrementPC(2);
-                return value;
-            }
-
-
-            /// <summary>
             /// Fetch the instruction located at the current Program Counter address, incrementing the
             /// Program Counter accordingly.
             /// </summary>
@@ -72,18 +39,29 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             public Instruction? FetchInstruction()
             {
                 // Read the next word (which contains the instruction opcode)
-                var opcode = ReadNextPCWord();
+                uint pc = Machine.CPU.PC;
+                var opcode = Machine.ReadNextPCWord(); // This increments the PC
 
                 // Locate the instruction for this opcode.
                 var inst = _handler.GetLegalInstruction(opcode);
                 if (inst != null)
                 {
                     // Fill in any immediate data and extension words for the instruction
-                    return ReadImmDataAndExtWords(opcode, inst);
+                    ReadImmDataAndExtWords(opcode, inst); // May increment the PC further
+
+                    inst.Address = pc;
+                    Machine.CurrentInstruction = inst;
+                }
+                else
+                {
+                    // Illegal instruction - set current instruction to dummy instruction for
+                    // address trace purposes.
+                    Machine.CurrentInstruction = new(opcode, new(opcode,0xffff,"<illegal>", OpHandlerID.ILLEGAL));
+                    Machine.CurrentInstruction.Address = pc;
                 }
 
-                // Return null if this is not a recognised opcode (i.e. an illegal instruction)
-                return null;
+                // Return instruction or null if this is not a recognised opcode (i.e. an illegal instruction)
+                return inst;
             }
 
             /// <summary>
@@ -93,7 +71,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="opcode">The 16-bit opcode value for the instruction.</param>
             /// <param name="instInfo">The <see cref="InstructionInfo"/> instance for the instruction.</param>
             /// <returns>An <see cref="Instruction"/> object containing details of the instruction.</returns>
-            private Instruction ReadImmDataAndExtWords(ushort opcode, Instruction inst)
+            private void ReadImmDataAndExtWords(ushort opcode, Instruction inst)
             {
                 OpSize? opSize = inst.Size;
                 ushort? srcExt1 = null;
@@ -103,6 +81,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 switch (inst.Info.HandlerID)
                 {
+                    case OpHandlerID.ADDA:
+                    case OpHandlerID.SUBA:
+                        Debug.Assert(inst.SourceAddrMode != null);
+                        (srcExt1, srcExt2) = ReadImmediateOperandData(opSize!.Value);
+                        break;
+
                     case OpHandlerID.ORItoCCR:
                     case OpHandlerID.ANDItoCCR:
                     case OpHandlerID.EORItoCCR:
@@ -128,7 +112,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             // Static bit number
                             // Read the bit number in the extension word
                             Debug.Assert(inst.SourceAddrMode == null);
-                            srcExt1 = ReadNextPCWord();
+                            srcExt1 = Machine.ReadNextPCWord();
                         }
                         break;
 
@@ -139,7 +123,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     case OpHandlerID.MOVEP:
                         Debug.Assert(inst.SourceAddrMode == null);
                         // Read the displacement value (which is a word).
-                        srcExt1 = ReadNextPCWord();
+                        srcExt1 = Machine.ReadNextPCWord();
                         break;
 
                     case OpHandlerID.BRA:
@@ -148,7 +132,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         if (opSize == OpSize.Word)
                         {
                             Debug.Assert(inst.SourceAddrMode == null);
-                            srcExt1 = ReadNextPCWord();
+                            srcExt1 = Machine.ReadNextPCWord();
                         }
                         break;
 
@@ -171,10 +155,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 inst.SourceExtWord2 = srcExt2;
                 inst.DestExtWord1 = destExt1;
                 inst.DestExtWord2 = destExt2;
-
-                // Return the instruction
-                Machine.CurrentInstruction = inst;
-                return inst;
             }
 
             /// <summary>
@@ -187,11 +167,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </returns>
             private (ushort? extWord1, ushort? extWord2) ReadImmediateOperandData(OpSize size)
             {
-                ushort ext1 = ReadNextPCWord();
+                ushort ext1 = Machine.ReadNextPCWord();
                 ushort? ext2 = null;
                 if (size == OpSize.Long)
                 {
-                    ext2 = ReadNextPCWord();
+                    ext2 = Machine.ReadNextPCWord();
                 }
                 return (ext1, ext2);
             }
@@ -214,7 +194,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     case 0x28:          // Address Register Indirect with Displacement
                     case 0x30:          // Address Register Indirect with Index
-                        ext1 = ReadNextPCWord();
+                        ext1 = Machine.ReadNextPCWord();
                         break;
                     case 0x38:
                         switch (ea & 0x07)
@@ -222,17 +202,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             case 0x00:  // Absolute Short
                             case 0x02:  // PC Relative with Displacement
                             case 0x03:  // PC Relative with Index
-                                ext1 = ReadNextPCWord();
+                                ext1 = Machine.ReadNextPCWord();
                                 break;
                             case 0x01:  // Absolute Long
-                                ext1 = ReadNextPCWord();
-                                ext2 = ReadNextPCWord();
+                                ext1 = Machine.ReadNextPCWord();
+                                ext2 = Machine.ReadNextPCWord();
                                 break;
                             case 0x04:  // Immediate
-                                ext1 = ReadNextPCWord();
+                                ext1 = Machine.ReadNextPCWord();
                                 if (size == OpSize.Long)
                                 {
-                                    ext2 = ReadNextPCWord();
+                                    ext2 = Machine.ReadNextPCWord();
                                 }
                                 break;
                         }
