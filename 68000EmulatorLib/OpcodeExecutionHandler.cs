@@ -236,7 +236,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         break;
                     case OpHandlerID.NEGX:
                         Machine.CPU.NegativeFlag = resultMsbSet;
-                        Machine.CPU.ZeroFlag = (result & mask) == 0;
+                        if ((result & mask) != 0) Machine.CPU.ZeroFlag = false;
                         Machine.CPU.OverflowFlag = srcMsbSet && resultMsbSet;
                         Machine.CPU.CarryFlag = Machine.CPU.ExtendFlag = srcMsbSet || resultMsbSet;
                         break;

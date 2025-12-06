@@ -735,6 +735,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         exception = traceException;
                         break;
                     case (true, true, true, false):
+                        exception = traceException;
                         break;
                 }
             }
