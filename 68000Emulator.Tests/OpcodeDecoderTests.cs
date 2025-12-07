@@ -34,6 +34,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [InlineData(0x3250, OpHandlerID.MOVEA)]
         [InlineData(0x40C0, OpHandlerID.MOVEfromSR)]
         [InlineData(0x44FC, OpHandlerID.MOVEtoCCR)]
+        [InlineData(0x42FC, OpHandlerID.MOVEfromCCR)]
         [InlineData(0x46FC, OpHandlerID.MOVEtoSR)]
         [InlineData(0x4041, OpHandlerID.NEGX)]
         [InlineData(0x4242, OpHandlerID.CLR)]

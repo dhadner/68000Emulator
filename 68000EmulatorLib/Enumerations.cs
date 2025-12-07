@@ -371,6 +371,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib.Enumerations
         MOVE,
         MOVEA,
         MOVEfromSR,
+        MOVEfromCCR,
         MOVEtoCCR,
         MOVEtoSR,
         NEGX,

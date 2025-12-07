@@ -71,6 +71,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 _handlers.Add(OpHandlerID.MOVEA, MOVEA);
                 _handlers.Add(OpHandlerID.MOVEfromSR, MOVEfromSR);
                 _handlers.Add(OpHandlerID.MOVEtoCCR, MOVEtoCCR);
+                _handlers.Add(OpHandlerID.MOVEfromCCR, MOVEfromCCR);
                 _handlers.Add(OpHandlerID.MOVEtoSR, MOVEtoSR);
                 _handlers.Add(OpHandlerID.NEGX, NEGX);
                 _handlers.Add(OpHandlerID.CLR, CLR);
@@ -1053,13 +1054,20 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return null;
             }
 
+            private TrapException? MOVEfromCCR(Instruction inst)
+            {
+                WriteEAValue(inst, (uint)Machine.CPU.SR & 0x00FF, EAType.Destination);
+                return null;
+            }
+
             private TrapException? MOVEtoCCR(Instruction inst)
             {
                 var value = ReadEAValue(inst, EAType.Source);
                 if (value.HasValue)
                 {
                     ushort srValue = (ushort)Machine.CPU.SR;
-                    srValue = (ushort)((srValue & 0xFFE0) | ((ushort)value.Value & 0x001F));
+                    srValue = (ushort)((srValue & 0xFF00) | ((ushort)value.Value & 0x00FF));
+                    // Note: Setter masks out unimplemented bits.
                     Machine.CPU.SR = (SRFlags)srValue;
                 }
                 return null;
@@ -1075,7 +1083,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 var value = ReadEAValue(inst, EAType.Source);
                 if (value.HasValue)
                 {
-                    Machine.CPU.SR = (SRFlags)((ushort)value.Value & 0xF71F);
+                    // Note: Setter masks out unimplemented bits.
+                    Machine.CPU.SR = (SRFlags)((ushort)value.Value);
                 }
                 return null;
             }

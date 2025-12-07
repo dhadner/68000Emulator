@@ -233,6 +233,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 _handlers.Add(OpHandlerID.MOVEA, MOVEA);
                 _handlers.Add(OpHandlerID.MOVEfromSR, MOVEfromSR);
                 _handlers.Add(OpHandlerID.MOVEtoCCR, MOVEtoCCR);
+                _handlers.Add(OpHandlerID.MOVEfromCCR, MOVEfromCCR);
                 _handlers.Add(OpHandlerID.MOVEtoSR, MOVEtoSR);
                 _handlers.Add(OpHandlerID.NEGX, DST);
                 _handlers.Add(OpHandlerID.CLR, DST);
@@ -1225,6 +1226,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sb.AppendTab(EA_COLUMN);
 
                 op.Operands.Add(new SROperand());
+                op.Operands.Add(EffectiveAddressOp(inst, EAType.Destination));
+
+                sb.Append(op.Operands);
+                return op;
+            }
+            protected Operation? MOVEfromCCR(Instruction inst, StringBuilder sb)
+            {
+                Operation op = new(Machine.ExecutingAtAddress, "MOVE");
+                sb.Append("MOVE");
+                sb.AppendTab(EA_COLUMN);
+
+                op.Operands.Add(new CCROperand());
                 op.Operands.Add(EffectiveAddressOp(inst, EAType.Destination));
 
                 sb.Append(op.Operands);

@@ -37,11 +37,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 DestExtWord1 = destExtWord1;
                 DestExtWord2 = destExtWord2;
                 Address = 0;
-                Length = 2; // Minimum length is 2 bytes for the opcode itself
-                if (SourceExtWord1.HasValue) Length += 2;
-                if (SourceExtWord2.HasValue) Length += 2;
-                if (DestExtWord1.HasValue) Length += 2;
-                if (DestExtWord2.HasValue) Length += 2;
                 AccessAddress = null;
                 AccessAddressType = null;
             }
@@ -72,11 +67,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 DestExtWord1 = destExtWord1;
                 DestExtWord2 = destExtWord2;
                 Address = 0;
-                Length = 2; // Minimum length is 2 bytes for the opcode itself
-                if (SourceExtWord1.HasValue) Length += 2;
-                if (SourceExtWord2.HasValue) Length += 2;
-                if (DestExtWord1.HasValue) Length += 2;
-                if (DestExtWord2.HasValue) Length += 2;
                 AccessAddress = null;
                 AccessAddressType = null;
                 return this;
@@ -92,10 +82,31 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             public uint Address { get; internal set; }
 
+            private uint? _length;
+
             /// <summary>
             /// Instruction length in bytes.
             /// </summary>
-            public uint Length { get; internal set; }
+            public uint Length
+            {
+                get
+                {
+                    if (_length.HasValue)
+                    {
+                        return _length.Value;
+                    }
+                    else
+                    {
+                        uint len = 2; // Minimum length is 2 bytes for the opcode itself
+                        if (SourceExtWord1.HasValue) len += 2;
+                        if (SourceExtWord2.HasValue) len += 2;
+                        if (DestExtWord1.HasValue) len += 2;
+                        if (DestExtWord2.HasValue) len += 2;
+                        _length = len;
+                        return len;
+                    }
+                }
+            }
 
             /// <summary>
             /// An <see cref="InstructionInfo"/> instance giving info about the instruction.
@@ -122,32 +133,56 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <summary>
             /// The value of the source addressing mode (if any).
             /// </summary>
-            public byte? SourceAddrMode { get; internal set; }
+            public byte? SourceAddrMode
+            {
+                get => field;
+                internal set { field = value; _length = null; }
+            }
 
             /// <summary>
             /// The value of the first source extension word (if any).
             /// </summary>
-            public ushort? SourceExtWord1 { get; internal set; }
+            public ushort? SourceExtWord1
+            {
+                get => field;
+                internal set { field = value; _length = null; }
+            }
 
             /// <summary>
             /// The value of the second source extension word (if any).
             /// </summary>
-            public ushort? SourceExtWord2 { get; internal set; }
+            public ushort? SourceExtWord2
+            {
+                get => field;
+                internal set { field = value; _length = null; }
+            }
 
             /// <summary>
             /// The value of the destination addressing mode (if any).
             /// </summary>
-            public byte? DestAddrMode { get; internal set; }
+            public byte? DestAddrMode
+            {
+                get => field;
+                internal set { field = value; _length = null; }
+            }
 
             /// <summary>
             /// The value of the first destination extension word (if any).
             /// </summary>
-            public ushort? DestExtWord1 { get; internal set; }
+            public ushort? DestExtWord1
+            {
+                get => field;
+                internal set { field = value; _length = null; }
+            }
 
             /// <summary>
             /// The value of the second destination extension word (if any).
             /// </summary>
-            public ushort? DestExtWord2 { get; internal set; }
+            public ushort? DestExtWord2
+            {
+                get => field;
+                internal set { field = value; _length = null; }
+            }
         }
     }
 }

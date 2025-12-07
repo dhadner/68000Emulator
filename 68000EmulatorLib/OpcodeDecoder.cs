@@ -65,6 +65,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 0x04, new List<InstructionInfo>()
                 {
                     { new InstructionInfo(0b0100000011000000, 0b1111111111000000, "MOVEfromSR", OpHandlerID.MOVEfromSR) },
+                    { new InstructionInfo(0b0100001011000000, 0b1111111111000000, "MOVEfromCCR", OpHandlerID.MOVEfromCCR) },
                     { new InstructionInfo(0b0100010011000000, 0b1111111111000000, "MOVEtoCCR", OpHandlerID.MOVEtoCCR) },
                     { new InstructionInfo(0b0100011011000000, 0b1111111111000000, "MOVEtoSR", OpHandlerID.MOVEtoSR) },
                     { new InstructionInfo(0b0100000000000000, 0b1111111100000000, "NEGX", OpHandlerID.NEGX) },
@@ -427,6 +428,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     break;
 
                 case OpHandlerID.MOVEfromSR:
+                case OpHandlerID.MOVEfromCCR:
                     destEA = Helpers.GetEAMode(opcode);
                     if (UndefinedEA(destEA)) return null;
 
@@ -439,9 +441,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                     break;
 
+                case OpHandlerID.MOVEtoSR:
                 case OpHandlerID.MOVEtoCCR:
                     sourceEA = Helpers.GetEAMode(opcode);
-                    opSize = OpSize.Byte;
+                    opSize = OpSize.Word;
                     if (UndefinedEA(sourceEA)) return null;
                     if ((sourceEA & 0b111000) == 0b001000)
                     {
@@ -455,7 +458,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.DIVS:
                 case OpHandlerID.MULU:
                 case OpHandlerID.MULS:
-                case OpHandlerID.MOVEtoSR:
                     sourceEA = Helpers.GetEAMode(opcode);
                     if (UndefinedEA(sourceEA)) return null;
                     if ((sourceEA & 0b111000) == 0b001000)
