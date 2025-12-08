@@ -408,7 +408,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             foreach (var testcase in testcases)
             {
-                if (testcase.Name.StartsWith("152 MOVEtoCCR (d8, PC, Xn) 44fb"))
+                if (testcase.Name.StartsWith("018 OR.l (A4)+, D4 889c"))
                 {
                     _output.WriteLine($"Looking at failing test case {testcase.Name}");
                 }
