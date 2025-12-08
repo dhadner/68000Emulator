@@ -1,18 +1,10 @@
-using Microsoft.VisualStudio.TestPlatform.ObjectModel;
 using PendleCodeMonkey.MC68000EmulatorLib;
 using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Diagnostics.Metrics;
 using System.IO;
-using System.Linq;
-using System.Text.Json;
 using Xunit;
 using Xunit.Abstractions;
-using Xunit.Sdk;
 using static PendleCodeMonkey.MC68000EmulatorLib.Machine;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace PendleCodeMonkey.MC68000Emulator.Tests
 {
