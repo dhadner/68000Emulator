@@ -997,7 +997,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 sbyte disp = (sbyte)(ext1!.Value & 0x00FF);
                                 int indexRegNum = (ext1!.Value & 0x7000) >> 12;
                                 OpSize sz = (ext1!.Value & 0x0800) == 0 ? OpSize.Word : OpSize.Long;
-                                operand = new AddressIndexOperand(regNum, indexRegNum, sz, disp);
+                                bool indexIsAddressRegister = (ext1!.Value & 0x8000) != 0;
+                                operand = new AddressIndexOperand(AddressRegisters[regNum], indexRegNum, indexIsAddressRegister,  sz, disp);
                             }
                             break;
                         case 0x0038:
@@ -1030,6 +1031,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         byte disp = (byte)(ext1!.Value & 0x00FF);
                                         byte indexRegNum = (byte)((ext1!.Value & 0x7000) >> 12);
                                         OpSize sz = (ext1.Value & 0x0800) == 0 ? OpSize.Word : OpSize.Long;
+                                        bool indexIsAddressRegister = (ext1.Value & 0x8000) != 0;
 
                                         // PC has been incremented past the extension word.  The definition of
                                         // PC displacement uses the value of the extension word address as the PC value.
@@ -1040,7 +1042,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         }
 
                                         uint baseAddress = (uint)((sbyte)disp + (int)Machine.CPU.PC - pcDecrement);
-                                        operand = new PCIndexOperand(indexRegNum, baseAddress, sz);
+                                        operand = new PCIndexOperand(indexRegNum, indexIsAddressRegister, baseAddress, sz);
                                     }
                                     break;
                                 case (byte)AddrMode.Immediate:
@@ -2473,19 +2475,19 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             public class AddressIndexOperand : Operand
             {
-                public AddressIndexOperand(AddressRegister addressRegister, DataRegister indexRegister, OpSize indexSize, Displacement displacement, string? format = null) : base(format)
+                public AddressIndexOperand(AddressRegister addressRegister, int indexRegnum, bool indexIsAddressRegister, OpSize indexSize, Displacement displacement, string? format = null) : base(format)
                 {
                     AddressRegister = addressRegister;
                     AddressMode = AddrMode.AddressIndex;
-                    IndexRegister = indexRegister;
+                    IndexRegister = new IndexRegister(indexRegnum, indexIsAddressRegister);
                     Displacement = displacement;
                     IndexSize = indexSize;
                 }
 
-                public AddressIndexOperand(int addressRegNum, int dataRegNum, OpSize indexSize, sbyte disp, string? format = null) : this(AddressRegisters[addressRegNum], DataRegisters[dataRegNum], indexSize, new Displacement(disp), format) { }
+                public AddressIndexOperand(AddressRegister addressRegister, int indexRegNum, bool indexIsAddressRegister, OpSize indexSize, sbyte disp, string? format = null) : this(addressRegister, indexRegNum, indexIsAddressRegister, indexSize, new Displacement(disp), format) { }
 
                 public AddressRegister AddressRegister { get; set; }
-                public DataRegister IndexRegister { get; set; }
+                public IndexRegister IndexRegister { get; set; }
                 public Displacement Displacement { get; set; }
                 public OpSize? IndexSize { get; set; }
 
@@ -2767,18 +2769,19 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             public class PCIndexOperand : Operand
             {
-                public PCIndexOperand(DataRegister indexRegister, Displacement displacement, OpSize size, string? format = null) : base(format)
+                public PCIndexOperand(int regNum, bool indexIsAddressRegister, Displacement displacement, OpSize size, string? format = null) : base(format)
                 {
                     AddressMode = AddrMode.PCIndex;
-                    IndexRegister = indexRegister;
+                    IndexRegister = new IndexRegister(regNum, indexIsAddressRegister);
+                    IndexIsAddressRegister = indexIsAddressRegister;
                     Displacement = displacement;
                     Size = size;
                 }
 
-                public PCIndexOperand(int indexRegNum, Displacement displacement, OpSize size, string? format = null) : this(DataRegisters[indexRegNum], displacement, size, format) { }
-                public PCIndexOperand(int indexRegNum, uint address, OpSize size, string? format = null) : this(DataRegisters[indexRegNum], new Displacement(address), size, format) { }
+                public PCIndexOperand(int indexRegNum, bool indexIsAddressRegister, uint address, OpSize size, string? format = null) : this(indexRegNum, indexIsAddressRegister, new Displacement(address), size, format) { }
 
-                public DataRegister IndexRegister { get; set; }
+                public IndexRegister IndexRegister { get; set; }
+                public bool IndexIsAddressRegister { get; set; }
                 public Displacement Displacement { get; set; }
 
                 /// <summary>
@@ -3129,49 +3132,59 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 public ConditionCodeRegister() : base("CCR") { }
             }
 
-            /// <summary>
-            /// Data register name.
-            /// </summary>
-            public class DataRegister
+            public class IndexRegister
             {
                 /// <summary>
                 /// Create an instance.
                 /// </summary>
                 /// <param name="name"></param>
-                public DataRegister(string name)
+                public IndexRegister(int regNum, bool isAddressRegister)
+                {
+                    Name = isAddressRegister ?
+                        $"A{regNum}" :
+                        $"D{regNum}";
+                }
+
+                public IndexRegister(string name)
                 {
                     Name = name;
                 }
 
                 /// <summary>
-                /// Register name, e.g. "D2", "D7".
+                /// Register name, e.g. "D2", "A4".
                 /// </summary>
                 public string Name { get; set; }
 
                 public override string ToString()
                 {
                     return Name;
+                }
+
+            }
+
+            /// <summary>
+            /// Data register name.
+            /// </summary>
+            public class DataRegister : IndexRegister
+            {
+                /// <summary>
+                /// Create an instance.
+                /// </summary>
+                /// <param name="name"></param>
+                public DataRegister(string name) : base(name)
+                {
+                    Name = name;
                 }
             }
 
             /// <summary>
             /// Address register name.
             /// </summary>
-            public class AddressRegister
+            public class AddressRegister : IndexRegister
             {
-                public AddressRegister(string name)
+                public AddressRegister(string name) : base(name)
                 {
                     Name = name;
-                }
-
-                /// <summary>
-                /// Register name, e.g., "A3", "SP".
-                /// </summary>
-                public string Name { get; set; }
-
-                public override string ToString()
-                {
-                    return Name;
                 }
             }
 

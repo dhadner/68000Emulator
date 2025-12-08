@@ -723,16 +723,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 int disp = (sbyte)(byte)(ext1.Value & 0x00FF);
                                 byte indexRegNum = (byte)((ext1.Value & 0x7000) >> 12);
                                 OpSize indexSize = (ext1.Value & 0x0800) == 0 ? OpSize.Word : OpSize.Long;
-                                bool useAddressAsIndex = (ext1.Value & 0x8000) != 0;
-                                uint indexValue;
-                                if (useAddressAsIndex)
-                                {
-                                    indexValue = Machine.CPU.ReadAddressRegister(indexRegNum);
-                                }
-                                else
-                                {
-                                    indexValue = Machine.CPU.ReadDataRegister(indexRegNum);
-                                }
+                                bool indexIsAddressRegister = (ext1.Value & 0x8000) != 0;
+                                uint indexValue = indexIsAddressRegister ?
+                                    Machine.CPU.ReadAddressRegister(indexRegNum) :
+                                    Machine.CPU.ReadDataRegister(indexRegNum);
+
                                 if (indexSize == OpSize.Word)
                                 {
                                     indexValue = (uint)(int)(short)(ushort)indexValue;
@@ -770,7 +765,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         byte disp = (byte)(ext1.Value & 0x00FF);
                                         byte indexRegNum = (byte)((ext1.Value & 0x7000) >> 12);
                                         OpSize indexSize = (ext1.Value & 0x0800) == 0 ? OpSize.Word : OpSize.Long;
-                                        uint indexValue = Machine.CPU.ReadDataRegister(indexRegNum);
+                                        bool indexIsAddress = (ext1.Value & 0x8000) != 0;
+                                        uint indexValue = indexIsAddress? 
+                                            Machine.CPU.ReadAddressRegister(indexRegNum):
+                                            Machine.CPU.ReadDataRegister(indexRegNum);
                                         if (indexSize == OpSize.Word)
                                         {
                                             indexValue = (uint)(int)(short)(ushort)indexValue;

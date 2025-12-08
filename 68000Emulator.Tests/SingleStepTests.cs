@@ -210,9 +210,9 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         /// </summary>
         /// <param name="requiredState"></param>
         /// <param name="cpu"></param>
-        private void CheckCpuState(M68KJsonTestCase testcase, M68KTestCaseState requiredState, CPU cpu)
+        private void CheckCpuState(M68KJsonTestCase testcase, M68KTestCaseState requiredState, CPU cpu, Disassembler.DisassemblyRecord? record = null)
         {
-            string testCaseInfo = $"{testcase.Name}";
+            string testCaseInfo = $"{testcase.Name}: {record}";
             var actualD0 = cpu.ReadDataRegister(0);
             Assert.True(requiredState.D0 == actualD0, $"{testCaseInfo}: D0 mismatch. Expected: ${requiredState.D0:x8} ({requiredState.D0}), Actual: ${actualD0:x8} ({actualD0})");
             var actualD1 = cpu.ReadDataRegister(1);
@@ -317,9 +317,9 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         /// </summary>
         /// <param name="requiredState"></param>
         /// <param name="machine"></param>
-        private static void CheckMemoryState(M68KJsonTestCase testcase, M68KTestCaseState requiredState, Machine machine)
+        private static void CheckMemoryState(M68KJsonTestCase testcase, M68KTestCaseState requiredState, Machine machine, Disassembler.DisassemblyRecord? record = null)
         {
-            string testCaseInfo = $"{testcase.Name}";
+            string testCaseInfo = $"{testcase.Name}: {record}";
             foreach (var ramEntry in requiredState.Ram)
             {
                 var address = ramEntry.Address;
@@ -416,7 +416,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             foreach (var testcase in testcases)
             {
-                if (testcase.Name.StartsWith("567 NEGX.b (d8, A5, Xn) 4035"))
+                if (testcase.Name.StartsWith("152 MOVEtoCCR (d8, PC, Xn) 44fb"))
                 {
                     _output.WriteLine($"Looking at failing test case {testcase.Name}");
                 }
@@ -431,10 +431,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 // Set PC to the start of the instruction.
                 cpu.PC = instructionStartAddr;
                 var lines = disassembler.Disassemble(machine.CPU.PC, Disassembler.MAX_INSTRUCTION_LENGTH, 1);
-                if (lines.Count >= 1)
-                {
-                    _output.WriteLine($"Test case {testcase.Name}: {lines[0]}");
-                }
+                Disassembler.DisassemblyRecord record = lines[0];
+                _output.WriteLine($"Test case {testcase.Name}: {record}");
 
                 machine.CallDepth = 1;         // To ensure that an RTS is actually performed.
 
@@ -446,8 +444,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 }
 
                 // Check final state
-                CheckCpuState(testcase, testcase.Final, cpu);
-                CheckMemoryState(testcase, testcase.Final, machine);
+                CheckCpuState(testcase, testcase.Final, cpu, record);
+                CheckMemoryState(testcase, testcase.Final, machine, record);
             }
         }
     }
