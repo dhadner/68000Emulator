@@ -1,5 +1,6 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System.Diagnostics;
+using System.Reflection.Metadata.Ecma335;
 using System.Runtime.CompilerServices;
 using System.Text;
 
@@ -233,7 +234,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 _handlers.Add(OpHandlerID.MOVEA, MOVEA);
                 _handlers.Add(OpHandlerID.MOVEfromSR, MOVEfromSR);
                 _handlers.Add(OpHandlerID.MOVEtoCCR, MOVEtoCCR);
-                _handlers.Add(OpHandlerID.MOVEfromCCR, MOVEfromCCR);
                 _handlers.Add(OpHandlerID.MOVEtoSR, MOVEtoSR);
                 _handlers.Add(OpHandlerID.NEGX, DST);
                 _handlers.Add(OpHandlerID.CLR, DST);
@@ -363,6 +363,40 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return OpSize.Byte;
             }
 
+            /// <summary>
+            /// Disassemble an arbitrary array of bytes.
+            /// </summary>
+            /// <param name="address"></param>
+            /// <param name="code">Continguous array of bytes starting at <see cref="address"/></param>
+            /// <returns></returns>
+            public List<DisassemblyRecord> DisassembleBytes(uint address, byte[] code)
+            {
+                uint length = (uint)code.Length;
+
+                // Save existing memory contents
+                byte[] oldCode = new byte[length];
+                for (uint codeOffset = 0; codeOffset < length; codeOffset++)
+                {
+                    oldCode[codeOffset] = Machine.Memory.ReadByte(address + codeOffset);
+                }
+
+                // Load the code into memory at the specified address.
+                for (uint codeOffset = 0; codeOffset < length; codeOffset++)
+                {
+                    Machine.Memory.WriteByte(address + codeOffset, code[codeOffset]);
+                }
+
+                // Disassemble
+                var list = Disassemble(address, length);
+
+                // Restore original memory contents
+                for (uint codeOffset = 0; codeOffset < length; codeOffset++)
+                {
+                    Machine.Memory.WriteByte(address + codeOffset, oldCode[codeOffset]);
+                }
+
+                return list;    
+            }
 
             /// <summary>
             /// Perform a full disassembly of the specified block of memory.
@@ -1228,18 +1262,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sb.AppendTab(EA_COLUMN);
 
                 op.Operands.Add(new SROperand());
-                op.Operands.Add(EffectiveAddressOp(inst, EAType.Destination));
-
-                sb.Append(op.Operands);
-                return op;
-            }
-            protected Operation? MOVEfromCCR(Instruction inst, StringBuilder sb)
-            {
-                Operation op = new(Machine.ExecutingAtAddress, "MOVE");
-                sb.Append("MOVE");
-                sb.AppendTab(EA_COLUMN);
-
-                op.Operands.Add(new CCROperand());
                 op.Operands.Add(EffectiveAddressOp(inst, EAType.Destination));
 
                 sb.Append(op.Operands);

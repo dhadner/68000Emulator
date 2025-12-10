@@ -927,17 +927,15 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0x00000000, OpSize.Byte, (SRFlags)0, SRFlags.Zero)]
+        [InlineData(0x00000000, OpSize.Byte, SRFlags.Negative, (SRFlags)0)]
         [InlineData(0x00000000, OpSize.Byte, SRFlags.Extend, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]
-        [InlineData(0x00000070, OpSize.Byte, (SRFlags)0, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]
+        [InlineData(0x00000070, OpSize.Byte, (SRFlags)0, SRFlags.Carry | SRFlags.Negative | SRFlags.Extend)]
         [InlineData(0x00000090, OpSize.Byte, SRFlags.Extend, SRFlags.Carry | SRFlags.Extend)]
-        [InlineData(0x00000000, OpSize.Word, (SRFlags)0, SRFlags.Zero)]
-        [InlineData(0x00000000, OpSize.Word, SRFlags.Extend, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]
-        [InlineData(0x00007070, OpSize.Word, (SRFlags)0, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]
+        [InlineData(0x00000000, OpSize.Word, SRFlags.Extend, SRFlags.Carry | SRFlags.Negative | SRFlags.Extend)]
+        [InlineData(0x00007070, OpSize.Word, (SRFlags)0, SRFlags.Carry | SRFlags.Negative | SRFlags.Extend)]
         [InlineData(0x00008070, OpSize.Word, SRFlags.Extend, SRFlags.Carry | SRFlags.Extend)]
-        [InlineData(0x00000000, OpSize.Long, (SRFlags)0, SRFlags.Zero)]
-        [InlineData(0x00000000, OpSize.Long, SRFlags.Extend, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]
-        [InlineData(0x70807070, OpSize.Long, (SRFlags)0, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]
+        [InlineData(0x00000000, OpSize.Long, SRFlags.Extend, SRFlags.Carry | SRFlags.Negative | SRFlags.Extend)]
+        [InlineData(0x70807070, OpSize.Long, (SRFlags)0, SRFlags.Carry | SRFlags.Negative | SRFlags.Extend)]
         [InlineData(0x80807070, OpSize.Long, SRFlags.Extend, SRFlags.Carry | SRFlags.Extend)]
         public void NEGX_FlagsTest(uint value, OpSize size, SRFlags initFlags, SRFlags expectedFlags)
         {

@@ -1,10 +1,16 @@
 using PendleCodeMonkey.MC68000EmulatorLib;
 using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
+using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Net;
+using System.Runtime.InteropServices;
+using System.Text;
 using Xunit;
 using Xunit.Abstractions;
 using static PendleCodeMonkey.MC68000EmulatorLib.Machine;
+using Address = uint;
 
 namespace PendleCodeMonkey.MC68000Emulator.Tests
 {
@@ -197,45 +203,310 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             return data;
         }
 
+        private static CPUState GetCPUState(M68KTestCaseState testcaseState)
+        {
+            var cpuState = new CPUState();
+            cpuState.A0 = testcaseState.A0;
+            cpuState.A1 = testcaseState.A1;
+            cpuState.A2 = testcaseState.A2;
+            cpuState.A3 = testcaseState.A3;
+            cpuState.A4 = testcaseState.A4;
+            cpuState.A5 = testcaseState.A5;
+            cpuState.A6 = testcaseState.A6;
+            cpuState.D0 = testcaseState.D0;
+            cpuState.D1 = testcaseState.D1;
+            cpuState.D2 = testcaseState.D2;
+            cpuState.D3 = testcaseState.D3;
+            cpuState.D4 = testcaseState.D4;
+            cpuState.D5 = testcaseState.D5;
+            cpuState.D6 = testcaseState.D6;
+            cpuState.D7 = testcaseState.D7;
+            cpuState.USP = testcaseState.Usp;
+            cpuState.SSP = testcaseState.Ssp;
+            cpuState.PC = testcaseState.Pc;
+            cpuState.SR = (SRFlags)testcaseState.Sr;
+            return cpuState;
+        }
+
+        private static void DumpCpuState(CPUState cpuState, StringBuilder sb)
+        {
+            SRFlags sr = cpuState.SR!.Value;
+            string flags = FormatStatusRegister(sr);
+            sb.Append($"{LEADING_BLANKS}SR:{(ushort)cpuState.SR!:x4}  PC:{cpuState.PC:x8} D0:{cpuState.D0:x8} D1:{cpuState.D1:x8} D2:{cpuState.D2:x8} D3:{cpuState.D3:x8} D4:{cpuState.D4:x8} D5:{cpuState.D5:x8} D6:{cpuState.D6:x8} D7:{cpuState.D7:x8}");
+            sb.Append($"\n{LEADING_BLANKS}{flags} A0:{cpuState.A0:x8} A1:{cpuState.A1:x8} A2:{cpuState.A2:x8} A3:{cpuState.A3:x8} A4:{cpuState.A4:x8} A5:{cpuState.A5:x8} A6:{cpuState.A6:x8} SSP:{cpuState.SSP:x8} USP:{cpuState.USP:x8}");
+            sb.AppendLine("");
+        }
+
+        private static SortedDictionary<Address, byte> GetMemory(M68KTestCaseState testcaseState)
+        {
+            SortedDictionary<Address, byte> memory = [];
+            foreach (var ramEntry in testcaseState.Ram)
+            {
+                memory[ramEntry.Address] = ramEntry.Data;
+            }
+            return memory;
+        }
+
+        private static SortedDictionary<Address, byte> GetMemory(Machine machine, M68KTestCaseState testcaseState)
+        {
+            SortedDictionary<Address, byte> memory = [];
+            foreach (var ramEntry in testcaseState.Ram)
+            {
+                memory[ramEntry.Address] = machine.Memory.ReadByte(ramEntry.Address);
+            }
+
+            // Get all other memory if it is non-zero.
+            for (Address addr = 0; addr < 0x01000000; addr++)
+            {
+                if (!memory.ContainsKey(addr))
+                {
+                    byte value = machine.Memory.ReadByte(addr);
+                    if (value != 0)
+                    {
+                        memory[addr] = value;
+                    }
+                }
+            }
+            return memory;
+        }
+
+        /// <summary>
+        /// Return an array of contiguous bytes starting at <see cref="startAddress"/>.
+        /// If there is not a byte at <see cref="startAddress"/>, return an empty
+        /// array.
+        /// </summary>
+        /// <param name="startAddress"></param>
+        /// <param name="memory"></param>
+        /// <returns></returns>
+        private static byte[] GetContiguousBytes(Address startAddress, SortedDictionary<Address, byte> memory)
+        {
+            Address currentAddress = startAddress;
+            List<byte> instructionBytes = [];
+            while (true)
+            {
+                if (!memory.ContainsKey(currentAddress))
+                {
+                    break;
+                }
+                instructionBytes.Add(memory[currentAddress++]);
+            }
+            return [.. instructionBytes];
+        }
+
+        /// <summary>
+        /// Find the next byte of memory at or after <see cref="startAddress"/>.
+        /// </summary>
+        /// <param name="startAddress"></param>
+        /// <param name="memory"></param>
+        /// <returns>address of first byte found or null of none found</returns>
+        private static Address? FindNextBlock(Address startAddress, SortedDictionary<Address, byte> memory)
+        {
+            foreach (var pair in memory)
+            {
+                if (pair.Key >= startAddress)
+                {
+                    return pair.Key;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Get any trap vectors in memory. 
+        /// </summary>
+        /// <param name="memory"></param>
+        /// <returns>List of trap vectors or empty list if none</returns>
+        private static List<(Address address, uint value)> GetTrapVectors(SortedDictionary<Address, byte> memory)
+        {
+            List<(uint address, uint value)> vectors = [];
+            for (uint i = 0; i <= 255; i++)
+            {
+                uint vectorAddress = i * 4;
+                if (memory.ContainsKey(vectorAddress + 0) &&
+                    memory.ContainsKey(vectorAddress + 1) &&
+                    memory.ContainsKey(vectorAddress + 2) &&
+                    memory.ContainsKey(vectorAddress + 3))
+                {
+                    uint address = MemToUint(memory, vectorAddress);
+                    vectors.Add((vectorAddress, address));
+                }
+            }
+            return vectors;
+        }
+
+        private static void DumpTrapVectors(SortedDictionary<Address, byte> memory, StringBuilder sb)
+        {
+            var vectors = GetTrapVectors(memory);
+            foreach (var (address, vectorAddress) in vectors)
+            {
+                sb.AppendLine($"{LEADING_BLANKS}Trap {TrapException.Description((ushort)(address / 4))} vector: ${vectorAddress:x8}");
+            }
+        }
+
+        private static void DumpMemory(SortedDictionary<Address, byte> memory, StringBuilder sb)
+        {
+            Address startAddress = 1024; // Past the trap vectors
+            Address? nextBlock = startAddress;
+            while (nextBlock != null)
+            {
+                nextBlock = FindNextBlock(startAddress, memory);
+                if (nextBlock != null)
+                {
+                    int length = DumpMemoryBlock(nextBlock.Value, memory, sb);
+                    startAddress = nextBlock.Value + (Address)Math.Max(length, 1);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Dump the contiguous memory block.
+        /// </summary>
+        /// <param name="startAddress"></param>
+        /// <param name="memory"></param>
+        /// <param name="sb"></param>
+        /// <returns>Number of bytes in the memory block</returns>
+        private static int DumpMemoryBlock(Address startAddress, SortedDictionary<Address, byte> memory, StringBuilder sb)
+        {
+            byte[] bytes = GetContiguousBytes(startAddress, memory);
+
+            sb.Append(LEADING_BLANKS);
+            uint count = 0;
+            while (count < bytes.Length)
+            {
+                sb.Append($"{(startAddress + count):x8}: ");
+                for (int i = 0; i < 16; i++)
+                {
+                    sb.Append($"{bytes[count++]:x2}");
+                    if (count >= bytes.Length)
+                    {
+                        break;
+                    }
+                    sb.Append(' ');
+                    if (i == 7)
+                    {
+                        sb.Append(' ');
+                    }
+                }
+            }
+            sb.AppendLine("");
+            return bytes.Length;
+        }
+
+        private const string LEADING_BLANKS = "   ";
+
+        private static void DumpCode(Address startAddress, SortedDictionary<Address, byte> memory, Machine machine, Disassembler disassembler, StringBuilder sb)
+        {
+            byte[] code = GetContiguousBytes(startAddress, memory);
+            var lines = disassembler.DisassembleBytes(startAddress, code);
+            foreach (var line in lines)
+            {
+                sb.Append(LEADING_BLANKS);
+                sb.AppendLine(line.ToString());
+            }
+        }
+
+        private static string DumpTestCase(M68KJsonTestCase testcase, Machine machine, Disassembler disassembler)
+        {
+            CPUState initialCpu = GetCPUState(testcase.Initial);
+            CPUState finalCpu = GetCPUState(testcase.Final);
+            var initialMemory = GetMemory(testcase.Initial);
+            var finalMemory = GetMemory(testcase.Final);
+            var startAddress = testcase.Initial.Pc;
+
+            StringBuilder sb = new();
+
+            sb.AppendLine($"Test case: {testcase.Name}");
+
+            sb.AppendLine("Code:");
+            DumpCode(startAddress, initialMemory, machine, disassembler, sb);
+
+            sb.AppendLine("Initial CPU state:");
+            DumpCpuState(initialCpu, sb);
+
+            sb.AppendLine("Trap vectors:");
+            DumpTrapVectors(initialMemory, sb);
+
+            sb.AppendLine("Initial memory:");
+            DumpMemory(initialMemory, sb);
+
+            sb.AppendLine("Final CPU required state:");
+            DumpCpuState(finalCpu, sb);
+
+            sb.AppendLine("Final CPU actual state:");
+            DumpCpuState(machine.GetCPUState(), sb);
+
+            sb.AppendLine("Final memory required state:");
+            DumpMemory(finalMemory, sb);
+
+            sb.AppendLine("Final memory actual state:");
+            var finalActualMemory = GetMemory(machine, testcase.Final);
+            DumpMemory(finalActualMemory, sb);  
+
+            return sb.ToString();
+        }
+
+        private static uint MemToUint(SortedDictionary<uint, byte> mem, uint address)
+        {
+            return (uint)(mem[address + 0] << 24 | mem[address + 1] << 16 | mem[address + 2] << 8 | mem[address + 3]);
+        }
+
+        private static string FormatStatusRegister(SRFlags sr)
+        {
+            StringBuilder flags = new();
+            flags.Append(sr.HasFlag(SRFlags.TraceMode) ? 'T' : 't');
+            flags.Append(sr.HasFlag(SRFlags.SupervisorMode) ? 'S' : 's');
+
+            flags.Append(((ushort)(sr & SRFlags.InterruptLevel)) >> 8);
+
+            flags.Append(sr.HasFlag(SRFlags.Extend) ? 'X' : 'x');
+            flags.Append(sr.HasFlag(SRFlags.Negative) ? 'N' : 'n');
+            flags.Append(sr.HasFlag(SRFlags.Zero) ? 'Z' : 'z');
+            flags.Append(sr.HasFlag(SRFlags.Overflow) ? 'V' : 'v');
+            flags.Append(sr.HasFlag(SRFlags.Carry) ? 'C' : 'c');
+
+            return flags.ToString();
+        }
+
         /// <summary>
         /// Check that the required CPU state matches the actual CPU state.
         /// </summary>
         /// <param name="requiredState"></param>
         /// <param name="cpu"></param>
-        private void CheckCpuState(M68KJsonTestCase testcase, M68KTestCaseState requiredState, CPU cpu, Disassembler.DisassemblyRecord? record = null)
+        private void CheckCpuState(M68KJsonTestCase testcase, M68KTestCaseState requiredState, Machine machine, Disassembler disassembler)
         {
-            string testCaseInfo = $"{testcase.Name}: {record}";
+            CPU cpu = machine.CPU;
+            string testCaseInfo = $"{testcase.Name}:\n{DumpTestCase(testcase, machine, disassembler)}\n";
             var actualD0 = cpu.ReadDataRegister(0);
-            Assert.True(requiredState.D0 == actualD0, $"{testCaseInfo}: D0 mismatch. Expected: ${requiredState.D0:x8} ({requiredState.D0}), Actual: ${actualD0:x8} ({actualD0})");
+            Assert.True(requiredState.D0 == actualD0, $"{testCaseInfo}D0 mismatch. Expected: ${requiredState.D0:x8} ({requiredState.D0}), Actual: ${actualD0:x8} ({actualD0})");
             var actualD1 = cpu.ReadDataRegister(1);
-            Assert.True(requiredState.D1 == actualD1, $"{testCaseInfo}: D1 mismatch. Expected: ${requiredState.D1:x8} ({requiredState.D1}), Actual: ${actualD1:x8} ({actualD1})");
+            Assert.True(requiredState.D1 == actualD1, $"{testCaseInfo}D1 mismatch. Expected: ${requiredState.D1:x8} ({requiredState.D1}), Actual: ${actualD1:x8} ({actualD1})");
             var actualD2 = cpu.ReadDataRegister(2);
-            Assert.True(requiredState.D2 == actualD2, $"{testCaseInfo}: D2 mismatch. Expected: ${requiredState.D2:x8} ({requiredState.D2}), Actual: ${actualD2:x8} ({actualD2})");
+            Assert.True(requiredState.D2 == actualD2, $"{testCaseInfo}D2 mismatch. Expected: ${requiredState.D2:x8} ({requiredState.D2}), Actual: ${actualD2:x8} ({actualD2})");
             var actualD3 = cpu.ReadDataRegister(3);
-            Assert.True(requiredState.D3 == actualD3, $"{testCaseInfo}: D3 mismatch. Expected: ${requiredState.D3:x8} ({requiredState.D3}), Actual: ${actualD3:x8} ({actualD3})");
+            Assert.True(requiredState.D3 == actualD3, $"{testCaseInfo}D3 mismatch. Expected: ${requiredState.D3:x8} ({requiredState.D3}), Actual: ${actualD3:x8} ({actualD3})");
             var actualD4 = cpu.ReadDataRegister(4);
-            Assert.True(requiredState.D4 == actualD4, $"{testCaseInfo}: D4 mismatch. Expected: ${requiredState.D4:x8} ({requiredState.D4}), Actual: ${actualD4:x8} ({actualD4})");
+            Assert.True(requiredState.D4 == actualD4, $"{testCaseInfo}D4 mismatch. Expected: ${requiredState.D4:x8} ({requiredState.D4}), Actual: ${actualD4:x8} ({actualD4})");
             var actualD5 = cpu.ReadDataRegister(5);
-            Assert.True(requiredState.D5 == actualD5, $"{testCaseInfo}: D5 mismatch. Expected: ${requiredState.D5:x8} ({requiredState.D5}), Actual: ${actualD5:x8} ({actualD5})");
+            Assert.True(requiredState.D5 == actualD5, $"{testCaseInfo}D5 mismatch. Expected: ${requiredState.D5:x8} ({requiredState.D5}), Actual: ${actualD5:x8} ({actualD5})");
             var actualD6 = cpu.ReadDataRegister(6);
-            Assert.True(requiredState.D6 == actualD6, $"{testCaseInfo}: D6 mismatch. Expected: ${requiredState.D6:x8} ({requiredState.D6}), Actual: ${actualD6:x8} ({actualD6})");
+            Assert.True(requiredState.D6 == actualD6, $"{testCaseInfo}D6 mismatch. Expected: ${requiredState.D6:x8} ({requiredState.D6}), Actual: ${actualD6:x8} ({actualD6})");
             var actualD7 = cpu.ReadDataRegister(7);
-            Assert.True(requiredState.D7 == actualD7, $"{testCaseInfo}: D7 mismatch. Expected: ${requiredState.D7:x8} ({requiredState.D7}), Actual: ${actualD7:x8} ({actualD7})");
+            Assert.True(requiredState.D7 == actualD7, $"{testCaseInfo}D7 mismatch. Expected: ${requiredState.D7:x8} ({requiredState.D7}), Actual: ${actualD7:x8} ({actualD7})");
 
             var actualA0 = cpu.ReadAddressRegister(0);
-            Assert.True(requiredState.A0 == actualA0, $"{testCaseInfo}: A0 mismatch. Expected: {requiredState.A0:x8}, Actual: {actualA0:x8}");
+            Assert.True(requiredState.A0 == actualA0, $"{testCaseInfo}A0 mismatch. Expected: {requiredState.A0:x8}, Actual: {actualA0:x8}");
             var actualA1 = cpu.ReadAddressRegister(1);
-            Assert.True(requiredState.A1 == actualA1, $"{testCaseInfo}: A1 mismatch. Expected: {requiredState.A1:x8}, Actual: {actualA1:x8}");
+            Assert.True(requiredState.A1 == actualA1, $"{testCaseInfo}A1 mismatch. Expected: {requiredState.A1:x8}, Actual: {actualA1:x8}");
             var actualA2 = cpu.ReadAddressRegister(2);
-            Assert.True(requiredState.A2 == actualA2, $"{testCaseInfo}: A2 mismatch. Expected: {requiredState.A2:x8}, Actual: {actualA2:x8}");
+            Assert.True(requiredState.A2 == actualA2, $"{testCaseInfo}A2 mismatch. Expected: {requiredState.A2:x8}, Actual: {actualA2:x8}");
             var actualA3 = cpu.ReadAddressRegister(3);
-            Assert.True(requiredState.A3 == actualA3, $"{testCaseInfo}: A3 mismatch. Expected: {requiredState.A3:x8}, Actual: {actualA3:x8}");
+            Assert.True(requiredState.A3 == actualA3, $"{testCaseInfo}A3 mismatch. Expected: {requiredState.A3:x8}, Actual: {actualA3:x8}");
             var actualA4 = cpu.ReadAddressRegister(4);
-            Assert.True(requiredState.A4 == actualA4, $"{testCaseInfo}: A4 mismatch. Expected: {requiredState.A4:x8}, Actual: {actualA4:x8}");
+            Assert.True(requiredState.A4 == actualA4, $"{testCaseInfo}A4 mismatch. Expected: {requiredState.A4:x8}, Actual: {actualA4:x8}");
             var actualA5 = cpu.ReadAddressRegister(5);
-            Assert.True(requiredState.A5 == actualA5, $"{testCaseInfo}: A5 mismatch. Expected: {requiredState.A5:x8}, Actual: {actualA5:x8}");
+            Assert.True(requiredState.A5 == actualA5, $"{testCaseInfo}A5 mismatch. Expected: {requiredState.A5:x8}, Actual: {actualA5:x8}");
             var actualA6 = cpu.ReadAddressRegister(6);
-            Assert.True(requiredState.A6 == actualA6, $"{testCaseInfo}: A6 mismatch. Expected: {requiredState.A6:x8}, Actual: {actualA6:x8}");
+            Assert.True(requiredState.A6 == actualA6, $"{testCaseInfo}A6 mismatch. Expected: {requiredState.A6:x8}, Actual: {actualA6:x8}");
 
             // The M68000_SR_MASK from Rust is 0xA71F. We should only compare these bits.
             const ushort SR_MASK = 0x271F; // Ignore trace bit errors for now, then -> 0xA71F
@@ -243,24 +514,24 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             var actualSr = (SRFlags)((ushort)cpu.SR & SR_MASK);
             if (expectedSr != actualSr)
             {
-                _output.WriteLine($"{testCaseInfo}: Expected SR: ${(ushort)expectedSr:x4}, Actual SR: ${(ushort)actualSr:x4}");
+                _output.WriteLine($"{testCaseInfo}Expected SR: ${(ushort)expectedSr:x4} ({FormatStatusRegister(expectedSr)}), Actual SR: ${(ushort)actualSr:x4} ({FormatStatusRegister(actualSr)})");
             }
-            Assert.True((ushort)expectedSr == (ushort)actualSr, $"{testCaseInfo}: SR mismatch. Expected: ${(ushort)expectedSr:x4}, Actual: ${(ushort)actualSr:x4}");
+            Assert.True((ushort)expectedSr == (ushort)actualSr, $"{testCaseInfo}SR mismatch. Expected: ${(ushort)expectedSr:x4} ({FormatStatusRegister(expectedSr)}), Actual: ${(ushort)actualSr:x4} ({FormatStatusRegister(actualSr)})");
 
             // Check stack pointers after execution
             if ((requiredState.Sr & 0x2000) != 0) // Is supervisor
             {
                 var actualSsp = cpu.ReadAddressRegister(7);
-                Assert.True(requiredState.Ssp == actualSsp, $"{testCaseInfo}: SSP mismatch. Expected: ${requiredState.Ssp:x8}, Actual: ${actualSsp:x8}");
+                Assert.True(requiredState.Ssp == actualSsp, $"{testCaseInfo}SSP mismatch. Expected: ${requiredState.Ssp:x8}, Actual: ${actualSsp:x8}");
                 var actualUsp = cpu.USP;
-                Assert.True(requiredState.Usp == actualUsp, $"{testCaseInfo}: USP mismatch. Expected: ${requiredState.Usp:x8}, Actual: ${actualUsp:x8}");
+                Assert.True(requiredState.Usp == actualUsp, $"{testCaseInfo}USP mismatch. Expected: ${requiredState.Usp:x8}, Actual: ${actualUsp:x8}");
             }
             else
             {
                 var actualUsp = cpu.ReadAddressRegister(7);
-                Assert.True(requiredState.Usp == actualUsp, $"{testCaseInfo}: USP mismatch. Expected: ${requiredState.Usp:x8}, Actual: ${actualUsp:x8}");
+                Assert.True(requiredState.Usp == actualUsp, $"{testCaseInfo}USP mismatch. Expected: ${requiredState.Usp:x8}, Actual: ${actualUsp:x8}");
                 var actualSsp = cpu.SSP;
-                Assert.True(requiredState.Ssp == actualSsp, $"{testCaseInfo}: SSP mismatch. Expected: ${requiredState.Ssp:x8}, Actual: ${actualSsp:x8}");
+                Assert.True(requiredState.Ssp == actualSsp, $"{testCaseInfo}SSP mismatch. Expected: ${requiredState.Ssp:x8}, Actual: ${actualSsp:x8}");
             }
         }
 
@@ -293,9 +564,15 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             uint len = high - low;
             byte[] zeroes = new byte[len];
 
+            // Save PC since LoadExecutableData will change it.
+            uint pc = machine.CPU.PC;
+
             // Zero out the range and set the _loadedAddress and _dataLength
             // used for IsEndOfData.
             machine.LoadExecutableData(zeroes, low);
+
+            // Restore PC
+            machine.CPU.PC = pc;
 
             // No ordering can be assumned in the RAM list of addresses and bytes.
             foreach (var ramEntry in requiredState.Ram)
@@ -309,21 +586,20 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         /// </summary>
         /// <param name="requiredState"></param>
         /// <param name="machine"></param>
-        private static void CheckMemoryState(M68KJsonTestCase testcase, M68KTestCaseState requiredState, Machine machine, Disassembler.DisassemblyRecord? record = null)
+        private static void CheckMemoryState(M68KJsonTestCase testcase, M68KTestCaseState requiredState, Machine machine, Disassembler disassembler)
         {
-            string testCaseInfo = $"{testcase.Name}: {record}";
+            string testCaseInfo = $"{testcase.Name}:\n{DumpTestCase(testcase, machine, disassembler)}\n";
             foreach (var ramEntry in requiredState.Ram)
             {
                 var address = ramEntry.Address;
                 var expectedValue = ramEntry.Data;
 
-                var finalCpu = new CPU { SR = (SRFlags)requiredState.Sr };
-                if (finalCpu.SupervisorMode && (address >= requiredState.Ssp && address < requiredState.Ssp + 14))
+                if (machine.CPU.SupervisorMode && (address >= requiredState.Ssp && address < requiredState.Ssp + 14))
                 {
                     continue;
                 }
                 var actualValue = machine.Memory.ReadByte(address);
-                Assert.True(expectedValue == actualValue, $"{testCaseInfo}: RAM mismatch at $0x{address:x8}. Expected: ${expectedValue:x2} ({expectedValue}), Actual: ${actualValue:x2} ({actualValue})");
+                Assert.True(expectedValue == actualValue, $"{testCaseInfo}RAM mismatch at $0x{address:x8}. Expected: ${expectedValue:x2} ({expectedValue}), Actual: ${actualValue:x2} ({actualValue})");
             }
         }
 
@@ -333,7 +609,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         /// <param name="requiredState"></param>
         /// <param name="cpu"></param>
         /// <returns></returns>
-        private static uint SetCpuState(M68KTestCaseState requiredState, Machine machine)
+        private static void SetCpuState(M68KTestCaseState requiredState, Machine machine)
         {
             CPU cpu = machine.CPU;
             cpu.WriteDataRegister(0, requiredState.D0);
@@ -366,11 +642,10 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 cpu.SSP = requiredState.Ssp;
                 cpu.WriteAddressRegister(7, requiredState.Usp);
             }
-            // The PC in the test data points after the first prefetch.
-            var instructionStartAddr = requiredState.Pc - 4;
+            // The PC in the test data has already been adjusted to account for prefetch.
+            // I.e., it has already been decremented by 4.
+            cpu.PC = requiredState.Pc;
             cpu.Prefetch.Clear();
-
-            return instructionStartAddr;
         }
 
         /// <summary>
@@ -390,6 +665,12 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             return testcases!;
         }
 
+        private static void NormalizeTestCase(M68KJsonTestCase testcase)
+        {
+            testcase.Initial.Pc -= 4; // Account for prefetch
+            testcase.Final.Pc -= 4;   // Account for prefetch
+        }
+
         /// <summary>
         /// Run the exhaustive list of tests for each instruction from the github 68000 SingleStepTests repo
         /// at https://github.com/SingleStepTests/m68000.
@@ -401,6 +682,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         {
             var testcases = LoadTestCases(instruction);
             Assert.NotEmpty(testcases);
+
             var machine = new Machine();
             Disassembler disassembler = new Disassembler(machine);
             var cpu = machine.CPU;
@@ -408,36 +690,32 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             foreach (var testcase in testcases)
             {
-                if (testcase.Name.StartsWith("018 OR.l (A4)+, D4 889c"))
+                NormalizeTestCase(testcase);
+                if (testcase.Name.StartsWith("002 TST.b -(A6) 4a26"))
                 {
                     _output.WriteLine($"Looking at failing test case {testcase.Name}");
                 }
                 machine.Reset();
 
                 // Set initial state and get instruction start address.
-                var instructionStartAddr = SetCpuState(testcase.Initial, machine);
-                CheckCpuState(testcase, testcase.Initial, cpu);
+                SetCpuState(testcase.Initial, machine);
                 SetMemoryState(testcase.Initial, machine);
-                CheckMemoryState(testcase, testcase.Initial, machine);
-
-                // Set PC to the start of the instruction.
-                cpu.PC = instructionStartAddr;
-                var lines = disassembler.Disassemble(machine.CPU.PC, Disassembler.MAX_INSTRUCTION_LENGTH, 1);
-                Disassembler.DisassemblyRecord record = lines[0];
-                _output.WriteLine($"Test case {testcase.Name}: {record}");
 
                 machine.CallDepth = 1;         // To ensure that an RTS is actually performed.
 
                 // Execute the instruction
                 TrapException? exception = machine.ExecuteInstruction();
+
+                StringBuilder message = new($"Test case {testcase.Name}");
                 if (exception != null)
                 {
-                    _output.WriteLine($"{testcase.Name}: Exception: {exception}");
+                    message.Append($" -> Exception: {exception.Message}");
                 }
+                _output.WriteLine(message.ToString());
 
                 // Check final state
-                CheckCpuState(testcase, testcase.Final, cpu, record);
-                CheckMemoryState(testcase, testcase.Final, machine, record);
+                CheckCpuState(testcase, testcase.Final, machine, disassembler);
+                CheckMemoryState(testcase, testcase.Final, machine, disassembler);
             }
         }
     }
