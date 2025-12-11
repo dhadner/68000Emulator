@@ -1,6 +1,7 @@
 using PendleCodeMonkey.MC68000EmulatorLib;
 using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System;
+using System.Diagnostics;
 using Xunit;
 using static PendleCodeMonkey.MC68000EmulatorLib.Machine;
 
@@ -849,7 +850,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 SR = SRFlags.Overflow | SRFlags.Zero | SRFlags.SupervisorMode
             };
             machine.SetCPUState(initState);
-            ushort[] data = [0x1584];
+            ushort[] data = [0x8415];
             machine.LoadData(data, 0x00003000, false);
 
             // Act
@@ -857,7 +858,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal((ushort)0x2015, (ushort)machine.CPU.SR);
-            Assert.Equal((uint)0x00003001, machine.CPU.ReadAddressRegister(2));
+            Assert.Equal((uint)0x00003002, machine.CPU.ReadAddressRegister(2));
         }
 
         [Fact]
