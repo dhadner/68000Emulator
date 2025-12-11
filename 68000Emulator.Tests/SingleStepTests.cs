@@ -691,7 +691,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             foreach (var testcase in testcases)
             {
                 NormalizeTestCase(testcase);
-                if (testcase.Name.StartsWith("002 TST.b -(A6) 4a26"))
+                if (testcase.Name.StartsWith("003 ADDX.w -(A7), -(A3) d74f"))
                 {
                     _output.WriteLine($"Looking at failing test case {testcase.Name}");
                 }

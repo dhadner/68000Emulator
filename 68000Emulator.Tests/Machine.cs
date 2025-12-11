@@ -1,4 +1,8 @@
-﻿namespace PendleCodeMonkey.MC68000Emulator.Tests
+﻿using PendleCodeMonkey.MC68000EmulatorLib;
+using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
+using System.Globalization;
+
+namespace PendleCodeMonkey.MC68000Emulator.Tests
 {
     internal class Machine : MC68000EmulatorLib.Machine
     {

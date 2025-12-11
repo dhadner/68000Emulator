@@ -139,6 +139,46 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public DeferredAddressUpdate DeferredAddress { get; private set; }
 
         /// <summary>
+        /// Raise an address error trap exception and set appropriate info
+        /// for Group 0 trap stack frame.
+        /// </summary>
+        /// <param name="eaType"></param>
+        /// <param name="address"></param>
+        public void RaiseAddressErrorException(EAType eaType, uint address)
+        {
+            Logger.Log(LogLevel.Error, "CPU", () => $"Address Error exception: address {address:X8}");
+            CurrentInstruction.AccessAddress = address;
+            CurrentInstruction.AccessAddressType = eaType;
+
+            Helpers.RaiseTRAPException(TrapVector.AddressError);
+        }
+
+        /// <summary>
+        /// Check for unaligned stack access.
+        /// </summary>
+        public void CheckUnalignedStackAccess(EAType eaType)
+        {
+            CheckUnalignedAccess(eaType, OpSize.Word, CPU.ReadAddressRegister(7));
+        }
+
+        /// <summary>
+        /// Check for unaligned memory access.  Throw Address Error trap exception if
+        /// not byte access and address is not even.
+        /// </summary>
+        /// <param name="eaType"></param>
+        /// <param name="size"></param>
+        /// <param name="address"></param>
+        public void CheckUnalignedAccess(EAType eaType, OpSize size, uint address)
+        {
+            if ((address & 1) != 0)
+            {
+                CurrentInstruction.AccessAddress = address;
+                CurrentInstruction.AccessAddressType = eaType;
+                Helpers.RaiseTRAPException(TrapVector.AddressError);
+            }
+        }
+
+        /// <summary>
         /// Gets a value indicating if the machine has reached the end of the loaded executable data.
         /// </summary>
         public virtual bool IsEndOfData => (CPU.PC - CPU.Prefetch.ByteCount) >= _loadedAddress + _dataLength;
@@ -604,26 +644,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         protected ushort PopWord()
         {
             uint stack = CPU.ReadAddressRegister(7);
-            ushort value = Memory.ReadWord(stack);
-            stack += 2;
-            CPU.WriteAddressRegister(7, stack);
-            return value;
-        }
+            CPU.WriteAddressRegister(7, stack + 2);
 
-        /// <summary>
-        /// Check for exception and return if so.
-        /// </summary>
-        /// <returns></returns>
-        protected (ushort? value, TrapException? exception) PopWordCheck()
-        {
-            try
-            {
-                return (PopWord(), null);
-            }
-            catch (TrapException e)
-            {
-                return (null, e);
-            }
+            ushort value = Memory.ReadWord(stack);
+            return value;
         }
 
         /// <summary>

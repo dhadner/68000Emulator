@@ -50,6 +50,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     ReadImmDataAndExtWords(opcode, inst); // May increment the PC further
 
                     inst.Address = pc;
+
+                    // Clear Group 0 trap info
+                    inst.AccessAddress = null;
+                    inst.AccessAddressType = null;
+
                     Machine.CurrentInstruction = inst;
                 }
                 else

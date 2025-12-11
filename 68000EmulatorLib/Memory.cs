@@ -97,7 +97,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public virtual ushort ReadWord(uint address)
         {
             address &= 0x00FFFFFF;
-            if ((address % 0x00000002) != 0 || address > Data.Length - 2)
+            if ((address & 1) != 0 || address > Data.Length - 2)
             {
                 Helpers.RaiseTRAPException(TrapVector.AddressError);
             }
@@ -112,7 +112,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public virtual uint ReadLong(uint address)
         {
             address &= 0x00FFFFFF;
-            if ((address % 0x00000002) != 0 || address > Data.Length - 4)
+            if ((address & 1) != 0 || address > Data.Length - 4)
             {
                 Helpers.RaiseTRAPException(TrapVector.AddressError);
             }
@@ -145,7 +145,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public virtual void WriteWord(uint address, ushort value)
         {
             address &= 0x00FFFFFF;
-            if ((address % 0x00000002) != 0 || address > Data.Length - 2)
+            if ((address & 1) != 0 || address > Data.Length - 2)
             {
                 Helpers.RaiseTRAPException(TrapVector.AddressError);
             }
@@ -164,7 +164,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public virtual void WriteLong(uint address, uint value)
         {
             address &= 0x00FFFFFF;
-            if ((address % 0x00000002) != 0 || address > Data.Length - 4)
+            if ((address & 1) != 0 || address > Data.Length - 4)
             {
                 Helpers.RaiseTRAPException(TrapVector.AddressError);
             }

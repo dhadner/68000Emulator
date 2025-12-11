@@ -3,6 +3,7 @@
 
 using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System.Diagnostics;
+using System.Net;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -1243,12 +1244,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? RTE(Instruction inst)
             {
+                Machine.CheckUnalignedStackAccess(EAType.Source);
+
                 if (Machine.CPU.SupervisorMode)
                 {
                     ushort sr = Machine.PopWord();
-                    Machine.CPU.PC = Machine.PopLong();
+                    uint address = Machine.PopLong();
+                    Machine.CPU.PC = address;
                     Machine.CPU.Prefetch.Clear();
                     Machine.CPU.SR = (SRFlags)sr;
+
+                    // Check address to jump to
+                    Machine.CheckUnalignedAccess(EAType.Source, OpSize.Long, address);
                 }
                 else
                 {
@@ -1259,6 +1266,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? RTS(Instruction inst)
             {
+                Machine.CheckUnalignedStackAccess(EAType.Source);
+
                 // if no JSR/BSR instruction has been executed then this RTS marks the termination of the code execution.
                 if (CallDepth == 0)
                 {
@@ -1273,10 +1282,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         CallDepth++;
                     }
                 }
-                Machine.CPU.PC = Machine.PopLong();
+                uint address = Machine.PopLong();
+
+                Machine.CPU.PC = address;
                 Machine.CPU.Prefetch.Clear();
 
                 CallDepth--;
+
+                // Check address to jump to
+                Machine.CheckUnalignedAccess(EAType.Source, OpSize.Long, address);
 
                 return null;
             }
@@ -1290,14 +1304,21 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return null;
             }
 
-            private TrapException? RTR(Instruction _)
+            private TrapException? RTR(Instruction inst)
             {
+                Machine.CheckUnalignedStackAccess(EAType.Source);
+
                 ushort ccr = Machine.PopWord();
                 ushort srValue = (ushort)Machine.CPU.SR;
                 srValue = (ushort)((srValue & 0xFFE0) | (ccr & 0x001F));
                 Machine.CPU.SR = (SRFlags)srValue;
-                Machine.CPU.PC = Machine.PopLong();
+                uint address = Machine.PopLong();
+
+                Machine.CPU.PC = address;
                 Machine.CPU.Prefetch.Clear();
+
+                // Check address to jump to
+                Machine.CheckUnalignedAccess(EAType.Source, OpSize.Long, address);
 
                 return null;
             }
@@ -1307,9 +1328,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 var (_, _, address, _) = EvaluateEffectiveAddress(inst, EAType.Source);
                 if (address.HasValue)
                 {
-                    Machine.PushLong((Machine.CPU.PC - Machine.CPU.Prefetch.ByteCount));
+                    Machine.PushLong(Machine.CPU.PC - Machine.CPU.Prefetch.ByteCount);
+
                     Machine.CPU.PC = address.Value;
                     Machine.CPU.Prefetch.Clear();
+
+                    // Check address to jump to
+                    Machine.CheckUnalignedAccess(EAType.Source, OpSize.Long, address.Value);
+
                     CallDepth++;
                 }
                 return null;
@@ -1320,6 +1346,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 var (_, _, address, _) = EvaluateEffectiveAddress(inst, EAType.Source);
                 if (address.HasValue)
                 {
+                    if ((address & 1) != 0)
+                    {
+                        Helpers.RaiseTRAPException(TrapVector.AddressError);
+                    }
                     Machine.CPU.PC = address.Value;
                     Machine.CPU.Prefetch.Clear();
                 }
@@ -1347,6 +1377,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     uint dRegValue = Machine.CPU.ReadDataRegister(regNum);
                     int signedDVal = Helpers.SignExtendValue(dRegValue, size);
                     int signedEAVal = Helpers.SignExtendValue(value.Value, size);
+                    Machine.CPU.SR = Machine.CPU.SR & ~(SRFlags.Negative | SRFlags.Zero | SRFlags.Carry | SRFlags.Overflow);
                     if (signedDVal < 0)
                     {
                         Machine.CPU.NegativeFlag = true;
@@ -1455,8 +1486,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         if (inst.SourceExtWord1.HasValue)
                         {
                             int disp = Helpers.SignExtendValue(inst.SourceExtWord1.Value, OpSize.Word) - 2;
-                            Machine.CPU.PC = (uint)(Machine.CPU.PC + disp);
+                            uint address = (uint)(Machine.CPU.PC + disp);
+                            Machine.CPU.PC = address;
                             Machine.CPU.Prefetch.Clear();
+
+                            // Check address to jump to
+                            Machine.CheckUnalignedAccess(EAType.Source, OpSize.Long, address);
                         }
                     }
                 }
@@ -1485,8 +1520,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     disp = Helpers.SignExtendValue((uint)disp, OpSize.Byte);
                 }
 
-                Machine.CPU.PC = (uint)(pc + disp);
+                uint address = (uint)(pc + disp);
+                Machine.CPU.PC = address;
                 Machine.CPU.Prefetch.Clear();
+
+                // Check address to jump to
+                Machine.CheckUnalignedAccess(EAType.Source, OpSize.Long, address);
                 return null;
             }
 
@@ -1508,12 +1547,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     disp = Helpers.SignExtendValue((uint)disp, OpSize.Byte);
                 }
+                uint address = (uint)(pc + disp);
+                Machine.CheckUnalignedStackAccess(EAType.Source);
 
                 Machine.PushLong(Machine.CPU.PC);
-                Machine.CPU.PC = (uint)(pc + disp); 
+
+                Machine.CPU.PC = address; 
                 Machine.CPU.Prefetch.Clear();
 
                 CallDepth++;
+
+                // Check address to jump to
+                Machine.CheckUnalignedAccess(EAType.Source, OpSize.Long, address);
                 return null;
             }
 
@@ -1538,9 +1583,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     {
                         disp = Helpers.SignExtendValue((uint)disp, OpSize.Byte);
                     }
-
-                    Machine.CPU.PC = (uint)(pc + disp);
+                    uint address = (uint)(pc + disp);
+                    Machine.CPU.PC = address;
                     Machine.CPU.Prefetch.Clear();
+
+                    // Check address to jump to
+                    Machine.CheckUnalignedAccess(EAType.Source, OpSize.Long, address);
                 }
                 return null;
             }
@@ -1677,8 +1725,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     // Pre-decrement the source and destination address registers by the number of bytes specified
                     // by the data size.
-                    uint rXAddr = Machine.CPU.DecrementAddressRegister(rX, size);
                     uint rYAddr = Machine.CPU.DecrementAddressRegister(rY, size);
+                    uint rXAddr;
+                    if ((rYAddr & 1) == 0 || size != OpSize.Byte)
+                    {
+                        // No address error will be thrown, ok to decrement
+                        rXAddr = Machine.CPU.DecrementAddressRegister(rX, size);
+                    }
+                    else
+                    {
+                        // Address error will be thrown, don't decrement
+                        rXAddr = Machine.CPU.ReadAddressRegister(rX);
+                    }
                     int rXVal;
                     int rYVal;
                     switch (size)
@@ -1955,17 +2013,19 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     // Pre-decrement the source and destination address registers by the number of bytes specified
                     // by the data size.
-                    uint rYAddr = Machine.CPU.ReadAddressRegister(rY);
-                    uint rXAddr = Machine.CPU.ReadAddressRegister(rX);
-                    if (((rYAddr & 1) != 0 || (rXAddr & 1) != 0) &&  size != OpSize.Byte)
+                    uint rYAddr = Machine.CPU.DecrementAddressRegister(rY, size);
+                    uint rXAddr;
+                    if ((rYAddr & 1) == 0 || size != OpSize.Byte)
                     {
-                        // Address error will be thrown later, don't decrement
+                        // No address error will be thrown, ok to decrement
+                        rXAddr = Machine.CPU.DecrementAddressRegister(rX, size);
                     }
                     else
                     {
-                        rXAddr = Machine.CPU.DecrementAddressRegister(rX, size);
-                        rYAddr = Machine.CPU.DecrementAddressRegister(rY, size);
+                        // Address error will be thrown, don't decrement
+                        rXAddr = Machine.CPU.ReadAddressRegister(rX);
                     }
+
                     int rYVal;
                     int rXVal;
                     switch (size)
