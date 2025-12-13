@@ -701,7 +701,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [MemberData(nameof(GetInstructionTestNames))]
         public void RunInstructionTest(string instruction)
         {
-            const int MAX_TESTS = 20; //int.MaxValue;
+            const int MAX_TESTS = 50; //int.MaxValue;
             var testcases = LoadTestCases(instruction);
             Assert.NotEmpty(testcases);
 

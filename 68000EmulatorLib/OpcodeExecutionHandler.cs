@@ -1345,13 +1345,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 var (_, _, address, _) = EvaluateEffectiveAddress(inst, EAType.Source);
                 if (address.HasValue)
                 {
+                    if ((address & 1) != 0)
+                    {
+                        Helpers.RaiseTRAPException(TrapVector.AddressError);
+                    }
                     Machine.PushLong(Machine.CPU.PC - Machine.CPU.Prefetch.ByteCount);
 
                     Machine.CPU.PC = address.Value;
                     Machine.CPU.Prefetch.Clear();
-
-                    // Check address to jump to
-                    Machine.CheckUnalignedAccess(EAType.Source, OpSize.Long, address.Value);
 
                     CallDepth++;
                 }
@@ -1504,11 +1505,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         {
                             int disp = Helpers.SignExtendValue(inst.SourceExtWord1.Value, OpSize.Word) - 2;
                             uint address = (uint)(Machine.CPU.PC + disp);
+                            if ((address & 1) != 0)
+                            {
+                                // Restore the register
+                                Machine.CPU.WriteDataRegister(dRegNum, (uint)(newDRegVal + 1), OpSize.Word);
+                                Helpers.RaiseTRAPException(TrapVector.AddressError);
+                            }
                             Machine.CPU.PC = address;
                             Machine.CPU.Prefetch.Clear();
-
-                            // Check address to jump to
-                            Machine.CheckUnalignedAccess(EAType.Source, OpSize.Long, address);
                         }
                     }
                 }
@@ -1538,11 +1542,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
 
                 uint address = (uint)(pc + disp);
+                if ((address & 1) != 0)
+                {
+                    Helpers.RaiseTRAPException(TrapVector.AddressError);
+                }
+
                 Machine.CPU.PC = address;
                 Machine.CPU.Prefetch.Clear();
 
-                // Check address to jump to
-                Machine.CheckUnalignedAccess(EAType.Source, OpSize.Long, address);
                 return null;
             }
 
@@ -1565,7 +1572,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     disp = Helpers.SignExtendValue((uint)disp, OpSize.Byte);
                 }
                 uint address = (uint)(pc + disp);
-                Machine.CheckUnalignedStackAccess(EAType.Source);
+                if ((address & 1) != 0)
+                {
+                    Helpers.RaiseTRAPException(TrapVector.AddressError);
+                }
 
                 Machine.PushLong(Machine.CPU.PC);
 
@@ -1601,11 +1611,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         disp = Helpers.SignExtendValue((uint)disp, OpSize.Byte);
                     }
                     uint address = (uint)(pc + disp);
+                    if ((address & 1) != 0)
+                    {
+                        Helpers.RaiseTRAPException(TrapVector.AddressError);
+                    }
                     Machine.CPU.PC = address;
                     Machine.CPU.Prefetch.Clear();
-
-                    // Check address to jump to
-                    Machine.CheckUnalignedAccess(EAType.Source, OpSize.Long, address);
                 }
                 return null;
             }
