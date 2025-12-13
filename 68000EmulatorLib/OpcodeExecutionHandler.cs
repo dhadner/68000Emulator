@@ -395,9 +395,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="regMask">16-bit register mask.</param>
             /// <param name="address">Address at which to start writing register values.</param>
             /// <param name="size">The size of the values to be transferred (Word or Long).</param>
-            /// <returns>The address at which the transfer completed.</returns>
-            private uint MOVEM_RegToMem(ushort regMask, uint address, OpSize size)
+            private void MOVEM_RegToMem(ushort regMask, CPU cpu, uint address, OpSize size)
             {
+                uint regSize = (uint)(size == OpSize.Long ? 4 : 2);
+
                 for (int n = 0; n < 16; n++)
                 {
                     if ((regMask & _bit[n]) != 0)
@@ -406,28 +407,27 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         {
                             if (size == OpSize.Long)
                             {
-                                Machine.Memory.WriteLong(address, Machine.CPU.ReadDataRegister(n));
+                                Machine.Memory.WriteLong(address, cpu.ReadDataRegister(n));
                             }
                             else
                             {
-                                Machine.Memory.WriteWord(address, (ushort)(Machine.CPU.ReadDataRegister(n) & 0x0000FFFF));
+                                Machine.Memory.WriteWord(address, (ushort)(cpu.ReadDataRegister(n) & 0x0000FFFF));
                             }
                         }
                         else
                         {
                             if (size == OpSize.Long)
                             {
-                                Machine.Memory.WriteLong(address, Machine.CPU.ReadAddressRegister(n - 8));
+                                Machine.Memory.WriteLong(address, cpu.ReadAddressRegister(n - 8));
                             }
                             else
                             {
-                                Machine.Memory.WriteWord(address, (ushort)(Machine.CPU.ReadAddressRegister(n - 8) & 0x0000FFFF));
+                                Machine.Memory.WriteWord(address, (ushort)(cpu.ReadAddressRegister(n - 8) & 0x0000FFFF));
                             }
                         }
-                        address += (uint)(size == OpSize.Long ? 4 : 2);
+                        address += regSize;
                     }
                 }
-                return address;
             }
 
             /// <summary>
@@ -437,7 +437,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="address">Address at which to start writing register values.</param>
             /// <param name="size">The size of the values to be transferred (Word or Long).</param>
             /// <returns>The address at which the transfer completed.</returns>
-            private uint MOVEM_RegToMemPreDec(ushort regMask, uint address, OpSize size)
+            private uint MOVEM_RegToMemPreDec(ushort regMask, CPU cpu, uint address, OpSize size)
             {
                 // Increment address because it has already been pre-decremented once prior to calling this method.
                 address += (uint)(size == OpSize.Long ? 4 : 2);
@@ -450,22 +450,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         {
                             if (size == OpSize.Long)
                             {
-                                Machine.Memory.WriteLong(address, Machine.CPU.ReadAddressRegister(7 - n));
+                                Machine.Memory.WriteLong(address, cpu.ReadAddressRegister(7 - n));
                             }
                             else
                             {
-                                Machine.Memory.WriteWord(address, (ushort)(Machine.CPU.ReadAddressRegister(7 - n) & 0x0000FFFF));
+                                Machine.Memory.WriteWord(address, (ushort)(cpu.ReadAddressRegister(7 - n) & 0x0000FFFF));
                             }
                         }
                         else
                         {
                             if (size == OpSize.Long)
                             {
-                                Machine.Memory.WriteLong(address, Machine.CPU.ReadDataRegister(15 - n));
+                                Machine.Memory.WriteLong(address, cpu.ReadDataRegister(15 - n));
                             }
                             else
                             {
-                                Machine.Memory.WriteWord(address, (ushort)(Machine.CPU.ReadDataRegister(15 - n) & 0x0000FFFF));
+                                Machine.Memory.WriteWord(address, (ushort)(cpu.ReadDataRegister(15 - n) & 0x0000FFFF));
                             }
                         }
                     }
@@ -2469,9 +2469,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? MOVEM(Instruction inst)
             {
-                var (_, _, address, _) = EvaluateEffectiveAddress(inst, EAType.Destination);
+                // Save the state of the CPU address registers since we may be
+                // modifying one during the operation.
+                CPUState cpuState = Machine.GetCPUState();
+                CPU cpu = new();
+                cpuState.ToCPU(cpu);
+                int addressRegister = (byte)(inst.Opcode & 0x0007);
+
+                var (_, _, address, _) = EvaluateEffectiveAddress(inst, EAType.Destination, true);
                 if (address.HasValue)
                 {
+                    if ((address & 1) != 0)
+                    {
+                        // Address is unaligned
+                        Helpers.RaiseTRAPException(TrapVector.AddressError);
+                    }
+                    EvaluateEffectiveAddress(inst, EAType.Destination);
                     if (inst.SourceExtWord1.HasValue)
                     {
                         ushort regMask = inst.SourceExtWord1.Value;
@@ -2483,12 +2496,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             if (((inst.Opcode >> 3) & 0x0007) == 0x0004)
                             {
                                 // Pre-decrement addressing mode
-                                var newAddr = MOVEM_RegToMemPreDec(regMask, address.Value, size);
-                                Machine.CPU.WriteAddressRegister(inst.Opcode & 0x0007, newAddr);
+                                var newAddr = MOVEM_RegToMemPreDec(regMask, cpu, address.Value, size);
+                                Machine.CPU.WriteAddressRegister(addressRegister, newAddr);
                             }
                             else
                             {
-                                _ = MOVEM_RegToMem(regMask, address.Value, size);
+                                MOVEM_RegToMem(regMask, cpu, address.Value, size);
                             }
                         }
                         else
@@ -2497,10 +2510,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             // If post-increment addressing then update the address register.
                             if (((inst.Opcode >> 3) & 0x0007) == 0x0003)
                             {
-                                Machine.CPU.WriteAddressRegister(inst.Opcode & 0x0007, newAddr);
+                                Machine.CPU.WriteAddressRegister(addressRegister, newAddr);
                             }
                         }
-
                     }
                 }
                 return null;
