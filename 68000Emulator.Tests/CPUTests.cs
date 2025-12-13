@@ -161,35 +161,42 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0x00123456, OpSize.Byte, 0x00123457)]
-        [InlineData(0x12341234, OpSize.Word, 0x12341236)]
-        [InlineData(0x00222222, OpSize.Long, 0x00222226)]
-        public void IncrementAddressRegister(uint value, OpSize size, uint expectedResult)
+        [InlineData(0x00123456, OpSize.Byte, 0, 0x00123457)]
+        [InlineData(0x00123456, OpSize.Byte, 7, 0x00123458)]
+        [InlineData(0x12341234, OpSize.Word, 1, 0x12341236)]
+        [InlineData(0x00222222, OpSize.Long, 2, 0x00222226)]
+        public void IncrementAddressRegister(uint value, OpSize size, byte reg, uint expectedResult)
         {
-            CPU cpu = new CPU
+            CPU cpu = new();
+            for (int i = 0; i < 7; i++)
             {
-                AddressRegisters = new uint[] { 0, value, 0, 0, 0, 0, 0 }
-            };
-            uint a1 = cpu.IncrementAddressRegister(1, size);
+                cpu.WriteAddressRegister(i, 0);
+            }
+            cpu.WriteAddressRegister(reg, value);
+            uint a = cpu.IncrementAddressRegister(reg, size);
 
             // Assert
-            Assert.Equal(expectedResult, a1);
+            Assert.Equal(expectedResult, a);
         }
 
         [Theory]
-        [InlineData(0x00123456, OpSize.Byte, 0x00123455)]
-        [InlineData(0x12341234, OpSize.Word, 0x12341232)]
-        [InlineData(0x00222222, OpSize.Long, 0x0022221E)]
-        public void DecrementAddressRegister(uint value, OpSize size, uint expectedResult)
+        [InlineData(0x00123456, OpSize.Byte, 0, 0x00123455)]
+        [InlineData(0x00123456, OpSize.Byte, 7, 0x00123454)]
+        [InlineData(0x12341234, OpSize.Word, 1, 0x12341232)]
+        [InlineData(0x00222222, OpSize.Long, 2, 0x0022221E)]
+        public void DecrementAddressRegister(uint value, OpSize size, byte reg, uint expectedResult)
         {
-            CPU cpu = new CPU
+            CPU cpu = new();
+            for (int i = 0; i < 7; i++)
             {
-                AddressRegisters = new uint[] { 0, value, 0, 0, 0, 0, 0 }
-            };
-            uint a1 = cpu.DecrementAddressRegister(1, size);
+                cpu.WriteAddressRegister(i, 0);
+            }
+            cpu.WriteAddressRegister(reg, value);
+
+            uint a = cpu.DecrementAddressRegister(reg, size);
 
             // Assert
-            Assert.Equal(expectedResult, a1);
+            Assert.Equal(expectedResult, a);
         }
 
         [Theory]

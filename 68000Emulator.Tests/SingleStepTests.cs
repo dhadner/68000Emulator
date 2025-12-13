@@ -3,9 +3,6 @@ using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Net;
-using System.Runtime.InteropServices;
 using System.Text;
 using Xunit;
 using Xunit.Abstractions;
@@ -225,6 +222,11 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             cpuState.SSP = testcaseState.Ssp;
             cpuState.PC = testcaseState.Pc;
             cpuState.SR = (SRFlags)testcaseState.Sr;
+            cpuState.Prefetch = new PrefetchQueue();
+            foreach (var word in testcaseState.Prefetch)
+            {
+                cpuState.Prefetch.PushBack(word);
+            }
             return cpuState;
         }
 
@@ -234,6 +236,14 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             string flags = FormatStatusRegister(sr);
             sb.Append($"{LEADING_BLANKS}SR:{(ushort)cpuState.SR!:x4}  PC:{cpuState.PC:x8} D0:{cpuState.D0:x8} D1:{cpuState.D1:x8} D2:{cpuState.D2:x8} D3:{cpuState.D3:x8} D4:{cpuState.D4:x8} D5:{cpuState.D5:x8} D6:{cpuState.D6:x8} D7:{cpuState.D7:x8}");
             sb.Append($"\n{LEADING_BLANKS}{flags} A0:{cpuState.A0:x8} A1:{cpuState.A1:x8} A2:{cpuState.A2:x8} A3:{cpuState.A3:x8} A4:{cpuState.A4:x8} A5:{cpuState.A5:x8} A6:{cpuState.A6:x8} SSP:{cpuState.SSP:x8} USP:{cpuState.USP:x8}");
+            if (cpuState.Prefetch != null)
+            {
+                sb.Append($"\n{LEADING_BLANKS}Prefetch queue:");
+                foreach (var word in cpuState.Prefetch)
+                {
+                    sb.Append($" {word:x4}");
+                }
+            }
             sb.AppendLine("");
         }
 
@@ -405,6 +415,14 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             }
         }
 
+        private static void DumpTransactions(List<M68KJsonTransaction> transactions, StringBuilder sb)
+        {
+            foreach (var transaction in transactions)
+            {
+                sb.AppendLine($"{LEADING_BLANKS}{transaction}");
+            }
+        }
+
         private static string DumpTestCase(M68KJsonTestCase testcase, Machine machine, Disassembler disassembler)
         {
             CPUState initialCpu = GetCPUState(testcase.Initial);
@@ -441,6 +459,9 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             sb.AppendLine("Final memory actual state:");
             var finalActualMemory = GetMemory(machine, testcase.Final);
             DumpMemory(finalActualMemory, sb);  
+
+            sb.AppendLine("Required bus transactions:");
+            DumpTransactions(testcase.Transactions, sb);
 
             return sb.ToString();
         }
@@ -680,6 +701,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [MemberData(nameof(GetInstructionTestNames))]
         public void RunInstructionTest(string instruction)
         {
+            const int MAX_TESTS = 100; //int.MaxValue;
             var testcases = LoadTestCases(instruction);
             Assert.NotEmpty(testcases);
 
@@ -688,10 +710,15 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             var cpu = machine.CPU;
             Assert.NotNull(cpu);
 
+            int tests = 0;
             foreach (var testcase in testcases)
             {
+                tests++;
+                if (tests > MAX_TESTS)
+                    break;
+
                 NormalizeTestCase(testcase);
-                if (testcase.Name.StartsWith("003 ADDX.w -(A7), -(A3) d74f"))
+                if (testcase.Name.StartsWith("009 TST.l (A2)+ 4a9a"))
                 {
                     _output.WriteLine($"Looking at failing test case {testcase.Name}");
                 }

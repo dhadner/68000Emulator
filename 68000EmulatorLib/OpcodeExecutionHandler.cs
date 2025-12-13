@@ -3,6 +3,7 @@
 
 using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System.Diagnostics;
+using System.Drawing;
 using System.Net;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
@@ -106,7 +107,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 _handlers.Add(OpHandlerID.DIVS, DIVS);
                 _handlers.Add(OpHandlerID.OR, OR);
                 _handlers.Add(OpHandlerID.SUB, SUB);
-                _handlers.Add(OpHandlerID.SUBX, SUBX);
+                _handlers.Add(OpHandlerID.SUBX, ADDX_SUBX);
                 _handlers.Add(OpHandlerID.SUBA, SUBA);
                 _handlers.Add(OpHandlerID.EOR, EOR);
                 _handlers.Add(OpHandlerID.CMPM, CMPM);
@@ -117,7 +118,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 _handlers.Add(OpHandlerID.EXG, EXG);
                 _handlers.Add(OpHandlerID.AND, AND);
                 _handlers.Add(OpHandlerID.ADD, ADD);
-                _handlers.Add(OpHandlerID.ADDX, ADDX);
+                _handlers.Add(OpHandlerID.ADDX, ADDX_SUBX);
                 _handlers.Add(OpHandlerID.ADDA, ADDA);
                 _handlers.Add(OpHandlerID.ASL, ASL_ASR_LSL_LSR);
                 _handlers.Add(OpHandlerID.ASR, ASL_ASR_LSL_LSR);
@@ -209,9 +210,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     case OpHandlerID.SUBI:
                     case OpHandlerID.SUBQ:
                     case OpHandlerID.SUB:
-                    case OpHandlerID.SUBX:
                         Machine.CPU.NegativeFlag = resultMsbSet;
                         Machine.CPU.ZeroFlag = (result & mask) == 0;
+                        Machine.CPU.OverflowFlag = (srcMsbSet == resultMsbSet) && (destMsbSet != resultMsbSet);
+                        Machine.CPU.CarryFlag = (srcMsbSet && resultMsbSet) || (srcMsbSet && !destMsbSet) || (!destMsbSet && resultMsbSet);
+                        Machine.CPU.ExtendFlag = Machine.CPU.CarryFlag;
+                        break;
+                    case OpHandlerID.SUBX:
+                        Machine.CPU.NegativeFlag = resultMsbSet;
+                        if ((result & mask) != 0) Machine.CPU.ZeroFlag = false;
                         Machine.CPU.OverflowFlag = (srcMsbSet == resultMsbSet) && (destMsbSet != resultMsbSet);
                         Machine.CPU.CarryFlag = (srcMsbSet && resultMsbSet) || (srcMsbSet && !destMsbSet) || (!destMsbSet && resultMsbSet);
                         Machine.CPU.ExtendFlag = Machine.CPU.CarryFlag;
@@ -219,9 +226,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     case OpHandlerID.ADDI:
                     case OpHandlerID.ADDQ:
                     case OpHandlerID.ADD:
-                    case OpHandlerID.ADDX:
                         Machine.CPU.NegativeFlag = resultMsbSet;
                         Machine.CPU.ZeroFlag = (result & mask) == 0;
+                        Machine.CPU.OverflowFlag = (srcMsbSet == destMsbSet) && (srcMsbSet != resultMsbSet);
+                        Machine.CPU.CarryFlag = (srcMsbSet && !resultMsbSet) || (srcMsbSet && destMsbSet) || (destMsbSet && !resultMsbSet);
+                        Machine.CPU.ExtendFlag = Machine.CPU.CarryFlag;
+                        break;
+                    case OpHandlerID.ADDX:
+                        Machine.CPU.NegativeFlag = resultMsbSet;
+                        if ((result & mask) != 0) Machine.CPU.ZeroFlag = false;
                         Machine.CPU.OverflowFlag = (srcMsbSet == destMsbSet) && (srcMsbSet != resultMsbSet);
                         Machine.CPU.CarryFlag = (srcMsbSet && !resultMsbSet) || (srcMsbSet && destMsbSet) || (destMsbSet && !resultMsbSet);
                         Machine.CPU.ExtendFlag = Machine.CPU.CarryFlag;
@@ -692,14 +705,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 sizeInBytes = 2;
                             }
                             address = Machine.CPU.ReadAddressRegister(regNum);
-                            if (!suppressIncDec)
+                            if ((address & 1) == 0 || instruction.Size != OpSize.Long)
                             {
-                                Machine.CPU.WriteAddressRegister(regNum, address.Value + sizeInBytes);
-                                Machine.DeferredAddress.Reset();
-                            }
-                            else
-                            {
-                                Machine.DeferredAddress.Set(regNum, address.Value + sizeInBytes);
+                                if (!suppressIncDec)
+                                {
+                                    Machine.CPU.WriteAddressRegister(regNum, address.Value + sizeInBytes);
+                                    Machine.DeferredAddress.Reset();
+                                }
+                                else
+                                {
+                                    Machine.DeferredAddress.Set(regNum, address.Value + sizeInBytes);
+                                }
                             }
                             break;
                         case (byte)AddrMode.AddressPreDec:
@@ -1028,9 +1044,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 var value = ReadEAValue(inst, EAType.Source);
                 if (value.HasValue)
                 {
-                    WriteEAValue(inst, value.Value, EAType.Destination);
+                    // Clear V & C
                     OpSize size = inst.Size ?? OpSize.Word;
                     SetFlags(inst.Info.HandlerID, size, value.Value);
+                    WriteEAValue(inst, value.Value, EAType.Destination);
                 }
                 return null;
             }
@@ -1707,72 +1724,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return null;
             }
 
-            private TrapException? SUBX(Instruction inst)
-            {
-                OpSize size = inst.Size ?? OpSize.Word;
-                byte rX = (byte)(inst.Opcode & 0x0007);
-                byte rY = (byte)((inst.Opcode & 0x0E00) >> 9);
-                bool usingDataReg = (inst.Opcode & 0x0008) == 0;
-                if (usingDataReg)
-                {
-                    int rXVal = Helpers.SignExtendValue(Machine.CPU.ReadDataRegister(rX), size);
-                    int rYVal = Helpers.SignExtendValue(Machine.CPU.ReadDataRegister(rY), size);
-                    var result = rYVal - rXVal - (Machine.CPU.ExtendFlag ? 1 : 0);
-                    Machine.CPU.WriteDataRegister(rY, (uint)result, size);
-                    SetFlags(inst.Info.HandlerID, size, (uint)result, (uint)rXVal, (uint)rYVal);
-                }
-                else
-                {
-                    // Pre-decrement the source and destination address registers by the number of bytes specified
-                    // by the data size.
-                    uint rYAddr = Machine.CPU.DecrementAddressRegister(rY, size);
-                    uint rXAddr;
-                    if ((rYAddr & 1) == 0 || size != OpSize.Byte)
-                    {
-                        // No address error will be thrown, ok to decrement
-                        rXAddr = Machine.CPU.DecrementAddressRegister(rX, size);
-                    }
-                    else
-                    {
-                        // Address error will be thrown, don't decrement
-                        rXAddr = Machine.CPU.ReadAddressRegister(rX);
-                    }
-                    int rXVal;
-                    int rYVal;
-                    switch (size)
-                    {
-                        case OpSize.Byte:
-                            rXVal = Helpers.SignExtendValue(Machine.Memory.ReadByte(rXAddr), size);
-                            rYVal = Helpers.SignExtendValue(Machine.Memory.ReadByte(rYAddr), size);
-                            break;
-                        case OpSize.Long:
-                            rXVal = Helpers.SignExtendValue(Machine.Memory.ReadLong(rXAddr), size);
-                            rYVal = Helpers.SignExtendValue(Machine.Memory.ReadLong(rYAddr), size);
-                            break;
-                        default:
-                            rXVal = Helpers.SignExtendValue(Machine.Memory.ReadWord(rXAddr), size);
-                            rYVal = Helpers.SignExtendValue(Machine.Memory.ReadWord(rYAddr), size);
-                            break;
-                    }
-                    var result = rYVal - rXVal - (Machine.CPU.ExtendFlag ? 1 : 0);
-                    switch (size)
-                    {
-                        case OpSize.Byte:
-                            Machine.Memory.WriteByte(rYAddr, (byte)(result & 0x000000FF));
-                            break;
-                        case OpSize.Long:
-                            Machine.Memory.WriteLong(rYAddr, (uint)result);
-                            break;
-                        default:
-                            Machine.Memory.WriteWord(rYAddr, (ushort)(result & 0x0000FFFF));
-                            break;
-                    }
-
-                    SetFlags(inst.Info.HandlerID, size, (uint)result, (uint)rXVal, (uint)rYVal);
-                }
-                return null;
-            }
-
             private TrapException? SUBA(Instruction inst)
             {
                 var value = ReadEAValue(inst, EAType.Source);
@@ -1988,77 +1939,96 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// ADDX Dy,Dx
-            /// ADDX -(Ay),-(Ax) 
-            /// rY -> Source
-            /// rX -> Destination
+            /// ADDX: rY -> source, rX -> dest, dest = source + dest + X = rY + rX + X
+            /// SUBX: rX -> source, rY -> dest, dest = dest - source - X = rY - rX - X
             /// </summary>
             /// <param name="inst"></param>
             /// <returns></returns>
-            private TrapException? ADDX(Instruction inst)
+            public TrapException? ADDX_SUBX(Instruction inst)
             {
+                bool add = (inst.Opcode & 0x4000) != 0;
+
                 OpSize size = inst.Size ?? OpSize.Word;
-                byte rY = (byte)(inst.Opcode & 0x0007);
-                byte rX = (byte)((inst.Opcode & 0x0E00) >> 9);
+                byte rSource = (byte)(inst.Opcode & 0x0007);
+                byte rDest = (byte)((inst.Opcode & 0x0E00) >> 9);
                 bool usingDataReg = (inst.Opcode & 0x0008) == 0;
+                int extend = Machine.CPU.ExtendFlag ? 1 : 0;
+                int source;
+                int dest;
+                int result;
                 if (usingDataReg)
                 {
-                    int rYVal = Helpers.SignExtendValue(Machine.CPU.ReadDataRegister(rY), size);
-                    int rXVal = Helpers.SignExtendValue(Machine.CPU.ReadDataRegister(rX), size);
-                    var result = rXVal + rYVal + (Machine.CPU.ExtendFlag ? 1 : 0);
-                    Machine.CPU.WriteDataRegister(rX, (uint)result, size);
-                    SetFlags(inst.Info.HandlerID, size, (uint)result, (uint)rYVal, (uint)rXVal);
+                    source = Helpers.SignExtendValue(Machine.CPU.ReadDataRegister(rSource), size);
+                    dest = Helpers.SignExtendValue(Machine.CPU.ReadDataRegister(rDest), size);
+                    result = add
+                                ? dest + source + extend  // ADDX
+                                : dest - source - extend; // SUBX
+                    Machine.CPU.WriteDataRegister(rDest, (uint)result, size);
                 }
                 else
                 {
-                    // Pre-decrement the source and destination address registers by the number of bytes specified
-                    // by the data size.
-                    uint rYAddr = Machine.CPU.DecrementAddressRegister(rY, size);
-                    uint rXAddr;
-                    if ((rYAddr & 1) == 0 || size != OpSize.Byte)
+                    uint address;
+                    uint destAddress;
+                    switch (size)
                     {
-                        // No address error will be thrown, ok to decrement
-                        rXAddr = Machine.CPU.DecrementAddressRegister(rX, size);
-                    }
-                    else
-                    {
-                        // Address error will be thrown, don't decrement
-                        rXAddr = Machine.CPU.ReadAddressRegister(rX);
-                    }
+                        case OpSize.Long:
+                            if ((Machine.CPU.ReadAddressRegister(rSource) & 1) != 0)
+                            {
+                                // Source address is unaligned
+                                return Helpers.CreateTRAPException(TrapVector.AddressError);
+                            }
+                            address = Machine.CPU.DecrementAddressRegister(rSource, OpSize.Word);
+                            source = Machine.Memory.ReadWord(address);
+                            address = Machine.CPU.DecrementAddressRegister(rSource, OpSize.Word);
+                            source |= Machine.Memory.ReadWord(address) << 16;
 
-                    int rYVal;
-                    int rXVal;
-                    switch (size)
-                    {
+                            if ((Machine.CPU.ReadAddressRegister(rDest) & 1) != 0)
+                            {
+                                // Destination address is unaligned
+                                return Helpers.CreateTRAPException(TrapVector.AddressError);
+                            }
+                            address = Machine.CPU.DecrementAddressRegister(rDest, OpSize.Word);
+                            dest = Machine.Memory.ReadWord(address);
+                            address = Machine.CPU.DecrementAddressRegister(rDest, OpSize.Word);
+                            dest |= Machine.Memory.ReadWord(address) << 16;
+                            destAddress = address;
+                            break;
                         case OpSize.Byte:
-                            rYVal = Helpers.SignExtendValue(Machine.Memory.ReadByte(rYAddr), size);
-                            rXVal = Helpers.SignExtendValue(Machine.Memory.ReadByte(rXAddr), size);
+                            address = Machine.CPU.DecrementAddressRegister(rSource, size);
+                            source = Helpers.SignExtendValue(Machine.Memory.ReadByte(address), size);
+
+                            address = Machine.CPU.DecrementAddressRegister(rDest, size);
+                            dest = Helpers.SignExtendValue(Machine.Memory.ReadByte(address), size);
+                            destAddress = address;
                             break;
-                        case OpSize.Long:
-                            rYVal = Helpers.SignExtendValue(Machine.Memory.ReadLong(rYAddr), size);
-                            rXVal = Helpers.SignExtendValue(Machine.Memory.ReadLong(rXAddr), size);
-                            break;
-                        default:
-                            rYVal = Helpers.SignExtendValue(Machine.Memory.ReadWord(rYAddr), size);
-                            rXVal = Helpers.SignExtendValue(Machine.Memory.ReadWord(rXAddr), size);
-                            break;
-                    }
-                    var result = rXVal + rYVal + (Machine.CPU.ExtendFlag ? 1 : 0);
-                    switch (size)
-                    {
-                        case OpSize.Byte:
-                            Machine.Memory.WriteByte(rXAddr, (byte)(result & 0x000000FF));
-                            break;
-                        case OpSize.Long:
-                            Machine.Memory.WriteLong(rXAddr, (uint)result);
-                            break;
-                        default:
-                            Machine.Memory.WriteWord(rXAddr, (ushort)(result & 0x0000FFFF));
+                        default: // Word
+                            address = Machine.CPU.DecrementAddressRegister(rSource, size);
+                            source = Helpers.SignExtendValue(Machine.Memory.ReadWord(address), size);
+
+                            address = Machine.CPU.DecrementAddressRegister(rDest, size);
+                            dest = Helpers.SignExtendValue(Machine.Memory.ReadWord(address), size);
+                            destAddress = address;
                             break;
                     }
 
-                    SetFlags(inst.Info.HandlerID, size, (uint)result, (uint)rYVal, (uint)rXVal);
+                    result = add 
+                        ? dest + source + extend  // ADDX
+                        : dest - source - extend; // SUBX
+
+                    switch (size)
+                    {
+                        case OpSize.Byte:
+                            Machine.Memory.WriteByte(destAddress, (byte)(result & 0x000000FF));
+                            break;
+                        case OpSize.Long:
+                            Machine.Memory.WriteLong(destAddress, (uint)result);
+                            break;
+                        default:
+                            Machine.Memory.WriteWord(destAddress, (ushort)(result & 0x0000FFFF));
+                            break;
+                    }
                 }
+                SetFlags(inst.Info.HandlerID, size, (uint)result, (uint)source, (uint)dest);
                 return null;
             }
 

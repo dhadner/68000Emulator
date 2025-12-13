@@ -1942,17 +1942,17 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0x9509, 0x01, 0x00000000, 0x00000000, (SRFlags)0, SRFlags.Zero, 0x00000000)]
-        [InlineData(0x9509, 0x01, 0x00000000, 0x00000001, SRFlags.Extend, SRFlags.Zero, 0x00000000)]
+        [InlineData(0x9509, 0x01, 0x00000000, 0x00000000, (SRFlags)0, (SRFlags)0, 0x00000000)]
+        [InlineData(0x9509, 0x01, 0x00000000, 0x00000001, SRFlags.Extend, (SRFlags)0, 0x00000000)]
         [InlineData(0x9509, 0x01, 0x00000040, 0x00000050, (SRFlags)0, (SRFlags)0, 0x00000010)]
         [InlineData(0x9509, 0x01, 0x00000080, 0x00000010, (SRFlags)0, SRFlags.Negative | SRFlags.Carry | SRFlags.Overflow | SRFlags.Extend, 0x00000090)]
         [InlineData(0x9509, 0x01, 0x00000091, 0x00000010, SRFlags.Extend, SRFlags.Carry | SRFlags.Extend, 0x0000007E)]
-        [InlineData(0x9549, 0x02, 0x00000000, 0x00000000, (SRFlags)0, SRFlags.Zero, 0x00000000)]
-        [InlineData(0x9549, 0x02, 0x00000000, 0x00000001, SRFlags.Extend, SRFlags.Zero, 0x00000000)]
+        [InlineData(0x9549, 0x02, 0x00000000, 0x00000000, (SRFlags)0, (SRFlags)0, 0x00000000)]
+        [InlineData(0x9549, 0x02, 0x00000000, 0x00000001, SRFlags.Extend, (SRFlags)0, 0x00000000)]
         [InlineData(0x9549, 0x02, 0x00000202, 0x00002020, (SRFlags)0, (SRFlags)0, 0x00001E1E)]
         [InlineData(0x9549, 0x02, 0x00008043, 0x00001070, SRFlags.Extend, SRFlags.Negative | SRFlags.Carry | SRFlags.Overflow | SRFlags.Extend, 0x0000902C)]
         [InlineData(0x9549, 0x02, 0x00002100, 0x12345678, SRFlags.Extend, (SRFlags)0, 0x12343577)]
-        [InlineData(0x9589, 0x04, 0x12345678, 0x12345678, (SRFlags)0, SRFlags.Zero, 0x00000000)]
+        [InlineData(0x9589, 0x04, 0x12345678, 0x12345678, (SRFlags)0, (SRFlags)0, 0x00000000)]
         [InlineData(0x9589, 0x04, 0x20000000, 0x12345678, (SRFlags)0, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend, 0xF2345678)]
         [InlineData(0x9589, 0x04, 0xE0000000, 0xF0000000, SRFlags.Extend, (SRFlags)0, 0x0FFFFFFF)]
         public void SUBX(ushort opcode, byte numBytes, uint a1MemVal, uint a2MemVal, SRFlags initFlags, SRFlags expectedFlags, uint expectedResult)
@@ -2286,21 +2286,21 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0xD509, 0x01, 0x00000000, 0x00000000, (SRFlags)0, SRFlags.Zero, 0x00000000)]
+        [InlineData(0xD509, 0x01, 0x00000000, 0x00000000, (SRFlags)0, (SRFlags)0, 0x00000000)]
         [InlineData(0xD509, 0x01, 0x00000000, 0x00000001, SRFlags.Extend, (SRFlags)0, 0x00000002)]
         [InlineData(0xD509, 0x01, 0x00000040, 0x00000050, (SRFlags)0, SRFlags.Negative | SRFlags.Overflow, 0x00000090)]
         [InlineData(0xD509, 0x01, 0x00000080, 0x0000007F, (SRFlags)0, SRFlags.Negative, 0x000000FF)]
-        [InlineData(0xD509, 0x01, 0x00000080, 0x0000007F, SRFlags.Extend, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend, 0x00000000)]
-        [InlineData(0xD549, 0x02, 0x00000000, 0x00000000, (SRFlags)0, SRFlags.Zero, 0x00000000)]
+        [InlineData(0xD509, 0x01, 0x00000080, 0x0000007F, SRFlags.Extend, SRFlags.Carry | SRFlags.Extend, 0x00000000)]
+        [InlineData(0xD549, 0x02, 0x00000000, 0x00000000, (SRFlags)0, (SRFlags)0, 0x00000000)]
         [InlineData(0xD549, 0x02, 0x00000000, 0x00000001, SRFlags.Extend, (SRFlags)0, 0x00000002)]
         [InlineData(0xD549, 0x02, 0x00000202, 0x00002020, (SRFlags)0, (SRFlags)0, 0x00002222)]
         [InlineData(0xD549, 0x02, 0x00008043, 0x00001070, SRFlags.Extend, SRFlags.Negative, 0x000090B4)]
         [InlineData(0xD549, 0x02, 0x00002100, 0x12345678, SRFlags.Extend, (SRFlags)0, 0x12347779)]
-        [InlineData(0xD589, 0x04, 0x00000000, 0x00000000, (SRFlags)0, SRFlags.Zero, 0x00000000)]
+        [InlineData(0xD589, 0x04, 0x00000000, 0x00000000, (SRFlags)0, (SRFlags)0, 0x00000000)]
         [InlineData(0xD589, 0x04, 0x12345678, 0x12345678, SRFlags.Extend, (SRFlags)0, 0x2468ACF1)]
         [InlineData(0xD589, 0x04, 0x70000000, 0x12345678, (SRFlags)0, SRFlags.Negative | SRFlags.Overflow, 0x82345678)]
         [InlineData(0xD589, 0x04, 0xE0000000, 0xF0000000, SRFlags.Extend, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend, 0xD0000001)]
-        [InlineData(0xD589, 0x04, 0xE0000000, 0x1FFFFFFF, SRFlags.Extend, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend, 0x00000000)]
+        [InlineData(0xD589, 0x04, 0xE0000000, 0x1FFFFFFF, SRFlags.Extend, SRFlags.Carry | SRFlags.Extend, 0x00000000)]
         public void ADDX(ushort opcode, byte numBytes, uint a1MemVal, uint a2MemVal, SRFlags initFlags, SRFlags expectedFlags, uint expectedResult)
         {
             Machine machine = new Machine();

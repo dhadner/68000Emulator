@@ -1,4 +1,4 @@
-﻿using System;
+﻿using System.Collections;
 using System.Runtime.CompilerServices;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
@@ -6,7 +6,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     /// <summary>
     /// CPU prefetch queue for the Motorola 68000 processor.
     /// </summary>
-    public sealed class PrefetchQueue
+    public sealed class PrefetchQueue : IEnumerable<ushort>
     {
         private readonly ushort[] _buffer;
         private readonly int _capacity;
@@ -44,7 +44,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns>New prefetch queue that is a copy of the original.</returns>
         public PrefetchQueue Clone()
         {
-            PrefetchQueue clone = new PrefetchQueue(_capacity);
+            PrefetchQueue clone = new(_capacity);
             clone.From(this);
             return clone;
         }
@@ -52,9 +52,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Copies the contents and state from another prefetch queue into this instance.
         /// </summary>
-        /// <param name="source"></param>
-        /// <exception cref="ArgumentNullException"></exception>
-        /// <exception cref="ArgumentException"></exception>
+        /// <param name="source">The source prefetch queue to copy from.</param>
+        /// <exception cref="ArgumentNullException">Thrown if source is null.</exception>
+        /// <exception cref="ArgumentException">Thrown if source has a different capacity.</exception>
         public void From(PrefetchQueue source)
         {
             if (source == null)
@@ -90,6 +90,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Gets a value indicating whether the queue is at capacity.
         /// </summary>
         public bool IsFull => _count == _capacity;
+
+        /// <summary>
+        /// Gets the word at the specified index without removing it from the queue.
+        /// </summary>
+        /// <param name="index">Zero-based index from the front of the queue.</param>
+        /// <returns>The word at the specified index.</returns>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown if index is out of range.</exception>
+        public ushort this[int index]
+        {
+            get
+            {
+                if (index < 0 || index >= _count)
+                    throw new ArgumentOutOfRangeException(nameof(index), "Index is out of range.");
+                return _buffer[(_head + index) % _capacity];
+            }
+        }
 
         /// <summary>
         /// Clears all words from the queue.
@@ -133,5 +149,23 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             _count--;
             return value;
         }
+
+        /// <summary>
+        /// Returns an enumerator that iterates through the queue from front to back.
+        /// </summary>
+        /// <returns>An enumerator for the queue entries.</returns>
+        public IEnumerator<ushort> GetEnumerator()
+        {
+            for (int i = 0; i < _count; i++)
+            {
+                yield return _buffer[(_head + i) % _capacity];
+            }
+        }
+
+        /// <summary>
+        /// Returns an enumerator that iterates through the queue.
+        /// </summary>
+        /// <returns>An enumerator for the queue entries.</returns>
+        IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 }

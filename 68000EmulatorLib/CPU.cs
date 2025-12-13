@@ -337,7 +337,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             uint value = ReadAddressRegister(regNum);
             int numBytes = size switch
             { 
-                OpSize.Byte => 1,
+                OpSize.Byte => regNum == 7 ? 2 : 1,
                 OpSize.Long => 4,
                 _ => 2 
             };
@@ -358,10 +358,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             uint value = ReadAddressRegister(regNum);
             int numBytes = size switch
             {
-                OpSize.Byte => 1,
+                OpSize.Byte => regNum == 7 ? 2 : 1,
                 OpSize.Long => 4,
                 _ => 2
-            }; value -= (uint)numBytes;
+            }; 
+            value -= (uint)numBytes;
             WriteAddressRegister(regNum, value);
             return value;
         }

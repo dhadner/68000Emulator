@@ -21,7 +21,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
         [JsonPropertyName("transactions")]
         [JsonConverter(typeof(M68KJsonTransactionsConverter))]
-        public List<M68KJsonTransactions> Transactions { get; set; } = [];
+        public List<M68KJsonTransaction> Transactions { get; set; } = [];
     }
 
     public class M68KTestCaseState
@@ -140,7 +140,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
     }
 
-    public class M68KJsonTransactions
+    public class M68KJsonTransaction
     {
         public string Type { get; set; } = "";
         public uint? Cycles { get; set; }
@@ -150,18 +150,40 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         public ushort? Data { get; set; }
         public bool? UDS { get; set; }
         public bool? LDS { get; set; }
+
+        public override string ToString()
+        {
+            if (Type == "n")
+            {
+                return $"Type: {Type,-2}, Cycles: {Cycles,2}";
+            }
+
+            string fc = FunctionCode!.Value switch
+            {
+                0 => "0b000 (Undefined),",
+                1 => "0b001 (User Data),",
+                2 => "0b010 (User Program),",
+                3 => "0b011 (Reserved),",
+                4 => "0b100 (Undefined),",
+                5 => "0b101 (Supervisor Data),",
+                6 => "0b110 (Supervisor Program),",
+                7 => "0b111 (CPU Space),",
+                _ => $"{FunctionCode} (Unknown/Error),"
+            };
+            return $"Type: {Type,-2}, Cycles: {Cycles,2}, FunctionCode: {fc,-27} Address: ${Address:x8}, Size: {Size,2}, Data: ${Data:x4}, UDS: {UDS,-5}, LDS: {LDS,-5}";
+        }
     }
 
-    public class M68KJsonTransactionsConverter : JsonConverter<List<M68KJsonTransactions>>
+    public class M68KJsonTransactionsConverter : JsonConverter<List<M68KJsonTransaction>>
     {
-        public override List<M68KJsonTransactions> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override List<M68KJsonTransaction> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
         {
             if (reader.TokenType != JsonTokenType.StartArray)
             {
                 throw new JsonException();
             }
 
-            var transactions = new List<M68KJsonTransactions>();
+            var transactions = new List<M68KJsonTransaction>();
 
             while (reader.Read())
             {
@@ -172,7 +194,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
                 if (reader.TokenType == JsonTokenType.StartArray)
                 {
-                    M68KJsonTransactions transaction = new();
+                    M68KJsonTransaction transaction = new();
                     reader.Read(); // Move to first element
                     transaction.Type = reader.GetString() ?? "UNKNOWN";
 
@@ -214,7 +236,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             return transactions;
         }
 
-        public override void Write(Utf8JsonWriter writer, List<M68KJsonTransactions> value, JsonSerializerOptions options)
+        public override void Write(Utf8JsonWriter writer, List<M68KJsonTransaction> value, JsonSerializerOptions options)
         {
             throw new NotImplementedException();
         }
