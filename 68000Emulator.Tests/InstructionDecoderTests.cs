@@ -7,7 +7,6 @@ using System.Security.Cryptography.X509Certificates;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Xunit;
-using Xunit.Abstractions;
 using InstructionDecoder = PendleCodeMonkey.MC68000EmulatorLib.Machine.InstructionDecoder;
 
 namespace PendleCodeMonkey.MC68000Emulator.Tests

@@ -2,11 +2,10 @@ using PendleCodeMonkey.MC68000EmulatorLib;
 using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
-using System.Runtime.CompilerServices;
 using System.Text;
 using Xunit;
-using Xunit.Abstractions;
 using static PendleCodeMonkey.MC68000EmulatorLib.Machine;
 using Address = uint;
 
@@ -178,12 +177,12 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
     public class SingleStepTests
     {
         private const string TEST_DATA_PATH = @"..\..\..\..\TestData\m68000\v1";
-        private readonly ITestOutputHelper _output;
+        //private readonly ITestOutputHelper _output;
 
-        public SingleStepTests(ITestOutputHelper output)
-        {
-            _output = output;
-        }
+        //public SingleStepTests(ITestOutputHelper output)
+        //{
+        //    _output = output;
+        //}
 
         /// <summary>
         /// Get the list of instruction test names (file names without the .json extension).
@@ -457,7 +456,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             sb.AppendLine("Final memory actual state:");
             var finalActualMemory = GetMemory(machine, testcase.Final);
-            DumpMemory(finalActualMemory, sb);  
+            DumpMemory(finalActualMemory, sb);
 
             sb.AppendLine("Required bus transactions:");
             DumpTransactions(testcase.Transactions, sb);
@@ -704,12 +703,11 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [MemberData(nameof(GetInstructionTestNames))]
         public void RunInstructionTest(string instruction)
         {
-            const int MAX_TESTS = 500; //int.MaxValue;
+            const int MAX_TESTS = int.MaxValue;
             var testcases = LoadTestCases(instruction);
             Assert.NotEmpty(testcases);
 
             var machine = new Machine();
-            Disassembler disassembler = new Disassembler(machine);
             var cpu = machine.CPU;
             Assert.NotNull(cpu);
 
@@ -722,9 +720,9 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                     break;
 
                 NormalizeTestCase(testcase);
-                if (testcase.Name.StartsWith("068 BTST D7, # 0f3c"))
+                if (testcase.Name.StartsWith("004 SUB.w 6, (A4) 5d54"))
                 {
-                    _output.WriteLine($"Looking at failing test case {testcase.Name}");
+                    Debug.WriteLine($"Looking at failing test case {testcase.Name}");
                 }
                 machine.Reset();
 
@@ -742,7 +740,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 {
                     message.Append($" -> Exception: {exception.Message}");
                 }
-                _output.WriteLine(message.ToString());
+                //Debug.WriteLine(message.ToString());
 
                 // Check final state
                 CheckCpuState(testcase.Final, machine, errors);
@@ -750,6 +748,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
                 if (errors.Count > 0)
                 {
+                    Disassembler disassembler = new Disassembler(machine);
                     StringBuilder errorMessage = new();
                     errorMessage.AppendLine($"Test case: {testcase.Name}");
                     foreach (var error in errors)

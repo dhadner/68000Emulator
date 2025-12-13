@@ -1041,10 +1041,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? MOVE(Instruction inst)
             {
+
                 var value = ReadEAValue(inst, EAType.Source);
                 if (value.HasValue)
                 {
-                    // Clear V & C
                     OpSize size = inst.Size ?? OpSize.Word;
                     SetFlags(inst.Info.HandlerID, size, value.Value);
                     WriteEAValue(inst, value.Value, EAType.Destination);
@@ -1465,7 +1465,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     OpSize size = inst.Size ?? OpSize.Word;
                     uint result = (uint)(value.Value - subVal);
                     WriteEAValue(inst, result, EAType.Destination);
-                    SetFlags(inst.Info.HandlerID, size, result, value.Value);
+                    SetFlags(inst.Info.HandlerID, size, result, (uint)subVal, value.Value);
                 }
                 return null;
             }
@@ -1571,13 +1571,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     disp = Helpers.SignExtendValue((uint)disp, OpSize.Byte);
                 }
+
+                Machine.PushLong(Machine.CPU.PC);
                 uint address = (uint)(pc + disp);
                 if ((address & 1) != 0)
                 {
                     Helpers.RaiseTRAPException(TrapVector.AddressError);
                 }
-
-                Machine.PushLong(Machine.CPU.PC);
 
                 Machine.CPU.PC = address; 
                 Machine.CPU.Prefetch.Clear();
