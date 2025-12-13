@@ -718,7 +718,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                     break;
 
                 NormalizeTestCase(testcase);
-                if (testcase.Name.StartsWith("009 TST.l (A2)+ 4a9a"))
+                if (testcase.Name.StartsWith("068 BTST D7, # 0f3c"))
                 {
                     _output.WriteLine($"Looking at failing test case {testcase.Name}");
                 }

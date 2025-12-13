@@ -170,7 +170,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 7 => "0b111 (CPU Space),",
                 _ => $"{FunctionCode} (Unknown/Error),"
             };
-            return $"Type: {Type,-2}, Cycles: {Cycles,2}, FunctionCode: {fc,-27} Address: ${Address:x8}, Size: {Size,2}, Data: ${Data:x4}, UDS: {UDS,-5}, LDS: {LDS,-5}";
+            string size = Size == ".b" ? "Byte" : Size == ".w" ? "Word" : "??";
+            return $"Type: {Type,-2}, Cycles: {Cycles,2}, FunctionCode: {fc,-27} Address: ${Address:x8}, Size: {size,4}, Data: ${Data:x4}, UDS: {UDS,-5}, LDS: {LDS,-5}";
         }
     }
 

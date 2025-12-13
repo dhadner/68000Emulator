@@ -1829,6 +1829,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 // Determine if the destination is a memory effectiveAddress. If it is then we work with a single byte.
                 bool isMemory = EffectiveAddressIsMemory(inst, EAType.Destination);
+                bool isImmediate = false;
+                if (!isMemory && ((inst.Opcode & 0b0000_0000_0011_1111) == 0b0000_0000_0011_1100))
+                {
+                    isImmediate = true;
+                }
                 uint? bitNum = null;
                 int? regNum = null;
                 if ((inst.Opcode & 0x0100) != 0)       // Determine if dynamic (i.e. bit number specified in a register)
@@ -1843,7 +1848,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                 }
 
-                if (isMemory)
+                if (isMemory || isImmediate)
                 {
                     if (bitNum.HasValue)
                     {

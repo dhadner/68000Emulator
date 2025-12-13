@@ -2251,16 +2251,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
 
                 // Determine if the destination is a memory address. If it is then we work with a single byte.
-                var (_, _, address, _) = EvaluateEffectiveAddress(inst, EAType.Destination, !isBTST); // Don't suppress inc/dec for BTST since this is the only address eval
-                if (address.HasValue)
+                // For BTST, the destination can be an immediate byte.
+                var (_, _, address, immvalue) = EvaluateEffectiveAddress(inst, EAType.Destination, true);
+                if (address.HasValue || immvalue.HasValue)
                 {
                     bitNum &= 0x00000007;
-                    inst.Size = OpSize.Byte;
                 }
                 else
                 {
                     bitNum &= 0x0000001F;
-                    inst.Size = OpSize.Long;
                 }
 
                 var value = ReadEAValue(inst, EAType.Destination, !isBTST);
