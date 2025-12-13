@@ -2144,102 +2144,412 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return null;
             }
 
+            /// <summary>
+            /// Rotate left (ROL) for byte operand.
+            /// </summary>
+            /// <param name="value">The byte value to rotate.</param>
+            /// <param name="count">The number of positions to rotate.</param>
+            /// <returns>The rotated byte value.</returns>
+            private byte ROL_B(byte value, int count)
+            {
+                Machine.CPU.CarryFlag = false;
+
+                for (int i = 0; i < count; i++)
+                {
+                    Machine.CPU.CarryFlag = (value & 0x80) != 0;
+                    value <<= 1;
+                    if (Machine.CPU.CarryFlag)
+                    {
+                        value |= 1;
+                    }
+                }
+
+                Machine.CPU.ZeroFlag = value == 0;
+                Machine.CPU.NegativeFlag = (value & 0x80) != 0;
+                Machine.CPU.OverflowFlag = false;
+                return value;
+            }
+
+            /// <summary>
+            /// Rotate left (ROL) for word operand.
+            /// </summary>
+            /// <param name="value">The word value to rotate.</param>
+            /// <param name="count">The number of positions to rotate.</param>
+            /// <returns>The rotated word value.</returns>
+            private ushort ROL_W(ushort value, int count)
+            {
+                Machine.CPU.CarryFlag = false;
+
+                for (int i = 0; i < count; i++)
+                {
+                    Machine.CPU.CarryFlag = (value & 0x8000) != 0;
+                    value <<= 1;
+                    if (Machine.CPU.CarryFlag)
+                    {
+                        value |= 1;
+                    }
+                }
+
+                Machine.CPU.ZeroFlag = value == 0;
+                Machine.CPU.NegativeFlag = (value & 0x8000) != 0;
+                Machine.CPU.OverflowFlag = false;
+                return value;
+            }
+
+            /// <summary>
+            /// Rotate left (ROL) for long operand.
+            /// </summary>
+            /// <param name="value">The long value to rotate.</param>
+            /// <param name="count">The number of positions to rotate.</param>
+            /// <returns>The rotated long value.</returns>
+            private uint ROL_L(uint value, int count)
+            {
+                Machine.CPU.CarryFlag = false;
+
+                for (int i = 0; i < count; i++)
+                {
+                    Machine.CPU.CarryFlag = (value & 0x80000000) != 0;
+                    value <<= 1;
+                    if (Machine.CPU.CarryFlag)
+                    {
+                        value |= 1;
+                    }
+                }
+
+                Machine.CPU.ZeroFlag = value == 0;
+                Machine.CPU.NegativeFlag = (value & 0x80000000) != 0;
+                Machine.CPU.OverflowFlag = false;
+                return value;
+            }
+
+            /// <summary>
+            /// Rotate right (ROR) for byte operand.
+            /// </summary>
+            /// <param name="value">The byte value to rotate.</param>
+            /// <param name="count">The number of positions to rotate.</param>
+            /// <returns>The rotated byte value.</returns>
+            private byte ROR_B(byte value, int count)
+            {
+                Machine.CPU.CarryFlag = false;
+
+                for (int i = 0; i < count; i++)
+                {
+                    Machine.CPU.CarryFlag = (value & 0x01) != 0;
+                    value >>= 1;
+                    if (Machine.CPU.CarryFlag)
+                    {
+                        value |= 0x80;
+                    }
+                }
+
+                Machine.CPU.ZeroFlag = value == 0;
+                Machine.CPU.NegativeFlag = (value & 0x80) != 0;
+                Machine.CPU.OverflowFlag = false;
+                return value;
+            }
+
+            /// <summary>
+            /// Rotate right (ROR) for word operand.
+            /// </summary>
+            /// <param name="value">The word value to rotate.</param>
+            /// <param name="count">The number of positions to rotate.</param>
+            /// <returns>The rotated word value.</returns>
+            private ushort ROR_W(ushort value, int count)
+            {
+                Machine.CPU.CarryFlag = false;
+
+                for (int i = 0; i < count; i++)
+                {
+                    Machine.CPU.CarryFlag = (value & 0x0001) != 0;
+                    value >>= 1;
+                    if (Machine.CPU.CarryFlag)
+                    {
+                        value |= 0x8000;
+                    }
+                }
+
+                Machine.CPU.ZeroFlag = value == 0;
+                Machine.CPU.NegativeFlag = (value & 0x8000) != 0;
+                Machine.CPU.OverflowFlag = false;
+                return value;
+            }
+
+            /// <summary>
+            /// Rotate right (ROR) for long operand.
+            /// </summary>
+            /// <param name="value">The long value to rotate.</param>
+            /// <param name="count">The number of positions to rotate.</param>
+            /// <returns>The rotated long value.</returns>
+            private uint ROR_L(uint value, int count)
+            {
+                Machine.CPU.CarryFlag = false;
+
+                for (int i = 0; i < count; i++)
+                {
+                    Machine.CPU.CarryFlag = (value & 0x00000001) != 0;
+                    value >>= 1;
+                    if (Machine.CPU.CarryFlag)
+                    {
+                        value |= 0x80000000;
+                    }
+                }
+
+                Machine.CPU.ZeroFlag = value == 0;
+                Machine.CPU.NegativeFlag = (value & 0x80000000) != 0;
+                Machine.CPU.OverflowFlag = false;
+                return value;
+            }
+
+            /// <summary>
+            /// Rotate left with extend (ROXL) for byte operand.
+            /// </summary>
+            /// <param name="value">The byte value to rotate.</param>
+            /// <param name="count">The number of positions to rotate.</param>
+            /// <returns>The rotated byte value.</returns>
+            private byte ROXL_B(byte value, int count)
+            {
+                bool xFlag = Machine.CPU.ExtendFlag;
+
+                for (int i = 0; i < count; i++)
+                {
+                    bool bitShiftedOut = (value & 0x80) != 0;
+                    value <<= 1;
+                    if (xFlag)
+                    {
+                        value |= 1;
+                    }
+                    xFlag = bitShiftedOut;
+                }
+
+                Machine.CPU.CarryFlag = xFlag;
+                Machine.CPU.ExtendFlag = xFlag;
+                Machine.CPU.ZeroFlag = value == 0;
+                Machine.CPU.NegativeFlag = (value & 0x80) != 0;
+                Machine.CPU.OverflowFlag = false;
+                return value;
+            }
+
+            /// <summary>
+            /// Rotate left with extend (ROXL) for word operand.
+            /// </summary>
+            /// <param name="value">The word value to rotate.</param>
+            /// <param name="count">The number of positions to rotate.</param>
+            /// <returns>The rotated word value.</returns>
+            private ushort ROXL_W(ushort value, int count)
+            {
+                bool xFlag = Machine.CPU.ExtendFlag;
+
+                for (int i = 0; i < count; i++)
+                {
+                    bool bitShiftedOut = (value & 0x8000) != 0;
+                    value <<= 1;
+                    if (xFlag)
+                    {
+                        value |= 1;
+                    }
+                    xFlag = bitShiftedOut;
+                }
+
+                Machine.CPU.CarryFlag = xFlag;
+                Machine.CPU.ExtendFlag = xFlag;
+                Machine.CPU.ZeroFlag = value == 0;
+                Machine.CPU.NegativeFlag = (value & 0x8000) != 0;
+                Machine.CPU.OverflowFlag = false;
+                return value;
+            }
+
+            /// <summary>
+            /// Rotate left with extend (ROXL) for long operand.
+            /// </summary>
+            /// <param name="value">The long value to rotate.</param>
+            /// <param name="count">The number of positions to rotate.</param>
+            /// <returns>The rotated long value.</returns>
+            private uint ROXL_L(uint value, int count)
+            {
+                bool xFlag = Machine.CPU.ExtendFlag;
+
+                for (int i = 0; i < count; i++)
+                {
+                    bool bitShiftedOut = (value & 0x80000000) != 0;
+                    value <<= 1;
+                    if (xFlag)
+                    {
+                        value |= 1;
+                    }
+                    xFlag = bitShiftedOut;
+                }
+
+                Machine.CPU.CarryFlag = xFlag;
+                Machine.CPU.ExtendFlag = xFlag;
+                Machine.CPU.ZeroFlag = value == 0;
+                Machine.CPU.NegativeFlag = (value & 0x80000000) != 0;
+                Machine.CPU.OverflowFlag = false;
+                return value;
+            }
+
+            /// <summary>
+            /// Rotate right with extend (ROXR) for byte operand.
+            /// </summary>
+            /// <param name="value">The byte value to rotate.</param>
+            /// <param name="count">The number of positions to rotate.</param>
+            /// <returns>The rotated byte value.</returns>
+            private byte ROXR_B(byte value, int count)
+            {
+                bool xFlag = Machine.CPU.ExtendFlag;
+
+                for (int i = 0; i < count; i++)
+                {
+                    bool bitShiftedOut = (value & 1) != 0;
+                    value >>= 1;
+                    if (xFlag)
+                    {
+                        value |= 0x80;
+                    }
+                    xFlag = bitShiftedOut;
+                }
+
+                Machine.CPU.CarryFlag = xFlag;
+                Machine.CPU.ExtendFlag = xFlag;
+                Machine.CPU.ZeroFlag = value == 0;
+                Machine.CPU.NegativeFlag = (value & 0x80) != 0;
+                Machine.CPU.OverflowFlag = false;
+                return value;
+            }
+
+            /// <summary>
+            /// Rotate right with extend (ROXR) for word operand.
+            /// </summary>
+            /// <param name="value">The word value to rotate.</param>
+            /// <param name="count">The number of positions to rotate.</param>
+            /// <returns>The rotated word value.</returns>
+            private ushort ROXR_W(ushort value, int count)
+            {
+                bool xFlag = Machine.CPU.ExtendFlag;
+
+                for (int i = 0; i < count; i++)
+                {
+                    bool bitShiftedOut = (value & 1) != 0;
+                    value >>= 1;
+                    if (xFlag)
+                    {
+                        value |= 0x8000;
+                    }
+                    xFlag = bitShiftedOut;
+                }
+
+                Machine.CPU.CarryFlag = xFlag;
+                Machine.CPU.ExtendFlag = xFlag;
+                Machine.CPU.ZeroFlag = value == 0;
+                Machine.CPU.NegativeFlag = (value & 0x8000) != 0;
+                Machine.CPU.OverflowFlag = false;
+                return value;
+            }
+
+            /// <summary>
+            /// Rotate right with extend (ROXR) for long operand.
+            /// </summary>
+            /// <param name="value">The long value to rotate.</param>
+            /// <param name="count">The number of positions to rotate.</param>
+            /// <returns>The rotated long value.</returns>
+            private uint ROXR_L(uint value, int count)
+            {
+                bool xFlag = Machine.CPU.ExtendFlag;
+
+                for (int i = 0; i < count; i++)
+                {
+                    bool bitShiftedOut = (value & 1) != 0;
+                    value >>= 1;
+                    if (xFlag)
+                    {
+                        value |= 0x80000000;
+                    }
+                    xFlag = bitShiftedOut;
+                }
+
+                Machine.CPU.CarryFlag = xFlag;
+                Machine.CPU.ExtendFlag = xFlag;
+                Machine.CPU.ZeroFlag = value == 0;
+                Machine.CPU.NegativeFlag = (value & 0x80000000) != 0;
+                Machine.CPU.OverflowFlag = false;
+                return value;
+            }
+
             private TrapException? ROL_ROR_ROXL_ROXR(Instruction inst)
             {
-                bool directionLeft = (inst.Opcode & 0x0100) != 0;       // Determine direction of rotation (i.e. ROL or ROR).
-                bool withExtend;
-                byte sizeBits = (byte)((inst.Opcode & 0x00C0) >> 6);
-                if (sizeBits == 0x03)
+                bool rotateLeft = (inst.Opcode & 0x0100) != 0;       // Determine direction of rotation (e.g. ROL(X) or ROR(X)).
+                bool rotateMemoryWord = (inst.Opcode & 0x00C0) == 0x00C0;
+                bool useExtend;
+                if (rotateMemoryWord)
                 {
-                    // Rotate on memory (using Effective Address)
-                    withExtend = (inst.Opcode & 0x0E00) == 0x0400;        // Determine if rotate with Extend (i.e. ROXL or ROXR).
-                    var value = ReadEAValue(inst, EAType.Source, suppressIncDec: true);
-                    if (value.HasValue)
+                    useExtend = (inst.Opcode & 0x0E00) == 0x0400;
+                    uint? value = ReadEAValue(inst, EAType.Source, suppressIncDec: true);
+                    if (!value.HasValue) Helpers.RaiseTRAPException(TrapVector.BusError);
+                    ushort word = (ushort)value!.Value;
+                    if (rotateLeft)
                     {
-                        if (directionLeft)
-                        {
-                            var bitShiftedOut = value.Value & 0x00008000;
-                            var result = value.Value << 1;
-                            bool introduceBit = withExtend ? Machine.CPU.ExtendFlag : bitShiftedOut != 0;
-                            if (introduceBit)
-                            {
-                                result |= 0x00000001;
-                            }
-                            WriteEAValue(inst, result, EAType.Source);
-                            SetFlags(inst.Info.HandlerID, OpSize.Word, result, 1, bitShiftedOut);
-                            Machine.CPU.OverflowFlag = false;
-                        }
-                        else
-                        {
-                            var bitShiftedOut = value.Value & 0x00000001;
-                            var result = (value.Value >> 1);
-                            bool introduceBit = withExtend ? Machine.CPU.ExtendFlag : bitShiftedOut != 0;
-                            if (introduceBit)
-                            {
-                                result |= 0x00008000;
-                            }
-                            WriteEAValue(inst, result, EAType.Source);
-                            SetFlags(inst.Info.HandlerID, OpSize.Word, result, 1, bitShiftedOut);
-                        }
+                        word = useExtend ? ROXL_W(word, 1) : ROL_W(word, 1);
                     }
+                    else
+                    {
+                        word = useExtend ? ROXR_W(word, 1) : ROR_W(word, 1);
+                    }
+                    WriteEAValue(inst, word, EAType.Source);
                 }
                 else
                 {
-                    withExtend = (inst.Opcode & 0x0018) == 0x0010;        // Determine if rotate with Extend (i.e. ROXL or ROXR).
-                    OpSize size = inst.Size ?? OpSize.Word;
-                    uint sizeMask = Helpers.SizeMask(size);
-                    uint msb = Helpers.SizeMSB(size);
+                    // Rotate register
+                    useExtend = (inst.Opcode & 0x0018) == 0x0010;
                     byte dRegNum = (byte)(inst.Opcode & 0x0007);
-                    uint dRegVal = Machine.CPU.ReadDataRegister(dRegNum) & sizeMask;
 
                     // Determine if a data register holds the rotation amount.
                     bool dRegRotate = (inst.Opcode & 0x0020) != 0;
                     int rotate = (inst.Opcode & 0x0E00) >> 9;
-                    int rotateAmt;
+                    int count;
                     if (dRegRotate)
                     {
                         // The rotate value holds the number of the data register that holds the number of bits to rotate by.
-                        rotateAmt = (int)(Machine.CPU.ReadDataRegister(rotate) & 0x003F);
+                        count = (int)(Machine.CPU.ReadDataRegister(rotate) & 0x003F);
                     }
                     else
                     {
-                        rotateAmt = rotate != 0 ? rotate : 8;
+                        count = rotate != 0 ? rotate : 8;
                     }
-                    uint bitShiftedOut = 0;
-                    if (directionLeft)
+                    uint value = Machine.CPU.ReadDataRegister(dRegNum);
+                    switch (inst.Size)
                     {
-                        bool xFlag = Machine.CPU.ExtendFlag;
-                        for (int r = 0; r < rotateAmt; r++)
-                        {
-                            bitShiftedOut = dRegVal & msb;
-                            dRegVal <<= 1;
-                            bool introduceBit = withExtend ? xFlag : bitShiftedOut != 0;
-                            if (introduceBit)
-                            {
-                                dRegVal |= 0x00000001;
-                            }
-                            xFlag = bitShiftedOut != 0;
-                        }
+                        case OpSize.Byte:
+                            byte bValue = (byte)value;
+                            bValue = rotateLeft
+                                ? useExtend
+                                    ? ROXL_B(bValue, count)
+                                    : ROL_B(bValue, count)
+                                : useExtend
+                                    ? ROXR_B(bValue, count)
+                                    : ROR_B(bValue, count);
+                            value = bValue;
+                            break;
+                        case OpSize.Word:
+                            ushort wValue = (ushort)value;
+                            wValue = rotateLeft
+                                ? useExtend
+                                    ? ROXL_W(wValue, count)
+                                    : ROL_W(wValue, count)
+                                : useExtend
+                                    ? ROXR_W(wValue, count)
+                                    : ROR_W(wValue, count);
+                            value = wValue;
+                            break;
+                        case OpSize.Long:
+                            value = rotateLeft
+                                ? useExtend
+                                    ? ROXL_L(value, count)
+                                    : ROL_L(value, count)
+                                : useExtend
+                                    ? ROXR_L(value, count)
+                                    : ROR_L(value, count);
+                            break;
                     }
-                    else
-                    {
-                        bool xFlag = Machine.CPU.ExtendFlag;
-                        for (int r = 0; r < rotateAmt; r++)
-                        {
-                            bitShiftedOut = dRegVal & 0x00000001;
-                            dRegVal >>= 1;
-                            bool introduceBit = withExtend ? xFlag : bitShiftedOut != 0;
-                            if (introduceBit)
-                            {
-                                dRegVal |= msb;
-                            }
-                            xFlag = bitShiftedOut != 0;
-                        }
-                    }
-
-                    dRegVal &= sizeMask;
-                    Machine.CPU.WriteDataRegister(dRegNum, dRegVal, size);
-                    SetFlags(inst.Info.HandlerID, size, dRegVal, (uint)rotateAmt, bitShiftedOut);
+                    Machine.CPU.WriteDataRegister(dRegNum, value, inst.Size);
                 }
                 return null;
             }

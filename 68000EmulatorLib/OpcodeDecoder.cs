@@ -729,8 +729,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.ROXR:
                 case OpHandlerID.ROL:
                 case OpHandlerID.ROR:
+                    opSize = Helpers.GetOpSize(opcode);
+
                     // If a memory shift then determine the effective address mode.
-                    if (((opcode & 0x00C0) >> 6) == 0x03)
+                    if ((byte)opSize == 0x03)
                     {
                         sourceEA = Helpers.GetEAMode(opcode);
                         if (UndefinedEA(sourceEA)) return null;
@@ -742,10 +744,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         {
                             return null;
                         }
-                    }
-                    else
-                    {
-                        opSize = Helpers.GetOpSize(opcode);
                     }
                     break;
 
