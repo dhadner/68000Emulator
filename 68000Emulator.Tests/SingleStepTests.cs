@@ -3,6 +3,7 @@ using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Xunit;
 using Xunit.Abstractions;
@@ -433,8 +434,6 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             StringBuilder sb = new();
 
-            sb.AppendLine($"Test case: {testcase.Name}");
-
             sb.AppendLine("Code:");
             DumpCode(startAddress, initialMemory, machine, disassembler, sb);
 
@@ -493,66 +492,68 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         /// </summary>
         /// <param name="requiredState"></param>
         /// <param name="cpu"></param>
-        private void CheckCpuState(M68KJsonTestCase testcase, M68KTestCaseState requiredState, Machine machine, Disassembler disassembler)
+        private void CheckCpuState(M68KTestCaseState requiredState, Machine machine, List<string> errors)
         {
+            void CheckError(object expected, object actual, string message)
+            {
+                if (!expected.Equals(actual))
+                {
+                    errors.Add(message);
+                }
+            }
             CPU cpu = machine.CPU;
-            string testCaseInfo = $"{testcase.Name}:\n{DumpTestCase(testcase, machine, disassembler)}\n";
             var actualD0 = cpu.ReadDataRegister(0);
-            Assert.True(requiredState.D0 == actualD0, $"{testCaseInfo}D0 mismatch. Expected: ${requiredState.D0:x8} ({requiredState.D0}), Actual: ${actualD0:x8} ({actualD0})");
+            CheckError(requiredState.D0, actualD0, $"D0 mismatch. Expected: ${requiredState.D0:x8} ({requiredState.D0}), Actual: ${actualD0:x8} ({actualD0})");
             var actualD1 = cpu.ReadDataRegister(1);
-            Assert.True(requiredState.D1 == actualD1, $"{testCaseInfo}D1 mismatch. Expected: ${requiredState.D1:x8} ({requiredState.D1}), Actual: ${actualD1:x8} ({actualD1})");
+            CheckError(requiredState.D1, actualD1, $"D1 mismatch. Expected: ${requiredState.D1:x8} ({requiredState.D1}), Actual: ${actualD1:x8} ({actualD1})");
             var actualD2 = cpu.ReadDataRegister(2);
-            Assert.True(requiredState.D2 == actualD2, $"{testCaseInfo}D2 mismatch. Expected: ${requiredState.D2:x8} ({requiredState.D2}), Actual: ${actualD2:x8} ({actualD2})");
+            CheckError(requiredState.D2, actualD2, $"D2 mismatch. Expected: ${requiredState.D2:x8} ({requiredState.D2}), Actual: ${actualD2:x8} ({actualD2})");
             var actualD3 = cpu.ReadDataRegister(3);
-            Assert.True(requiredState.D3 == actualD3, $"{testCaseInfo}D3 mismatch. Expected: ${requiredState.D3:x8} ({requiredState.D3}), Actual: ${actualD3:x8} ({actualD3})");
+            CheckError(requiredState.D3, actualD3, $"D3 mismatch. Expected: ${requiredState.D3:x8} ({requiredState.D3}), Actual: ${actualD3:x8} ({actualD3})");
             var actualD4 = cpu.ReadDataRegister(4);
-            Assert.True(requiredState.D4 == actualD4, $"{testCaseInfo}D4 mismatch. Expected: ${requiredState.D4:x8} ({requiredState.D4}), Actual: ${actualD4:x8} ({actualD4})");
+            CheckError(requiredState.D4, actualD4, $"D4 mismatch. Expected: ${requiredState.D4:x8} ({requiredState.D4}), Actual: ${actualD4:x8} ({actualD4})");
             var actualD5 = cpu.ReadDataRegister(5);
-            Assert.True(requiredState.D5 == actualD5, $"{testCaseInfo}D5 mismatch. Expected: ${requiredState.D5:x8} ({requiredState.D5}), Actual: ${actualD5:x8} ({actualD5})");
+            CheckError(requiredState.D5, actualD5, $"D5 mismatch. Expected: ${requiredState.D5:x8} ({requiredState.D5}), Actual: ${actualD5:x8} ({actualD5})");
             var actualD6 = cpu.ReadDataRegister(6);
-            Assert.True(requiredState.D6 == actualD6, $"{testCaseInfo}D6 mismatch. Expected: ${requiredState.D6:x8} ({requiredState.D6}), Actual: ${actualD6:x8} ({actualD6})");
+            CheckError(requiredState.D6, actualD6, $"D6 mismatch. Expected: ${requiredState.D6:x8} ({requiredState.D6}), Actual: ${actualD6:x8} ({actualD6})");
             var actualD7 = cpu.ReadDataRegister(7);
-            Assert.True(requiredState.D7 == actualD7, $"{testCaseInfo}D7 mismatch. Expected: ${requiredState.D7:x8} ({requiredState.D7}), Actual: ${actualD7:x8} ({actualD7})");
+            CheckError(requiredState.D7, actualD7, $"D7 mismatch. Expected: ${requiredState.D7:x8} ({requiredState.D7}), Actual: ${actualD7:x8} ({actualD7})");
 
             var actualA0 = cpu.ReadAddressRegister(0);
-            Assert.True(requiredState.A0 == actualA0, $"{testCaseInfo}A0 mismatch. Expected: {requiredState.A0:x8}, Actual: {actualA0:x8}");
+            CheckError(requiredState.A0, actualA0, $"A0 mismatch. Expected: {requiredState.A0:x8}, Actual: {actualA0:x8}");
             var actualA1 = cpu.ReadAddressRegister(1);
-            Assert.True(requiredState.A1 == actualA1, $"{testCaseInfo}A1 mismatch. Expected: {requiredState.A1:x8}, Actual: {actualA1:x8}");
+            CheckError(requiredState.A1, actualA1, $"A1 mismatch. Expected: {requiredState.A1:x8}, Actual: {actualA1:x8}");
             var actualA2 = cpu.ReadAddressRegister(2);
-            Assert.True(requiredState.A2 == actualA2, $"{testCaseInfo}A2 mismatch. Expected: {requiredState.A2:x8}, Actual: {actualA2:x8}");
+            CheckError(requiredState.A2, actualA2, $"A2 mismatch. Expected: {requiredState.A2:x8}, Actual: {actualA2:x8}");
             var actualA3 = cpu.ReadAddressRegister(3);
-            Assert.True(requiredState.A3 == actualA3, $"{testCaseInfo}A3 mismatch. Expected: {requiredState.A3:x8}, Actual: {actualA3:x8}");
+            CheckError(requiredState.A3, actualA3, $"A3 mismatch. Expected: {requiredState.A3:x8}, Actual: {actualA3:x8}");
             var actualA4 = cpu.ReadAddressRegister(4);
-            Assert.True(requiredState.A4 == actualA4, $"{testCaseInfo}A4 mismatch. Expected: {requiredState.A4:x8}, Actual: {actualA4:x8}");
+            CheckError(requiredState.A4, actualA4, $"A4 mismatch. Expected: {requiredState.A4:x8}, Actual: {actualA4:x8}");
             var actualA5 = cpu.ReadAddressRegister(5);
-            Assert.True(requiredState.A5 == actualA5, $"{testCaseInfo}A5 mismatch. Expected: {requiredState.A5:x8}, Actual: {actualA5:x8}");
+            CheckError(requiredState.A5, actualA5, $"A5 mismatch. Expected: {requiredState.A5:x8}, Actual: {actualA5:x8}");
             var actualA6 = cpu.ReadAddressRegister(6);
-            Assert.True(requiredState.A6 == actualA6, $"{testCaseInfo}A6 mismatch. Expected: {requiredState.A6:x8}, Actual: {actualA6:x8}");
+            CheckError(requiredState.A6, actualA6, $"A6 mismatch. Expected: {requiredState.A6:x8}, Actual: {actualA6:x8}");
 
             // The M68000_SR_MASK from Rust is 0xA71F. We should only compare these bits.
             const ushort SR_MASK = 0x271F; // Ignore trace bit errors for now, then -> 0xA71F
             var expectedSr = (SRFlags)(requiredState.Sr & SR_MASK);
             var actualSr = (SRFlags)((ushort)cpu.SR & SR_MASK);
-            if (expectedSr != actualSr)
-            {
-                _output.WriteLine($"{testCaseInfo}Expected SR: ${(ushort)expectedSr:x4} ({FormatStatusRegister(expectedSr)}), Actual SR: ${(ushort)actualSr:x4} ({FormatStatusRegister(actualSr)})");
-            }
-            Assert.True((ushort)expectedSr == (ushort)actualSr, $"{testCaseInfo}SR mismatch. Expected: ${(ushort)expectedSr:x4} ({FormatStatusRegister(expectedSr)}), Actual: ${(ushort)actualSr:x4} ({FormatStatusRegister(actualSr)})");
+            CheckError(expectedSr, actualSr, $"Expected SR: ${(ushort)expectedSr:x4} ({FormatStatusRegister(expectedSr)}), Actual SR: ${(ushort)actualSr:x4} ({FormatStatusRegister(actualSr)})");
 
             // Check stack pointers after execution
             if ((requiredState.Sr & 0x2000) != 0) // Is supervisor
             {
                 var actualSsp = cpu.ReadAddressRegister(7);
-                Assert.True(requiredState.Ssp == actualSsp, $"{testCaseInfo}SSP mismatch. Expected: ${requiredState.Ssp:x8}, Actual: ${actualSsp:x8}");
+                CheckError(requiredState.Ssp, actualSsp, $"SSP mismatch. Expected: ${requiredState.Ssp:x8}, Actual: ${actualSsp:x8}");
                 var actualUsp = cpu.USP;
-                Assert.True(requiredState.Usp == actualUsp, $"{testCaseInfo}USP mismatch. Expected: ${requiredState.Usp:x8}, Actual: ${actualUsp:x8}");
+                CheckError(requiredState.Usp, actualUsp, $"USP mismatch. Expected: ${requiredState.Usp:x8}, Actual: ${actualUsp:x8}");
             }
             else
             {
                 var actualUsp = cpu.ReadAddressRegister(7);
-                Assert.True(requiredState.Usp == actualUsp, $"{testCaseInfo}USP mismatch. Expected: ${requiredState.Usp:x8}, Actual: ${actualUsp:x8}");
+                CheckError(requiredState.Usp, actualUsp, $"USP mismatch. Expected: ${requiredState.Usp:x8}, Actual: ${actualUsp:x8}");
                 var actualSsp = cpu.SSP;
-                Assert.True(requiredState.Ssp == actualSsp, $"{testCaseInfo}SSP mismatch. Expected: ${requiredState.Ssp:x8}, Actual: ${actualSsp:x8}");
+                CheckError(requiredState.Ssp, actualSsp, $"SSP mismatch. Expected: ${requiredState.Ssp:x8}, Actual: ${actualSsp:x8}");
             }
         }
 
@@ -607,9 +608,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         /// </summary>
         /// <param name="requiredState"></param>
         /// <param name="machine"></param>
-        private static void CheckMemoryState(M68KJsonTestCase testcase, M68KTestCaseState requiredState, Machine machine, Disassembler disassembler)
+        private static void CheckMemoryState(M68KTestCaseState requiredState, Machine machine, List<string> errors)
         {
-            string testCaseInfo = $"{testcase.Name}:\n{DumpTestCase(testcase, machine, disassembler)}\n";
             foreach (var ramEntry in requiredState.Ram)
             {
                 var address = ramEntry.Address;
@@ -620,7 +620,10 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                     continue;
                 }
                 var actualValue = machine.Memory.ReadByte(address);
-                Assert.True(expectedValue == actualValue, $"{testCaseInfo}RAM mismatch at $0x{address:x8}. Expected: ${expectedValue:x2} ({expectedValue}), Actual: ${actualValue:x2} ({actualValue})");
+                if (expectedValue != actualValue)
+                {
+                    errors.Add($"RAM mismatch at 0x{address:x8}. Expected: ${expectedValue:x2} ({expectedValue}), Actual: ${actualValue:x2} ({actualValue})");
+                }
             }
         }
 
@@ -713,6 +716,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             int tests = 0;
             foreach (var testcase in testcases)
             {
+                List<string> errors = [];
                 tests++;
                 if (tests > MAX_TESTS)
                     break;
@@ -741,8 +745,21 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 _output.WriteLine(message.ToString());
 
                 // Check final state
-                CheckCpuState(testcase, testcase.Final, machine, disassembler);
-                CheckMemoryState(testcase, testcase.Final, machine, disassembler);
+                CheckCpuState(testcase.Final, machine, errors);
+                CheckMemoryState(testcase.Final, machine, errors);
+
+                if (errors.Count > 0)
+                {
+                    StringBuilder errorMessage = new();
+                    errorMessage.AppendLine($"Test case: {testcase.Name}");
+                    foreach (var error in errors)
+                    {
+                        errorMessage.Append(LEADING_BLANKS);
+                        errorMessage.AppendLine(error);
+                    }
+                    errorMessage.AppendLine($"\n{DumpTestCase(testcase, machine, disassembler)}");
+                    Assert.Fail(errorMessage.ToString());
+                }
             }
         }
     }
