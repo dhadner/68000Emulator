@@ -65,9 +65,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Machine.CurrentInstruction.Address = pc;
                 }
 
-                // Reset address register update info.
-                Machine.DeferredAddress.Reset();
-
                 // Return instruction or null if this is not a recognised opcode (i.e. an illegal instruction)
                 return inst;
             }

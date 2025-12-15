@@ -720,7 +720,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                     break;
 
                 NormalizeTestCase(testcase);
-                if (testcase.Name.StartsWith("004 SUB.w 6, (A4) 5d54"))
+                if (testcase.Name.StartsWith("042 MOVE.l (d8, A6, Xn), -(A4) 2936"))
                 {
                     Debug.WriteLine($"Looking at failing test case {testcase.Name}");
                 }

@@ -38,7 +38,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             internal OpcodeExecutionHandler(Machine machine)
             {
                 Machine = machine ?? throw new ArgumentNullException(nameof(machine));
-
+                DeferredAddress = new DeferredAddressRegisterUpdate(Machine.CPU);
                 InitOpcodeHandlers();
             }
 
@@ -48,6 +48,93 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             private Machine Machine { get; set; }
 
+            /// <summary>
+            /// Address register to update (post-in/pre-dec) if
+            /// no error during execution (Address Error/Bus Error).
+            /// </summary>
+            public DeferredAddressRegisterUpdate DeferredAddress { get; private set; }
+
+            /// <summary>
+            /// Address register and new address for deferred post-inc/pre-dec 
+            /// addressing modes. Tracks source and destination updates separately
+            /// to handle cases like MOVE.B -(A4),-(A4) where the same register
+            /// is decremented twice.
+            /// </summary>
+            public record DeferredAddressRegisterUpdate
+            {
+                /// <summary>
+                /// Initializes a new instance of the <see cref="DeferredAddressRegisterUpdate"/> class.
+                /// </summary>
+                /// <param name="cpu">The CPU instance to update registers on.</param>
+                public DeferredAddressRegisterUpdate(CPU cpu)
+                {
+                    CPU = cpu;
+                }
+
+                /// <summary>
+                /// Clears all pending address register updates.
+                /// </summary>
+                public void Clear()
+                {
+                    SourceRegisterNumber = null;
+                    SourceNewAddress = null;
+                    DestRegisterNumber = null;
+                    DestNewAddress = null;
+                }
+
+                /// <summary>
+                /// Sets a deferred address register update for the specified EA type.
+                /// </summary>
+                /// <param name="eaType">Whether this is a source or destination EA.</param>
+                /// <param name="regNum">The address register number (0-7).</param>
+                /// <param name="newAddress">The new address value to set.</param>
+                public void Set(EAType eaType, int regNum, uint newAddress)
+                {
+                    if (eaType == EAType.Source)
+                    {
+                        SourceRegisterNumber = regNum;
+                        SourceNewAddress = newAddress;
+                    }
+                    else
+                    {
+                        DestRegisterNumber = regNum;
+                        DestNewAddress = newAddress;
+                    }
+                }
+
+                /// <summary>
+                /// Applies all pending address register updates.
+                /// Source is updated first, then destination, matching 68000 behavior.
+                /// </summary>
+                public void Update()
+                {
+                    // Update source first (per 68000 execution order)
+                    if (SourceRegisterNumber.HasValue && SourceNewAddress.HasValue)
+                    {
+                        CPU.WriteAddressRegister(SourceRegisterNumber.Value, SourceNewAddress.Value);
+                    }
+
+                    // Then update destination
+                    if (DestRegisterNumber.HasValue && DestNewAddress.HasValue)
+                    {
+                        CPU.WriteAddressRegister(DestRegisterNumber.Value, DestNewAddress.Value);
+                    }
+
+                    Clear();
+                }
+
+                private CPU CPU { get; }
+
+                /// <summary>
+                /// Gets whether there are no pending updates.
+                /// </summary>
+                public bool IsEmpty => SourceRegisterNumber == null && DestRegisterNumber == null;
+
+                private int? SourceRegisterNumber { get; set; }
+                private uint? SourceNewAddress { get; set; }
+                private int? DestRegisterNumber { get; set; }
+                private uint? DestNewAddress { get; set; }
+            }
 
             /// <summary>
             /// Initialize the dictionary of Opcode handlers.
@@ -489,10 +576,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     TrapException? e;
                     try
                     {
+                        DeferredAddress.Clear();
                         e = value?.Invoke(instruction);          // Call the handler Action.
-                        if (!Machine.DeferredAddress.IsEmpty && e != null && e.TrapDetails.Group != 0)
+                        if (!DeferredAddress.IsEmpty && e != null && e.TrapDetails.Group != 0)
                         { 
-                            Machine.DeferredAddress.Update();
+                            DeferredAddress.Update();
                         }
                     }
                     catch (TrapException ex)
@@ -569,12 +657,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     {
                         Machine.Debugger.DebugReadAccess(address.Value);
                     }
-                    if ((address.Value & 1) != 0 && size != OpSize.Byte)
+                    if ((address.Value & 1) == 0 || size == OpSize.Byte)
                     {
-                        // Address error about to be thrown, update An if needed
-                        if (suppressIncDec && !Machine.DeferredAddress.IsEmpty)
+                        // Address error won't be thrown, update An for predec, postinc if needed
+                        if (!suppressIncDec && !DeferredAddress.IsEmpty)
                         {
-                            Machine.DeferredAddress.Update();
+                            DeferredAddress.Update();
                         }
                     }
                     value = size switch
@@ -631,6 +719,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         default:
                             Machine.Memory.WriteLong(address.Value, value);
                             break;
+                    }
+                    if ((address.Value & 1) == 0 || size == OpSize.Byte)
+                    {
+                        // Address error won't be thrown, update An for predec, postinc if needed
+                        if (!DeferredAddress.IsEmpty)
+                        {
+                            DeferredAddress.Update();
+                        }
                     }
                 }
                 else if (immValue.HasValue)
@@ -705,18 +801,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 sizeInBytes = 2;
                             }
                             address = Machine.CPU.ReadAddressRegister(regNum);
-                            if ((address & 1) == 0 || instruction.Size != OpSize.Long)
-                            {
-                                if (!suppressIncDec)
-                                {
-                                    Machine.CPU.WriteAddressRegister(regNum, address.Value + sizeInBytes);
-                                    Machine.DeferredAddress.Reset();
-                                }
-                                else
-                                {
-                                    Machine.DeferredAddress.Set(regNum, address.Value + sizeInBytes);
-                                }
-                            }
+                            DeferredAddress.Set(eaType, regNum, address.Value + sizeInBytes);                           
                             break;
                         case (byte)AddrMode.AddressPreDec:
                             // Special case: If working with SP (i.e. A7) and a size of 1 byte then use a 2 byte decrement (to keep SP address even).
@@ -725,15 +810,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 sizeInBytes = 2;
                             }
                             address = Machine.CPU.ReadAddressRegister(regNum) - sizeInBytes;
-                            if (!suppressIncDec)
-                            {
-                                Machine.CPU.WriteAddressRegister(regNum, address.Value);
-                                Machine.DeferredAddress.Reset();
-                            }
-                            else
-                            {
-                                Machine.DeferredAddress.Set(regNum, address.Value);
-                            }
+                            DeferredAddress.Set(eaType, regNum, address.Value);
                             break;
                         case (byte)AddrMode.AddressDisp:
                             Debug.Assert(ext1.HasValue, EXT_WORD_NOT_AVAILABLE);
@@ -1041,13 +1118,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? MOVE(Instruction inst)
             {
-
                 var value = ReadEAValue(inst, EAType.Source);
                 if (value.HasValue)
                 {
                     OpSize size = inst.Size ?? OpSize.Word;
-                    SetFlags(inst.Info.HandlerID, size, value.Value);
+                    Machine.CPU.CarryFlag = false;
+                    Machine.CPU.OverflowFlag = false;
+                    Machine.CPU.ZeroFlag = false;
                     WriteEAValue(inst, value.Value, EAType.Destination);
+                    SetFlags(inst.Info.HandlerID, size, value.Value);
                 }
                 return null;
             }

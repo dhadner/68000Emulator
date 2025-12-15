@@ -43,7 +43,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             CurrentInstruction = new Instruction(0, new InstructionInfo(0, 0, "NONE", Enumerations.OpHandlerID.NONE));
             ExecutionHandler = new OpcodeExecutionHandler(this);
             Decoder = new InstructionDecoder(this);
-            DeferredAddress = new(CPU);
         }
 
         /// <summary>
@@ -91,52 +90,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Address of the currently-executing (or about to be executed) instruction.
         /// </summary>
         public uint ExecutingAtAddress { get; protected set; }
-
-        /// <summary>
-        /// Address register and new address for deferred post-inc/pre-dec 
-        /// addressing modes.
-        /// </summary>
-        public record DeferredAddressUpdate
-        {
-            public DeferredAddressUpdate(CPU cpu)
-            {
-                CPU = cpu;
-            }
-
-            public void Reset()
-            {
-                RegisterNumber = null;
-                NewAddress = null;
-            }
-
-            public void Set(int regNum, uint newAddress)
-            {
-                RegisterNumber = regNum;
-                NewAddress = newAddress;
-            }
-
-            public void Update()
-            {
-                if (IsEmpty)
-                {
-                    throw new InvalidOperationException("DeferredAddressUpdate.Update() called when empty");
-                }
-                CPU.WriteAddressRegister(RegisterNumber!.Value, NewAddress!.Value);
-                Reset();
-            }
-
-            private CPU CPU { get; }
-
-            public bool IsEmpty => RegisterNumber == null;
-            public int? RegisterNumber { get; private set; }
-            public uint? NewAddress { get; private set; }
-        }
-
-        /// <summary>
-        /// Address register to update (post-in/pre-dec) if
-        /// no error during execution (Address Error/Bus Error).
-        /// </summary>
-        public DeferredAddressUpdate DeferredAddress { get; private set; }
 
         /// <summary>
         /// Raise an address error trap exception and set appropriate info
