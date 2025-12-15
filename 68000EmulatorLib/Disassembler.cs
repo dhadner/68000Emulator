@@ -1273,33 +1273,26 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 Operation op = AppendMnemonic(inst, sb);
                 OpSize opSize = AppendSizeAndTab(inst, sb);
                 op.Size = opSize;
-                uint? value = OpcodeExecutionHandler.GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
-                if (value.HasValue)
+                uint value = OpcodeExecutionHandler.GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
+                Operand operand;
+                switch (opSize) 
                 {
-                    Operand operand;
-                    switch (opSize) 
-                    {
-                        case OpSize.Byte:
-                            operand = new ImmediateOperand((byte)value);
-                            break;
-                        case OpSize.Word:
-                            operand = new ImmediateOperand((short)value);
-                            break;
-                        case OpSize.Long:
-                            operand = new ImmediateOperand((uint)value);
-                            break;
-                        default:
-                            return null; // "Operation size not supported"                    
-                    }
-                    op.Operands.Add(operand);
-                    op.Operands.Add(EffectiveAddressOp(inst, EAType.Destination));
+                    case OpSize.Byte:
+                        operand = new ImmediateOperand((byte)value);
+                        break;
+                    case OpSize.Word:
+                        operand = new ImmediateOperand((short)value);
+                        break;
+                    case OpSize.Long:
+                        operand = new ImmediateOperand((uint)value);
+                        break;
+                    default:
+                        return null; // "Operation size not supported"                    
+                }
+                op.Operands.Add(operand);
+                op.Operands.Add(EffectiveAddressOp(inst, EAType.Destination));
 
-                    sb.Append(op.Operands);
-                }
-                else
-                {
-                    return null; // "Expecting sized operand value"
-                }
+                sb.Append(op.Operands);
                 return op;
             }
 

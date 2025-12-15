@@ -720,7 +720,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                     break;
 
                 NormalizeTestCase(testcase);
-                if (testcase.Name.StartsWith("042 MOVE.l (d8, A6, Xn), -(A4) 2936"))
+                if (testcase.Name.StartsWith("001 CMP.w (A4)+, (A0)+ b14c"))
                 {
                     Debug.WriteLine($"Looking at failing test case {testcase.Name}");
                 }
@@ -740,7 +740,6 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 {
                     message.Append($" -> Exception: {exception.Message}");
                 }
-                //Debug.WriteLine(message.ToString());
 
                 // Check final state
                 CheckCpuState(testcase.Final, machine, errors);

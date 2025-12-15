@@ -38,7 +38,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             internal OpcodeExecutionHandler(Machine machine)
             {
                 Machine = machine ?? throw new ArgumentNullException(nameof(machine));
-                DeferredAddress = new DeferredAddressRegisterUpdate(Machine.CPU);
+                DeferredAddressRegisterUpdate = new AddressRegisterChange(Machine.CPU);
                 InitOpcodeHandlers();
             }
 
@@ -52,7 +52,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Address register to update (post-in/pre-dec) if
             /// no error during execution (Address Error/Bus Error).
             /// </summary>
-            public DeferredAddressRegisterUpdate DeferredAddress { get; private set; }
+            public AddressRegisterChange DeferredAddressRegisterUpdate { get; private set; }
 
             /// <summary>
             /// Address register and new address for deferred post-inc/pre-dec 
@@ -60,13 +60,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// to handle cases like MOVE.B -(A4),-(A4) where the same register
             /// is decremented twice.
             /// </summary>
-            public record DeferredAddressRegisterUpdate
+            public record AddressRegisterChange
             {
                 /// <summary>
-                /// Initializes a new instance of the <see cref="DeferredAddressRegisterUpdate"/> class.
+                /// Initializes a new instance of the <see cref="AddressRegisterChange"/> class.
                 /// </summary>
                 /// <param name="cpu">The CPU instance to update registers on.</param>
-                public DeferredAddressRegisterUpdate(CPU cpu)
+                public AddressRegisterChange(CPU cpu)
                 {
                     CPU = cpu;
                 }
@@ -74,12 +74,20 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// <summary>
                 /// Clears all pending address register updates.
                 /// </summary>
-                public void Clear()
+                public void Clear(EAType? eaType = null)
                 {
-                    SourceRegisterNumber = null;
-                    SourceNewAddress = null;
-                    DestRegisterNumber = null;
-                    DestNewAddress = null;
+                    if (eaType == null || eaType == EAType.Source)
+                    {
+                        SourceRegisterNumber = null;
+                        SourceNewAddress = null;
+                        SourcePreDec = null;
+                    }
+                    if (eaType == null || eaType == EAType.Destination)
+                    {
+                        DestRegisterNumber = null;
+                        DestNewAddress = null;
+                        DestPreDec = null;
+                    }
                 }
 
                 /// <summary>
@@ -88,39 +96,59 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// <param name="eaType">Whether this is a source or destination EA.</param>
                 /// <param name="regNum">The address register number (0-7).</param>
                 /// <param name="newAddress">The new address value to set.</param>
-                public void Set(EAType eaType, int regNum, uint newAddress)
+                public void Set(EAType? eaType, int regNum, uint newAddress, bool preDec)
                 {
-                    if (eaType == EAType.Source)
+                    if (eaType == null || eaType == EAType.Source)
                     {
                         SourceRegisterNumber = regNum;
                         SourceNewAddress = newAddress;
+                        SourcePreDec = preDec;
                     }
-                    else
+                    if (eaType == null || eaType == EAType.Destination)
                     {
                         DestRegisterNumber = regNum;
                         DestNewAddress = newAddress;
+                        DestPreDec = preDec;
                     }
+                }
+
+                /// <summary>
+                /// True if this is a pre-decrement update for the specified EA type.
+                /// </summary>
+                /// <param name="eaType"></param>
+                /// <returns></returns>
+                public bool? IsPreDec(EAType eaType)
+                {
+                    if (eaType == EAType.Source)
+                    {
+                        return SourcePreDec;
+                    }
+                    if (eaType == EAType.Destination)
+                    {
+                        return DestPreDec;
+                    }
+                    return null;
                 }
 
                 /// <summary>
                 /// Applies all pending address register updates.
                 /// Source is updated first, then destination, matching 68000 behavior.
                 /// </summary>
-                public void Update()
+                public void Apply(EAType? eaType = null)
                 {
                     // Update source first (per 68000 execution order)
-                    if (SourceRegisterNumber.HasValue && SourceNewAddress.HasValue)
+                    if ((eaType == null || eaType == EAType.Source) && SourceRegisterNumber.HasValue && SourceNewAddress.HasValue)
                     {
                         CPU.WriteAddressRegister(SourceRegisterNumber.Value, SourceNewAddress.Value);
                     }
 
                     // Then update destination
-                    if (DestRegisterNumber.HasValue && DestNewAddress.HasValue)
+                    if ((eaType == null || eaType == EAType.Destination) && DestRegisterNumber.HasValue && DestNewAddress.HasValue)
                     {
                         CPU.WriteAddressRegister(DestRegisterNumber.Value, DestNewAddress.Value);
                     }
 
-                    Clear();
+                    Clear(eaType);
                 }
 
                 private CPU CPU { get; }
@@ -128,12 +156,25 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// <summary>
                 /// Gets whether there are no pending updates.
                 /// </summary>
-                public bool IsEmpty => SourceRegisterNumber == null && DestRegisterNumber == null;
+                public bool IsEmpty(EAType? eaType = null)
+                {
+                    if (eaType == EAType.Source)
+                    {
+                        return SourceRegisterNumber == null;
+                    }
+                    if (eaType == EAType.Destination)
+                    {
+                        return DestRegisterNumber == null;
+                    }
+                    return SourceRegisterNumber == null && DestRegisterNumber == null;
+                }
 
                 private int? SourceRegisterNumber { get; set; }
                 private uint? SourceNewAddress { get; set; }
+                private bool? SourcePreDec { get; set; }
                 private int? DestRegisterNumber { get; set; }
                 private uint? DestNewAddress { get; set; }
+                private bool? DestPreDec { get; set; }
             }
 
             /// <summary>
@@ -239,7 +280,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="ext1">The first extension word value (can be null).</param>
             /// <param name="ext2">The second extension word value (can be null).</param>
             /// <returns>A 32-bit value containing the operand data (or null if no value is available).</returns>
-            internal static uint? GetSizedOperandValue(OpSize size, ushort? ext1, ushort? ext2)
+            internal static uint GetSizedOperandValue(OpSize size, ushort? ext1, ushort? ext2)
             {
                 uint? value = null;
                 if (ext1.HasValue)
@@ -257,7 +298,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                 }
 
-                return value;
+                if (value == null)
+                {
+                    throw Helpers.CreateTRAPException(TrapVector.IllegalInstruction);
+                }
+                return value.Value;
             }
 
             /// <summary>
@@ -372,26 +417,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         break;
                     case OpHandlerID.ROL:
                     case OpHandlerID.ROR:
-                        Machine.CPU.NegativeFlag = resultMsbSet;
-                        Machine.CPU.ZeroFlag = (result & mask) == 0;
-                        Machine.CPU.CarryFlag = source != 0 && dest != 0;
-                        Machine.CPU.OverflowFlag = false;
-                        break;
                     case OpHandlerID.ROXL:
                     case OpHandlerID.ROXR:
-                        Machine.CPU.NegativeFlag = resultMsbSet;
-                        Machine.CPU.ZeroFlag = (result & mask) == 0;
-                        if (source != 0)
-                        {
-                            Machine.CPU.CarryFlag = Machine.CPU.ExtendFlag = dest != 0;
-                        }
-                        else
-                        {
-                            Machine.CPU.CarryFlag = false;
-                        }
-                        Machine.CPU.OverflowFlag = false;
+                    default:
                         break;
-
                 }
             }
 
@@ -457,6 +486,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns>The address at which the transfer completed.</returns>
             private uint MOVEM_MemToReg(ushort regMask, uint address, OpSize size)
             {
+                uint regSize = (uint)(size == OpSize.Long ? 4 : 2);
                 for (int n = 0; n < 16; n++)
                 {
                     if ((regMask & _bit[n]) != 0)
@@ -470,7 +500,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         {
                             Machine.CPU.WriteAddressRegister(n - 8, value, OpSize.Long);
                         }
-                        address += (uint)(size == OpSize.Long ? 4 : 2);
+                        address += regSize;
                     }
                 }
                 return address;
@@ -576,11 +606,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     TrapException? e;
                     try
                     {
-                        DeferredAddress.Clear();
+                        DeferredAddressRegisterUpdate.Clear();
                         e = value?.Invoke(instruction);          // Call the handler Action.
-                        if (!DeferredAddress.IsEmpty && e != null && e.TrapDetails.Group != 0)
-                        { 
-                            DeferredAddress.Update();
+                        if (e?.TrapDetails.Group != 0)
+                        {
+                            DeferredAddressRegisterUpdate.Apply();
                         }
                     }
                     catch (TrapException ex)
@@ -638,9 +668,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// double inc/dec.  This is the case when there is only one effective address for an instruction but 
             /// it must be both read and written (such as NEGX).</param>
             /// <returns>32-bit value containing the effective address value (or null if no value available).</returns>
-            private uint? ReadEAValue(Instruction instruction, EAType eaType, bool suppressIncDec = false)
+            private uint ReadEAValue(Instruction instruction, EAType eaType, bool suppressIncDec = false)
             {
-                uint? value = null;
+                uint value;
                 OpSize size = instruction.Size ?? OpSize.Word;
                 var (dataRegNum, addrRegNum, address, immValue) = EvaluateEffectiveAddress(instruction, eaType, suppressIncDec);
                 if (dataRegNum.HasValue)
@@ -657,31 +687,39 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     {
                         Machine.Debugger.DebugReadAccess(address.Value);
                     }
-                    if ((address.Value & 1) == 0 || size == OpSize.Byte)
+
+                    // Check for address error on odd address for word/long accesses.
+                    // 
+                    bool addressError = (address.Value & 1) != 0 && size != OpSize.Byte;
+                    if (((!suppressIncDec || addressError) && DeferredAddressRegisterUpdate.IsPreDec(eaType) == true)
+                        || addressError && size == OpSize.Word)
                     {
-                        // Address error won't be thrown, update An for predec, postinc if needed
-                        if (!suppressIncDec && !DeferredAddress.IsEmpty)
-                        {
-                            DeferredAddress.Update();
-                        }
+                        // Pre-apply the address register update for pre-dec addressing mode, or for address error on word access.
+                        DeferredAddressRegisterUpdate.Apply(eaType);
                     }
+                    // Access memory - may throw an Address Error or Bus Error trap exception
                     value = size switch
                     {
                         OpSize.Byte => Machine.Memory.ReadByte(address.Value),
                         OpSize.Long => Machine.Memory.ReadLong(address.Value),
                         _ => Machine.Memory.ReadWord(address.Value),
                     };
+                    if (!suppressIncDec)
+                    {
+                        // Apply the deferred address register update now that the bus transaction has succeeded.
+                        DeferredAddressRegisterUpdate.Apply(eaType);
+                    }
                 }
                 else if (immValue.HasValue)
                 {
                     value = immValue.Value;
                 }
-
-                if (value.HasValue)
+                else
                 {
-                    return SizedValue(value.Value, size);
+                    throw Helpers.CreateTRAPException(TrapVector.IllegalInstruction);
                 }
-                return null;
+
+                return SizedValue(value, size);
             }
 
             /// <summary>
@@ -708,6 +746,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     {
                         Machine.Debugger.DebugWriteAccess(address.Value);
                     }
+                    if (DeferredAddressRegisterUpdate.IsPreDec(eaType) == true)
+                    {
+                        // Pre-dec always happens regardless of bus or address errors.
+                        DeferredAddressRegisterUpdate.Apply(eaType);
+                    }
+                    // Access memory - may throw an Address Error or Bus Error trap ex`ception
                     switch (size)
                     {
                         case OpSize.Byte:
@@ -720,14 +764,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             Machine.Memory.WriteLong(address.Value, value);
                             break;
                     }
-                    if ((address.Value & 1) == 0 || size == OpSize.Byte)
-                    {
-                        // Address error won't be thrown, update An for predec, postinc if needed
-                        if (!DeferredAddress.IsEmpty)
-                        {
-                            DeferredAddress.Update();
-                        }
-                    }
+                    // Apply the deferred address register update now that the bus transaction has succeeded.
+                    DeferredAddressRegisterUpdate.Apply(eaType);
                 }
                 else if (immValue.HasValue)
                 {
@@ -801,7 +839,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 sizeInBytes = 2;
                             }
                             address = Machine.CPU.ReadAddressRegister(regNum);
-                            DeferredAddress.Set(eaType, regNum, address.Value + sizeInBytes);                           
+                            DeferredAddressRegisterUpdate.Set(eaType, regNum, address.Value + sizeInBytes, false);
                             break;
                         case (byte)AddrMode.AddressPreDec:
                             // Special case: If working with SP (i.e. A7) and a size of 1 byte then use a 2 byte decrement (to keep SP address even).
@@ -810,7 +848,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 sizeInBytes = 2;
                             }
                             address = Machine.CPU.ReadAddressRegister(regNum) - sizeInBytes;
-                            DeferredAddress.Set(eaType, regNum, address.Value);
+                            DeferredAddressRegisterUpdate.Set(eaType, regNum, address.Value, true);
                             break;
                         case (byte)AddrMode.AddressDisp:
                             Debug.Assert(ext1.HasValue, EXT_WORD_NOT_AVAILABLE);
@@ -865,8 +903,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         byte indexRegNum = (byte)((ext1.Value & 0x7000) >> 12);
                                         OpSize indexSize = (ext1.Value & 0x0800) == 0 ? OpSize.Word : OpSize.Long;
                                         bool indexIsAddress = (ext1.Value & 0x8000) != 0;
-                                        uint indexValue = indexIsAddress? 
-                                            Machine.CPU.ReadAddressRegister(indexRegNum):
+                                        uint indexValue = indexIsAddress ?
+                                            Machine.CPU.ReadAddressRegister(indexRegNum) :
                                             Machine.CPU.ReadDataRegister(indexRegNum);
                                         if (indexSize == OpSize.Word)
                                         {
@@ -888,10 +926,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         if (size == OpSize.Long)
                                         {
                                             Debug.Assert(ext2.HasValue, EXT_WORD_NOT_AVAILABLE);
-                                            if (ext2.HasValue)
-                                            {
-                                                immVal = (uint)((ext1.Value << 16) + ext2.Value);
-                                            }
+                                            immVal = (uint)((ext1.Value << 16) + ext2.Value);
                                         }
                                         else
                                         {
@@ -910,6 +945,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     instruction.AccessAddress = address.Value;
                     instruction.AccessAddressType = eaType;
                 }
+                Debug.Assert(dRegNum != null || aRegNum != null || address != null || immVal != null, "EA evaluation did not yield any result.");
                 return (dRegNum, aRegNum, address, immVal);
             }
 
@@ -960,29 +996,23 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             private TrapException? ORI(Instruction inst)
             {
                 OpSize opSize = inst.Size ?? OpSize.Word;
-                uint? value = GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
-                if (value.HasValue)
-                {
-                    var destValue = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                    if (destValue.HasValue)
-                    {
-                        destValue |= value.Value;
-                        WriteEAValue(inst, destValue.Value, EAType.Destination);
-                        SetFlags(inst.Info.HandlerID, opSize, destValue.Value);
-                    }
-                }
+                uint value = GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
+                var destValue = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
+                destValue |= value;
+                WriteEAValue(inst, destValue, EAType.Destination);
+                SetFlags(inst.Info.HandlerID, opSize, destValue);
                 return null;
             }
 
             private TrapException? ANDItoCCR(Instruction inst)
             {
-                // SourceExtWord1 holds the immediate operand value.
-                if (inst.SourceExtWord1.HasValue)
+                ushort value = (ushort)Machine.CPU.SR;
+                if (!inst.SourceExtWord1.HasValue)
                 {
-                    ushort value = (ushort)Machine.CPU.SR;
-                    value &= (ushort)((inst.SourceExtWord1.Value & 0x001F) | 0xFFE0);
-                    Machine.CPU.SR = (SRFlags)value;
+                    Helpers.RaiseTRAPException(TrapVector.IllegalInstruction);
                 }
+                value &= (ushort)((inst.SourceExtWord1!.Value & 0x001F) | 0xFFE0);
+                Machine.CPU.SR = (SRFlags)value;
                 return null;
             }
 
@@ -993,47 +1023,35 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     return trap;
                 }
-                // SourceExtWord1 holds the immediate operand value.
-                if (inst.SourceExtWord1.HasValue)
+                ushort value = (ushort)Machine.CPU.SR;
+                if (!inst.SourceExtWord1.HasValue)
                 {
-                    ushort value = (ushort)Machine.CPU.SR;
-                    value &= inst.SourceExtWord1.Value;
-                    Machine.CPU.SR = (SRFlags)value;
+                    Helpers.RaiseTRAPException(TrapVector.IllegalInstruction);
                 }
+                value &= inst.SourceExtWord1!.Value;
+                Machine.CPU.SR = (SRFlags)value;
                 return null;
             }
 
             private TrapException? ANDI(Instruction inst)
             {
                 OpSize opSize = inst.Size ?? OpSize.Word;
-                uint? value = GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
-                if (value.HasValue)
-                {
-                    var destValue = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                    if (destValue.HasValue)
-                    {
-                        destValue &= value.Value;
-                        WriteEAValue(inst, destValue.Value, EAType.Destination);
-                        SetFlags(inst.Info.HandlerID, opSize, destValue.Value);
-                    }
-                }
+                uint value = GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
+                var destValue = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
+                destValue &= value;
+                WriteEAValue(inst, destValue, EAType.Destination);
+                SetFlags(inst.Info.HandlerID, opSize, destValue);
                 return null;
             }
 
             private TrapException? SUBI(Instruction inst)
             {
                 OpSize opSize = inst.Size ?? OpSize.Word;
-                uint? srcValue = GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
-                if (srcValue.HasValue)
-                {
-                    var destValue = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                    if (destValue.HasValue)
-                    {
-                        uint result = destValue.Value - srcValue.Value;
-                        WriteEAValue(inst, result, EAType.Destination);
-                        SetFlags(inst.Info.HandlerID, opSize, result, srcValue.Value, destValue.Value);
-                    }
-                }
+                uint srcValue = GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
+                var destValue = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
+                uint result = destValue - srcValue;
+                WriteEAValue(inst, result, EAType.Destination);
+                SetFlags(inst.Info.HandlerID, opSize, result, srcValue, destValue);
                 return null;
             }
 
@@ -1044,12 +1062,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 if (srcValue.HasValue)
                 {
                     var destValue = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                    if (destValue.HasValue)
-                    {
-                        uint result = destValue.Value + srcValue.Value;
-                        WriteEAValue(inst, result, EAType.Destination);
-                        SetFlags(inst.Info.HandlerID, opSize, result, srcValue.Value, destValue.Value);
-                    }
+                    uint result = destValue + srcValue.Value;
+                    WriteEAValue(inst, result, EAType.Destination);
+                    SetFlags(inst.Info.HandlerID, opSize, result, srcValue.Value, destValue);
                 }
                 return null;
             }
@@ -1057,12 +1072,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             private TrapException? EORItoCCR(Instruction inst)
             {
                 // SourceExtWord1 holds the immediate operand value.
-                if (inst.SourceExtWord1.HasValue)
+                if (!inst.SourceExtWord1.HasValue)
                 {
-                    ushort value = (ushort)Machine.CPU.SR;
-                    value ^= (ushort)(inst.SourceExtWord1.Value & 0x001F);
-                    Machine.CPU.SR = (SRFlags)value;
+                    Helpers.RaiseTRAPException(TrapVector.IllegalInstruction);
                 }
+                ushort value = (ushort)Machine.CPU.SR;
+                value ^= (ushort)(inst.SourceExtWord1!.Value & 0x001F);
+                Machine.CPU.SR = (SRFlags)value;
                 return null;
             }
 
@@ -1074,77 +1090,60 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     return trap;
                 }
                 // SourceExtWord1 holds the immediate operand value.
-                if (inst.SourceExtWord1.HasValue)
+                if (!inst.SourceExtWord1.HasValue)
                 {
-                    ushort value = (ushort)Machine.CPU.SR;
-                    value ^= inst.SourceExtWord1.Value;
-                    Machine.CPU.SR = (SRFlags)value;
+                    Helpers.RaiseTRAPException(TrapVector.IllegalInstruction);
                 }
+                ushort value = (ushort)Machine.CPU.SR;
+                value ^= inst.SourceExtWord1!.Value;
+                Machine.CPU.SR = (SRFlags)value;
                 return null;
             }
 
             private TrapException? EORI(Instruction inst)
             {
                 OpSize opSize = inst.Size ?? OpSize.Word;
-                uint? value = GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
-                if (value.HasValue)
-                {
-                    var destValue = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                    if (destValue.HasValue)
-                    {
-                        destValue ^= value.Value;
-                        WriteEAValue(inst, destValue.Value, EAType.Destination);
-                        SetFlags(inst.Info.HandlerID, opSize, destValue.Value);
-                    }
-                }
+                uint value = GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
+                var destValue = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
+                destValue ^= value;
+                WriteEAValue(inst, destValue, EAType.Destination);
+                SetFlags(inst.Info.HandlerID, opSize, destValue);
                 return null;
             }
 
             private TrapException? CMPI(Instruction inst)
             {
                 OpSize opSize = inst.Size ?? OpSize.Word;
-                uint? srcValue = GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
-                if (srcValue.HasValue)
-                {
-                    var destValue = ReadEAValue(inst, EAType.Destination);
-                    if (destValue.HasValue)
-                    {
-                        uint result = destValue.Value - srcValue.Value;
-                        SetFlags(inst.Info.HandlerID, opSize, result, srcValue.Value, destValue.Value);
-                    }
-                }
+                uint srcValue = GetSizedOperandValue(opSize, inst.SourceExtWord1, inst.SourceExtWord2);
+                var destValue = ReadEAValue(inst, EAType.Destination);
+                uint result = destValue - srcValue;
+                SetFlags(inst.Info.HandlerID, opSize, result, srcValue, destValue);
                 return null;
             }
 
             private TrapException? MOVE(Instruction inst)
             {
                 var value = ReadEAValue(inst, EAType.Source);
-                if (value.HasValue)
-                {
-                    OpSize size = inst.Size ?? OpSize.Word;
-                    Machine.CPU.CarryFlag = false;
-                    Machine.CPU.OverflowFlag = false;
-                    Machine.CPU.ZeroFlag = false;
-                    WriteEAValue(inst, value.Value, EAType.Destination);
-                    SetFlags(inst.Info.HandlerID, size, value.Value);
-                }
+                OpSize size = inst.Size ?? OpSize.Word;
+                Machine.CPU.CarryFlag = false;
+                Machine.CPU.OverflowFlag = false;
+                Machine.CPU.ZeroFlag = false;
+                WriteEAValue(inst, value, EAType.Destination);
+                SetFlags(inst.Info.HandlerID, size, value);
                 return null;
             }
 
             private TrapException? MOVEA(Instruction inst)
             {
-                uint? value = ReadEAValue(inst, EAType.Source);
-                if (value.HasValue)
+                uint value = ReadEAValue(inst, EAType.Source);
+                if (inst.Size == OpSize.Word)
                 {
-                    if (inst.Size == OpSize.Word)
-                    {
-                        // Sign-extend
-                        value = (uint)Helpers.SignExtendValue(value.Value);
-                    }
-                    OpSize size = OpSize.Long; // MOVEA always moves full 32 bits for address register
-                    int regNum = (inst.Opcode & 0x0E00) >> 9;
-                    Machine.CPU.WriteAddressRegister(regNum, value.Value, size);
+                    // Sign-extend
+                    value = (uint)Helpers.SignExtendValue(value);
                 }
+                OpSize size = OpSize.Long; // MOVEA always moves full 32 bits for address register
+                int regNum = (inst.Opcode & 0x0E00) >> 9;
+                Machine.CPU.WriteAddressRegister(regNum, value, size);
                 return null;
             }
 
@@ -1157,13 +1156,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             private TrapException? MOVEtoCCR(Instruction inst)
             {
                 var value = ReadEAValue(inst, EAType.Source);
-                if (value.HasValue)
-                {
-                    ushort srValue = (ushort)Machine.CPU.SR;
-                    srValue = (ushort)((srValue & 0xFF00) | ((ushort)value.Value & 0x00FF));
-                    // Note: Setter masks out unimplemented bits.
-                    Machine.CPU.SR = (SRFlags)srValue;
-                }
+                ushort srValue = (ushort)Machine.CPU.SR;
+                srValue = (ushort)((srValue & 0xFF00) | ((ushort)value & 0x00FF));
+                // Note: Setter masks out unimplemented bits.
+                Machine.CPU.SR = (SRFlags)srValue;
                 return null;
             }
 
@@ -1175,65 +1171,50 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     return trap;
                 }
                 var value = ReadEAValue(inst, EAType.Source);
-                if (value.HasValue)
-                {
-                    // Note: Setter masks out unimplemented bits.
-                    Machine.CPU.SR = (SRFlags)((ushort)value.Value);
-                }
+                // Note: Setter masks out unimplemented bits.
+                Machine.CPU.SR = (SRFlags)((ushort)value);
                 return null;
             }
 
             private TrapException? NEGX(Instruction inst)
             {
                 var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                if (value.HasValue)
-                {
-                    OpSize size = inst.Size ?? OpSize.Word;
-                    int val = Helpers.SignExtendValue(value.Value, size);
-                    int result = 0 - (val + (Machine.CPU.ExtendFlag ? 1 : 0));
-                    WriteEAValue(inst, (uint)result, EAType.Destination);
-                    SetFlags(inst.Info.HandlerID, size, (uint)result, value.Value);
-                }
+                OpSize size = inst.Size ?? OpSize.Word;
+                int val = Helpers.SignExtendValue(value, size);
+                int result = 0 - (val + (Machine.CPU.ExtendFlag ? 1 : 0));
+                WriteEAValue(inst, (uint)result, EAType.Destination);
+                SetFlags(inst.Info.HandlerID, size, (uint)result, value);
                 return null;
             }
 
             private TrapException? CLR(Instruction inst)
             {
-                var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                if (value.HasValue)
-                {
-                    WriteEAValue(inst, 0, EAType.Destination);
-                    Machine.CPU.ZeroFlag = true;
-                    Machine.CPU.NegativeFlag = Machine.CPU.OverflowFlag = Machine.CPU.CarryFlag = false;
-                }
+                ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
+                WriteEAValue(inst, 0, EAType.Destination);
+                Machine.CPU.ZeroFlag = true;
+                Machine.CPU.NegativeFlag = Machine.CPU.OverflowFlag = Machine.CPU.CarryFlag = false;
                 return null;
             }
 
             private TrapException? NEG(Instruction inst)
             {
                 var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                if (value.HasValue)
-                {
-                    OpSize size = inst.Size ?? OpSize.Word;
-                    int val = Helpers.SignExtendValue(value.Value, size);
-                    int result = 0 - val;
-                    WriteEAValue(inst, (uint)result, EAType.Destination);
-                    SetFlags(inst.Info.HandlerID, size, (uint)result, value.Value);
-                }
+                OpSize size = inst.Size ?? OpSize.Word;
+                int val = Helpers.SignExtendValue(value, size);
+                int result = 0 - val;
+                WriteEAValue(inst, (uint)result, EAType.Destination);
+                SetFlags(inst.Info.HandlerID, size, (uint)result, value);
                 return null;
             }
 
             private TrapException? NOT(Instruction inst)
             {
                 var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                if (value.HasValue)
-                {
-                    OpSize size = inst.Size ?? OpSize.Word;
-                    int val = Helpers.SignExtendValue(value.Value, size);
-                    int result = ~val;
-                    WriteEAValue(inst, (uint)result, EAType.Destination);
-                    SetFlags(inst.Info.HandlerID, size, (uint)result, value.Value);
-                }
+                OpSize size = inst.Size ?? OpSize.Word;
+                int val = Helpers.SignExtendValue(value, size);
+                int result = ~val;
+                WriteEAValue(inst, (uint)result, EAType.Destination);
+                SetFlags(inst.Info.HandlerID, size, (uint)result, value);
                 return null;
             }
 
@@ -1287,11 +1268,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             private TrapException? TST(Instruction inst)
             {
                 var value = ReadEAValue(inst, EAType.Destination);
-                if (value.HasValue)
-                {
-                    OpSize size = inst.Size ?? OpSize.Word;
-                    SetFlags(inst.Info.HandlerID, size, value.Value);
-                }
+                OpSize size = inst.Size ?? OpSize.Word;
+                SetFlags(inst.Info.HandlerID, size, value);
                 return null;
             }
 
@@ -1467,24 +1445,21 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             private TrapException? CHK(Instruction inst)
             {
                 var value = ReadEAValue(inst, EAType.Source);
-                if (value.HasValue)
+                OpSize size = inst.Size ?? OpSize.Word;
+                int regNum = (inst.Opcode & 0x0E00) >> 9;
+                uint dRegValue = Machine.CPU.ReadDataRegister(regNum);
+                int signedDVal = Helpers.SignExtendValue(dRegValue, size);
+                int signedEAVal = Helpers.SignExtendValue(value, size);
+                Machine.CPU.SR = Machine.CPU.SR & ~(SRFlags.Negative | SRFlags.Zero | SRFlags.Carry | SRFlags.Overflow);
+                if (signedDVal < 0)
                 {
-                    OpSize size = inst.Size ?? OpSize.Word;
-                    int regNum = (inst.Opcode & 0x0E00) >> 9;
-                    uint dRegValue = Machine.CPU.ReadDataRegister(regNum);
-                    int signedDVal = Helpers.SignExtendValue(dRegValue, size);
-                    int signedEAVal = Helpers.SignExtendValue(value.Value, size);
-                    Machine.CPU.SR = Machine.CPU.SR & ~(SRFlags.Negative | SRFlags.Zero | SRFlags.Carry | SRFlags.Overflow);
-                    if (signedDVal < 0)
-                    {
-                        Machine.CPU.NegativeFlag = true;
-                        return Helpers.CreateTRAPException(TrapVector.CHKInstruction);
-                    }
-                    else if (signedDVal > signedEAVal)
-                    {
-                        Machine.CPU.NegativeFlag = false;
-                        return Helpers.CreateTRAPException(TrapVector.CHKInstruction);
-                    }
+                    Machine.CPU.NegativeFlag = true;
+                    return Helpers.CreateTRAPException(TrapVector.CHKInstruction);
+                }
+                else if (signedDVal > signedEAVal)
+                {
+                    Machine.CPU.NegativeFlag = false;
+                    return Helpers.CreateTRAPException(TrapVector.CHKInstruction);
                 }
                 return null;
             }
@@ -1496,6 +1471,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     addVal = 8;
                 }
+                uint result;
 
                 // When being applied to an address register, we work with the entire 32-bit value regardless
                 // of the size that has been specified. This operation also doesn't affect the flags.
@@ -1503,19 +1479,16 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     int regNum = inst.Opcode & 0x0007;
                     uint aRegVal = Machine.CPU.ReadAddressRegister(regNum);
-                    uint result = (uint)(aRegVal + addVal);
+                    result = (uint)(aRegVal + addVal);
                     Machine.CPU.WriteAddressRegister(regNum, result);
                     return null;
                 }
 
                 var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                if (value.HasValue)
-                {
-                    OpSize size = inst.Size ?? OpSize.Word;
-                    uint result = (uint)(value.Value + addVal);
-                    WriteEAValue(inst, result, EAType.Destination);
-                    SetFlags(inst.Info.HandlerID, size, result, value.Value);
-                }
+                OpSize size = inst.Size ?? OpSize.Word;
+                result = (uint)(value + addVal);
+                WriteEAValue(inst, result, EAType.Destination);
+                SetFlags(inst.Info.HandlerID, size, result, value);
                 return null;
             }
 
@@ -1526,6 +1499,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     subVal = 8;
                 }
+                uint result;
 
                 // When being applied to an address register, we work with the entire 32-bit value regardless
                 // of the size that has been specified. This operation also doesn't affect the flags.
@@ -1533,36 +1507,30 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     int regNum = inst.Opcode & 0x0007;
                     uint aRegVal = Machine.CPU.ReadAddressRegister(regNum);
-                    uint result = (uint)(aRegVal - subVal);
+                    result = (uint)(aRegVal - subVal);
                     Machine.CPU.WriteAddressRegister(regNum, result);
                     return null;
                 }
 
                 var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                if (value.HasValue)
-                {
-                    OpSize size = inst.Size ?? OpSize.Word;
-                    uint result = (uint)(value.Value - subVal);
-                    WriteEAValue(inst, result, EAType.Destination);
-                    SetFlags(inst.Info.HandlerID, size, result, (uint)subVal, value.Value);
-                }
+                OpSize size = inst.Size ?? OpSize.Word;
+                result = (uint)(value - subVal);
+                WriteEAValue(inst, result, EAType.Destination);
+                SetFlags(inst.Info.HandlerID, size, result, (uint)subVal, value);
                 return null;
             }
 
             private TrapException? Scc(Instruction inst)
             {
-                var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                if (value.HasValue)
+                ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
+                int condition = (inst.Opcode & 0x0F00) >> 8;
+                if (Machine.CPU.EvaluateCondition((Condition)condition))
                 {
-                    int condition = (inst.Opcode & 0x0F00) >> 8;
-                    if (Machine.CPU.EvaluateCondition((Condition)condition))
-                    {
-                        WriteEAValue(inst, 0x000000FF, EAType.Destination);
-                    }
-                    else
-                    {
-                        WriteEAValue(inst, 0x00000000, EAType.Destination);
-                    }
+                    WriteEAValue(inst, 0x000000FF, EAType.Destination);
+                }
+                else
+                {
+                    WriteEAValue(inst, 0x00000000, EAType.Destination);
                 }
                 return null;
             }
@@ -1658,7 +1626,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Helpers.RaiseTRAPException(TrapVector.AddressError);
                 }
 
-                Machine.CPU.PC = address; 
+                Machine.CPU.PC = address;
                 Machine.CPU.Prefetch.Clear();
 
                 CallDepth++;
@@ -1714,24 +1682,21 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
                 uint dRegVal = Machine.CPU.ReadDataRegister(dRegNum);
                 var value = ReadEAValue(inst, EAType.Source);
-                if (value.HasValue)
+                if (value == 0)
                 {
-                    if (value.Value == 0)
-                    {
-                        return Helpers.CreateTRAPException(TrapVector.DivideByZero);
-                    }
-
-                    var res = dRegVal / value.Value;
-                    if (res > 0xFFFF)
-                    {
-                        Machine.CPU.OverflowFlag = true;
-                        return null;
-                    }
-                    var remainder = dRegVal % value.Value;
-                    var result = (res & 0xFFFF) | (remainder << 16);
-                    Machine.CPU.WriteDataRegister(dRegNum, result);
-                    SetFlags(inst.Info.HandlerID, OpSize.Word, res);
+                    return Helpers.CreateTRAPException(TrapVector.DivideByZero);
                 }
+
+                var res = dRegVal / value;
+                if (res > 0xFFFF)
+                {
+                    Machine.CPU.OverflowFlag = true;
+                    return null;
+                }
+                var remainder = dRegVal % value;
+                var result = (res & 0xFFFF) | (remainder << 16);
+                Machine.CPU.WriteDataRegister(dRegNum, result);
+                SetFlags(inst.Info.HandlerID, OpSize.Word, res);
                 return null;
             }
 
@@ -1740,25 +1705,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
                 uint dRegVal = Machine.CPU.ReadDataRegister(dRegNum);
                 var value = ReadEAValue(inst, EAType.Source);
-                if (value.HasValue)
+                if (value == 0)
                 {
-                    if (value.Value == 0)
-                    {
-                        return Helpers.CreateTRAPException(TrapVector.DivideByZero);
-                    }
-                    var signedVal = Helpers.SignExtendValue(value.Value, OpSize.Word);
-
-                    var res = (int)dRegVal / signedVal;
-                    if (res < -32768 || res > 32767)
-                    {
-                        Machine.CPU.OverflowFlag = true;
-                        return null;
-                    }
-                    var remainder = (int)dRegVal % signedVal; // Sign of remainder = sign of dRegVal
-                    var result = (res & 0xFFFF) | (remainder << 16);
-                    Machine.CPU.WriteDataRegister(dRegNum, (uint)result);
-                    SetFlags(inst.Info.HandlerID, OpSize.Word, (uint)res);
+                    return Helpers.CreateTRAPException(TrapVector.DivideByZero);
                 }
+                var signedVal = Helpers.SignExtendValue(value, OpSize.Word);
+
+                var res = (int)dRegVal / signedVal;
+                if (res < -32768 || res > 32767)
+                {
+                    Machine.CPU.OverflowFlag = true;
+                    return null;
+                }
+                var remainder = (int)dRegVal % signedVal; // Sign of remainder = sign of dRegVal
+                var result = (res & 0xFFFF) | (remainder << 16);
+                Machine.CPU.WriteDataRegister(dRegNum, (uint)result);
+                SetFlags(inst.Info.HandlerID, OpSize.Word, (uint)res);
                 return null;
             }
 
@@ -1770,20 +1732,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 // Is D(n) the destination?  If so we need to do any address incrementing on the read. I.e., do NOT suppress it.
                 bool dnDest = (inst.Opcode & 0x0100) == 0;
                 var value = ReadEAValue(inst, EAType.Destination, !dnDest);
-                if (value.HasValue)
+                var result = dRegVal | value;
+                OpSize size = inst.Size ?? OpSize.Word;
+                if (dnDest)
                 {
-                    var result = dRegVal | value.Value;
-                    OpSize size = inst.Size ?? OpSize.Word;
-                    if (dnDest)
-                    {
-                        Machine.CPU.WriteDataRegister(dRegNum, result, size);
-                    }
-                    else
-                    {
-                        WriteEAValue(inst, result, EAType.Destination);
-                    }
-                    SetFlags(inst.Info.HandlerID, size, result);
+                    Machine.CPU.WriteDataRegister(dRegNum, result, size);
                 }
+                else
+                {
+                    WriteEAValue(inst, result, EAType.Destination);
+                }
+                SetFlags(inst.Info.HandlerID, size, result);
                 return null;
             }
 
@@ -1796,20 +1755,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 // Is D(n) the destination?  If so we need to do any address incrementing on the read. I.e., do NOT suppress it.
                 bool dnDest = (inst.Opcode & 0x0100) == 0;
                 var value = ReadEAValue(inst, EAType.Destination, !dnDest);
-                if (value.HasValue)
+                int signedVal = Helpers.SignExtendValue(value, size);
+                var result = dnDest ? (dRegVal - signedVal) : (signedVal - dRegVal);
+                if (dnDest)
                 {
-                    int signedVal = Helpers.SignExtendValue(value.Value, size);
-                    var result = dnDest ? (dRegVal - signedVal) : (signedVal - dRegVal);
-                    if (dnDest)
-                    {
-                        Machine.CPU.WriteDataRegister(dRegNum, (uint)result, size);
-                        SetFlags(inst.Info.HandlerID, size, (uint)result, value.Value, (uint)dRegVal);
-                    }
-                    else
-                    {
-                        WriteEAValue(inst, (uint)result, EAType.Destination);
-                        SetFlags(inst.Info.HandlerID, size, (uint)result, (uint)dRegVal, value.Value);
-                    }
+                    Machine.CPU.WriteDataRegister(dRegNum, (uint)result, size);
+                    SetFlags(inst.Info.HandlerID, size, (uint)result, value, (uint)dRegVal);
+                }
+                else
+                {
+                    WriteEAValue(inst, (uint)result, EAType.Destination);
+                    SetFlags(inst.Info.HandlerID, size, (uint)result, (uint)dRegVal, value);
                 }
                 return null;
             }
@@ -1817,15 +1773,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             private TrapException? SUBA(Instruction inst)
             {
                 var value = ReadEAValue(inst, EAType.Source);
-                if (value.HasValue)
-                {
-                    OpSize size = inst.Size ?? OpSize.Word;
-                    int signedVal = Helpers.SignExtendValue(value.Value, size);
-                    int regNum = (inst.Opcode & 0x0E00) >> 9;
-                    uint val = Machine.CPU.ReadAddressRegister(regNum);
-                    val = (uint)(val - signedVal);
-                    Machine.CPU.WriteAddressRegister(regNum, val, OpSize.Long);
-                }
+                OpSize size = inst.Size ?? OpSize.Word;
+                int signedVal = Helpers.SignExtendValue(value, size);
+                int regNum = (inst.Opcode & 0x0E00) >> 9;
+                uint val = Machine.CPU.ReadAddressRegister(regNum);
+                val = (uint)(val - signedVal);
+                Machine.CPU.WriteAddressRegister(regNum, val, OpSize.Long);
                 return null;
             }
 
@@ -1834,49 +1787,59 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
                 uint dRegVal = Machine.CPU.ReadDataRegister(dRegNum);
                 var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                if (value.HasValue)
-                {
-                    var result = value.Value ^ dRegVal;
-                    OpSize size = inst.Size ?? OpSize.Word;
-                    WriteEAValue(inst, result, EAType.Destination);
-                    SetFlags(inst.Info.HandlerID, size, result);
-                }
+                var result = value ^ dRegVal;
+                OpSize size = inst.Size ?? OpSize.Word;
+                WriteEAValue(inst, result, EAType.Destination);
+                SetFlags(inst.Info.HandlerID, size, result);
                 return null;
             }
 
             private TrapException? CMPM(Instruction inst)
             {
                 OpSize size = inst.Size ?? OpSize.Word;
-                byte rY = (byte)(inst.Opcode & 0x0007);         // Source
-                byte rX = (byte)((inst.Opcode & 0x0E00) >> 9);  // Destination
+                byte rYSource = (byte)(inst.Opcode & 0x0007);         // Source
+                byte rXDest = (byte)((inst.Opcode & 0x0E00) >> 9);  // Destination
 
-                uint rXAddr = Machine.CPU.ReadAddressRegister(rX);
-                uint rYAddr = Machine.CPU.ReadAddressRegister(rY);
-                int rXVal;
-                int rYVal;
+                uint rYSourceAddr = Machine.CPU.ReadAddressRegister(rYSource);
+                uint rXDestAddr;
+                int rXDestVal;
+                int rYSourceVal;
+
+                bool srcAddressError = (rYSourceAddr & 1) != 0 && size != OpSize.Byte;
+                if (srcAddressError && size == OpSize.Long)
+                {
+                    // Increment only the first word access
+                    Machine.CPU.IncrementAddressRegister(rYSource, OpSize.Word);
+                }
+                else
+                {
+                    Machine.CPU.IncrementAddressRegister(rYSource, size);
+                }
                 switch (size)
                 {
                     case OpSize.Byte:
-                        rXVal = Helpers.SignExtendValue(Machine.Memory.ReadByte(rXAddr), size);
-                        rYVal = Helpers.SignExtendValue(Machine.Memory.ReadByte(rYAddr), size);
+                        rYSourceVal = Helpers.SignExtendValue(Machine.Memory.ReadByte(rYSourceAddr), size);
+                        rXDestAddr = Machine.CPU.ReadAddressRegister(rXDest);
+                        rXDestVal = Helpers.SignExtendValue(Machine.Memory.ReadByte(rXDestAddr), size);
                         break;
                     case OpSize.Long:
-                        rXVal = Helpers.SignExtendValue(Machine.Memory.ReadLong(rXAddr), size);
-                        rYVal = Helpers.SignExtendValue(Machine.Memory.ReadLong(rYAddr), size);
+                        rYSourceVal = Helpers.SignExtendValue(Machine.Memory.ReadLong(rYSourceAddr), size);
+                        rXDestAddr = Machine.CPU.ReadAddressRegister(rXDest);
+                        rXDestVal = Helpers.SignExtendValue(Machine.Memory.ReadLong(rXDestAddr), size);
                         break;
                     default:
-                        rXVal = Helpers.SignExtendValue(Machine.Memory.ReadWord(rXAddr), size);
-                        rYVal = Helpers.SignExtendValue(Machine.Memory.ReadWord(rYAddr), size);
+                        rYSourceVal = Helpers.SignExtendValue(Machine.Memory.ReadWord(rYSourceAddr), size);
+                        rXDestAddr = Machine.CPU.ReadAddressRegister(rXDest);
+                        rXDestVal = Helpers.SignExtendValue(Machine.Memory.ReadWord(rXDestAddr), size);
                         break;
                 }
 
-                // Now we've read the values from memory, post-increment both address registers.
-                Machine.CPU.IncrementAddressRegister(rX, size);
-                Machine.CPU.IncrementAddressRegister(rY, size);
+                // Now we've read the values from memory, post-increment destination address register.
+                Machine.CPU.IncrementAddressRegister(rXDest, size);
 
                 // Subtract to perform the comparison.
-                int result = rXVal - rYVal;
-                SetFlags(inst.Info.HandlerID, size, (uint)result, (uint)rYVal, (uint)rXVal);
+                int result = rXDestVal - rYSourceVal;
+                SetFlags(inst.Info.HandlerID, size, (uint)result, (uint)rYSourceVal, (uint)rXDestVal);
 
                 return null;
             }
@@ -1888,28 +1851,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 int dRegVal = Helpers.SignExtendValue(Machine.CPU.ReadDataRegister(dRegNum), size);
 
                 var value = ReadEAValue(inst, EAType.Destination);
-                if (value.HasValue)
-                {
-                    int signedVal = Helpers.SignExtendValue(value.Value, size);
-                    var result = dRegVal - signedVal;
+                int signedVal = Helpers.SignExtendValue(value, size);
+                var result = dRegVal - signedVal;
 
-                    SetFlags(inst.Info.HandlerID, size, (uint)result, value.Value, (uint)dRegVal);
-                }
+                SetFlags(inst.Info.HandlerID, size, (uint)result, value, (uint)dRegVal);
                 return null;
             }
 
             private TrapException? CMPA(Instruction inst)
             {
-                var value = ReadEAValue(inst, EAType.Source);
-                if (value.HasValue)
-                {
-                    OpSize size = inst.Size ?? OpSize.Word;
-                    int signedVal = Helpers.SignExtendValue(value.Value, size);
-                    int regNum = (inst.Opcode & 0x0E00) >> 9;
-                    uint val = Machine.CPU.ReadAddressRegister(regNum);
-                    var result = val - signedVal;
-                    SetFlags(inst.Info.HandlerID, size, (uint)result, value.Value, val);
-                }
+                var source = ReadEAValue(inst, EAType.Source);
+                OpSize size = inst.Size ?? OpSize.Word;
+                int signedSource = Helpers.SignExtendValue(source, size);
+                int regNum = (inst.Opcode & 0x0E00) >> 9;
+                int dest = (int)Machine.CPU.ReadAddressRegister(regNum);
+                var result = dest - signedSource;
+                SetFlags(inst.Info.HandlerID, size, (uint)result, source, (uint)dest);
                 return null;
             }
 
@@ -1918,12 +1875,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
                 uint dRegVal = (Machine.CPU.ReadDataRegister(dRegNum) & 0x0000FFFF);
                 var value = ReadEAValue(inst, EAType.Source);
-                if (value.HasValue)
-                {
-                    var res = value.Value * dRegVal;
-                    Machine.CPU.WriteDataRegister(dRegNum, res, OpSize.Long);
-                    SetFlags(inst.Info.HandlerID, OpSize.Long, res);
-                }
+                var res = value * dRegVal;
+                Machine.CPU.WriteDataRegister(dRegNum, res, OpSize.Long);
+                SetFlags(inst.Info.HandlerID, OpSize.Long, res);
                 return null;
             }
 
@@ -1932,13 +1886,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
                 int dRegVal = Helpers.SignExtendValue(Machine.CPU.ReadDataRegister(dRegNum), OpSize.Word);
                 var value = ReadEAValue(inst, EAType.Source);
-                if (value.HasValue)
-                {
-                    int signedValue = Helpers.SignExtendValue(value.Value, OpSize.Word);
-                    var res = signedValue * dRegVal;
-                    Machine.CPU.WriteDataRegister(dRegNum, (uint)res, OpSize.Long);
-                    SetFlags(inst.Info.HandlerID, OpSize.Long, (uint)res);
-                }
+                int signedValue = Helpers.SignExtendValue(value, OpSize.Word);
+                var res = signedValue * dRegVal;
+                Machine.CPU.WriteDataRegister(dRegNum, (uint)res, OpSize.Long);
+                SetFlags(inst.Info.HandlerID, OpSize.Long, (uint)res);
                 return null;
             }
 
@@ -1984,20 +1935,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 // Is D(n) the destination?  If so we need to do any address incrementing on the read. I.e., do NOT suppress it.
                 bool dnDest = (inst.Opcode & 0x0100) == 0;
                 var value = ReadEAValue(inst, EAType.Destination, !dnDest);
-                if (value.HasValue)
+                var result = dRegVal & value;
+                OpSize size = inst.Size ?? OpSize.Word;
+                if (dnDest)
                 {
-                    var result = dRegVal & value.Value;
-                    OpSize size = inst.Size ?? OpSize.Word;
-                    if (dnDest)
-                    {
-                        Machine.CPU.WriteDataRegister(dRegNum, result, size);
-                    }
-                    else
-                    {
-                        WriteEAValue(inst, result, EAType.Destination);
-                    }
-                    SetFlags(inst.Info.HandlerID, size, result);
+                    Machine.CPU.WriteDataRegister(dRegNum, result, size);
                 }
+                else
+                {
+                    WriteEAValue(inst, result, EAType.Destination);
+                }
+                SetFlags(inst.Info.HandlerID, size, result);
                 return null;
             }
 
@@ -2010,20 +1958,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 // Is D(n) the destination?  If so we need to do any address incrementing on the read. I.e., do NOT suppress it.
                 bool dnDest = (inst.Opcode & 0x0100) == 0;
                 var value = ReadEAValue(inst, EAType.Destination, !dnDest);
-                if (value.HasValue)
+                int signedVal = Helpers.SignExtendValue(value, size);
+                var result = dRegVal + signedVal;
+                if (dnDest)
                 {
-                    int signedVal = Helpers.SignExtendValue(value.Value, size);
-                    var result = dRegVal + signedVal;
-                    if (dnDest)
-                    {
-                        Machine.CPU.WriteDataRegister(dRegNum, (uint)result, size);
-                        SetFlags(inst.Info.HandlerID, size, (uint)result, value.Value, (uint)dRegVal);
-                    }
-                    else
-                    {
-                        WriteEAValue(inst, (uint)result, EAType.Destination);
-                        SetFlags(inst.Info.HandlerID, size, (uint)result, (uint)dRegVal, value.Value);
-                    }
+                    Machine.CPU.WriteDataRegister(dRegNum, (uint)result, size);
+                    SetFlags(inst.Info.HandlerID, size, (uint)result, value, (uint)dRegVal);
+                }
+                else
+                {
+                    WriteEAValue(inst, (uint)result, EAType.Destination);
+                    SetFlags(inst.Info.HandlerID, size, (uint)result, (uint)dRegVal, value);
                 }
                 return null;
             }
@@ -2101,7 +2046,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             break;
                     }
 
-                    result = add 
+                    result = add
                         ? dest + source + extend  // ADDX
                         : dest - source - extend; // SUBX
 
@@ -2125,15 +2070,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             private TrapException? ADDA(Instruction inst)
             {
                 var value = ReadEAValue(inst, EAType.Source);
-                if (value.HasValue)
-                {
-                    OpSize size = inst.Size ?? OpSize.Word;
-                    int signedVal = Helpers.SignExtendValue(value.Value, size);
-                    int regNum = (inst.Opcode & 0x0E00) >> 9;
-                    uint val = Machine.CPU.ReadAddressRegister(regNum);
-                    val = (uint)(val + signedVal);
-                    Machine.CPU.WriteAddressRegister(regNum, val, OpSize.Long);
-                }
+                OpSize size = inst.Size ?? OpSize.Word;
+                int signedVal = Helpers.SignExtendValue(value, size);
+                int regNum = (inst.Opcode & 0x0E00) >> 9;
+                uint val = Machine.CPU.ReadAddressRegister(regNum);
+                val = (uint)(val + signedVal);
+                Machine.CPU.WriteAddressRegister(regNum, val, OpSize.Long);
                 return null;
             }
 
@@ -2144,26 +2086,30 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 byte sizeBits = (byte)((inst.Opcode & 0x00C0) >> 6);
                 if (sizeBits == 0x03)
                 {
+                    ushort result;
+
                     // Shift on memory (using Effective Address)
-                    logicalShift = (inst.Opcode & 0x0E00) != 0;        // Determine if logical shift (i.e. LSL or LSR).
-                    var value = ReadEAValue(inst, EAType.Source, suppressIncDec: true);
-                    if (value.HasValue)
+                    logicalShift = (inst.Opcode & 0x0200) != 0;        // Determine if logical shift (i.e. LSL or LSR).
+                    ushort value = (ushort)ReadEAValue(inst, EAType.Source, suppressIncDec: true);
+                    ushort msb = (ushort)(value & 0x8000);
+                    ushort lastBitShiftedOut;
+                    if (directionLeft)
                     {
-                        if (directionLeft)
-                        {
-                            var result = value.Value << 1;
-                            WriteEAValue(inst, result, EAType.Source);
-                            SetFlags(inst.Info.HandlerID, OpSize.Word, result, 1, value.Value & 0x8000);
-                            Machine.CPU.OverflowFlag = !logicalShift && (result & 0x8000) != (value.Value & 0x8000);
-                        }
-                        else
-                        {
-                            var msb = value.Value & Helpers.SizeMSB(OpSize.Word);
-                            var result = (value.Value >> 1) | (logicalShift ? 0 : msb);
-                            WriteEAValue(inst, result, EAType.Source);
-                            SetFlags(inst.Info.HandlerID, OpSize.Word, result, 1, value.Value & 0x0001);
-                        }
+                        lastBitShiftedOut = msb;
+                        result = (ushort)(value << 1);
                     }
+                    else // right
+                    {
+                        lastBitShiftedOut = (ushort)(value & 0x0001);
+                        result = (ushort)((ushort)(value >> 1) | (ushort)(logicalShift ? 0 : msb));
+                    }
+                    Machine.CPU.ExtendFlag = lastBitShiftedOut != 0;
+                    Machine.CPU.CarryFlag = Machine.CPU.ExtendFlag;
+                    Machine.CPU.ZeroFlag = result == 0;
+                    Machine.CPU.NegativeFlag = (result & 0x8000) != 0;
+                    Machine.CPU.OverflowFlag = !(logicalShift || msb == (result & 0x8000));
+
+                    WriteEAValue(inst, result, EAType.Source);
                 }
                 else
                 {
@@ -2663,35 +2609,32 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
 
                 var value = ReadEAValue(inst, EAType.Destination, !isBTST);
-                if (value.HasValue)
+                // Test the specified bit and set the Zero flag accordingly.
+                Machine.CPU.ZeroFlag = (value & _bit[bitNum]) == 0;
+
+                // Modify the specified bit as necessary for the instruction being executed (but do nothing more for
+                // BTST as we've already performed the test, which is all that is needed for this instruction)
+                uint result = value;
+                switch (operation)
                 {
-                    // Test the specified bit and set the Zero flag accordingly.
-                    Machine.CPU.ZeroFlag = (value.Value & _bit[bitNum]) == 0;
+                    case 0x01:      // BCHG
+                        result ^= _bit[bitNum];
+                        break;
+                    case 0x02:      // BCLR
+                        result &= ~_bit[bitNum];
+                        break;
+                    case 0x03:      // BSET
+                        result |= _bit[bitNum];
+                        break;
+                    default:
+                        // BTST operation so nothing more to do.
+                        break;
+                }
 
-                    // Modify the specified bit as necessary for the instruction being executed (but do nothing more for
-                    // BTST as we've already performed the test, which is all that is needed for this instruction)
-                    uint result = value.Value;
-                    switch (operation)
-                    {
-                        case 0x01:      // BCHG
-                            result ^= _bit[bitNum];
-                            break;
-                        case 0x02:      // BCLR
-                            result &= ~_bit[bitNum];
-                            break;
-                        case 0x03:      // BSET
-                            result |= _bit[bitNum];
-                            break;
-                        default:
-                            // BTST operation so nothing more to do.
-                            break;
-                    }
-
-                    // For anything other than a BTST instruction we need to update the destination.
-                    if (!isBTST)
-                    {
-                        WriteEAValue(inst, result, EAType.Destination);
-                    }
+                // For anything other than a BTST instruction we need to update the destination.
+                if (!isBTST)
+                {
+                    WriteEAValue(inst, result, EAType.Destination);
                 }
                 return null;
             }
@@ -2751,14 +2694,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             private TrapException? TAS(Instruction inst)
             {
                 var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                if (value.HasValue)
-                {
-                    Machine.CPU.NegativeFlag = (value.Value & 0x00000080) != 0;
-                    Machine.CPU.ZeroFlag = (value.Value & 0x000000FF) == 0;
-                    Machine.CPU.CarryFlag = Machine.CPU.OverflowFlag = false;
-                    var result = value.Value | 0x00000080;
-                    WriteEAValue(inst, result, EAType.Destination);
-                }
+                Machine.CPU.NegativeFlag = (value & 0x00000080) != 0;
+                Machine.CPU.ZeroFlag = (value & 0x000000FF) == 0;
+                Machine.CPU.CarryFlag = Machine.CPU.OverflowFlag = false;
+                var result = value | 0x00000080;
+                WriteEAValue(inst, result, EAType.Destination);
                 return null;
             }
 
@@ -2794,28 +2734,25 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             private TrapException? NBCD(Instruction inst)
             {
                 var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                if (value.HasValue)
+                var loVal = 10 - (value & 0x0000000F) - (Machine.CPU.ExtendFlag ? 1 : 0);
+                bool carry = loVal < 10;
+                if (loVal >= 10)
                 {
-                    var loVal = 10 - (value.Value & 0x0000000F) - (Machine.CPU.ExtendFlag ? 1 : 0);
-                    bool carry = loVal < 10;
-                    if (loVal >= 10)
-                    {
-                        loVal = 0;
-                    }
-                    var hiVal = 10 - ((value.Value >> 4) & 0x0000000F) - (carry ? 1 : 0);
-                    carry = hiVal < 10;
-                    if (hiVal >= 10)
-                    {
-                        hiVal = 0;
-                    }
+                    loVal = 0;
+                }
+                var hiVal = 10 - ((value >> 4) & 0x0000000F) - (carry ? 1 : 0);
+                carry = hiVal < 10;
+                if (hiVal >= 10)
+                {
+                    hiVal = 0;
+                }
 
-                    var result = (hiVal << 4) + loVal;
-                    WriteEAValue(inst, (uint)(result & 0x000000FF), EAType.Destination);
-                    Machine.CPU.CarryFlag = Machine.CPU.ExtendFlag = carry;
-                    if (result != 0)
-                    {
-                        Machine.CPU.ZeroFlag = false;
-                    }
+                var result = (hiVal << 4) + loVal;
+                WriteEAValue(inst, (uint)(result & 0x000000FF), EAType.Destination);
+                Machine.CPU.CarryFlag = Machine.CPU.ExtendFlag = carry;
+                if (result != 0)
+                {
+                    Machine.CPU.ZeroFlag = false;
                 }
                 return null;
             }
@@ -2871,54 +2808,57 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 // Save the state of the CPU address registers since we may be
                 // modifying one during the operation.
-                CPUState cpuState = Machine.GetCPUState();
                 CPU cpu = new();
-                cpuState.ToCPU(cpu);
-                int addressRegister = (byte)(inst.Opcode & 0x0007);
+                Machine.GetCPUState().ToCPU(cpu);
+                int addressRegister;
 
-                var (_, _, address, _) = EvaluateEffectiveAddress(inst, EAType.Destination, true);
+                var (_, _, address, _) = EvaluateEffectiveAddress(inst, EAType.Destination, suppressIncDec: true);
                 if (address.HasValue)
                 {
-                    if ((address & 1) != 0)
+                    DeferredAddressRegisterUpdate.Clear(); // Not needed - handled below
+
+                    if ((address.Value & 1) != 0)
                     {
                         // Address is unaligned
-                        Helpers.RaiseTRAPException(TrapVector.AddressError);
+                        throw Helpers.CreateTRAPException(TrapVector.AddressError);
                     }
-                    EvaluateEffectiveAddress(inst, EAType.Destination);
-                    if (inst.SourceExtWord1.HasValue)
+                    if (!inst.SourceExtWord1.HasValue)
                     {
-                        ushort regMask = inst.SourceExtWord1.Value;
-                        OpSize size = inst.Size ?? OpSize.Long;
-                        bool regToMem = (inst.Opcode & 0x0400) == 0;
+                        // MOVEM instruction must have a source extension word.
+                        Debug.Assert(inst.SourceExtWord1.HasValue, "OpcodeDecoder and InstructionDecoder should have ensured that a MOVEM instruction has a source extension word.");
+                        throw Helpers.CreateTRAPException(TrapVector.IllegalInstruction);
+                    }
+                    ushort regMask = inst.SourceExtWord1.Value;
+                    OpSize size = inst.Size ?? OpSize.Long;
+                    bool regToMem = (inst.Opcode & 0x0400) == 0;
 
-                        if (regToMem)
+                    if (regToMem)
+                    {
+                        if (((inst.Opcode >> 3) & 0x0007) == 0x0004)
                         {
-                            if (((inst.Opcode >> 3) & 0x0007) == 0x0004)
-                            {
-                                // Pre-decrement addressing mode
-                                var newAddr = MOVEM_RegToMemPreDec(regMask, cpu, address.Value, size);
-                                Machine.CPU.WriteAddressRegister(addressRegister, newAddr);
-                            }
-                            else
-                            {
-                                MOVEM_RegToMem(regMask, cpu, address.Value, size);
-                            }
+                            // Pre-decrement addressing mode
+                            addressRegister = inst.Opcode & 0x0007;
+                            var newAddr = MOVEM_RegToMemPreDec(regMask, cpu, address.Value, size);
+                            Machine.CPU.WriteAddressRegister(addressRegister, newAddr);
                         }
                         else
                         {
-                            var newAddr = MOVEM_MemToReg(regMask, address.Value, size);
-                            // If post-increment addressing then update the address register.
-                            if (((inst.Opcode >> 3) & 0x0007) == 0x0003)
-                            {
-                                Machine.CPU.WriteAddressRegister(addressRegister, newAddr);
-                            }
+                            MOVEM_RegToMem(regMask, cpu, address.Value, size);
+                        }
+                    }
+                    else
+                    {
+                        var newAddr = MOVEM_MemToReg(regMask, address.Value, size);
+                        // If post-increment addressing then update the address register.
+                        if (((inst.Opcode >> 3) & 0x0007) == 0x0003)
+                        {
+                            addressRegister = inst.Opcode & 0x0007;
+                            Machine.CPU.WriteAddressRegister(addressRegister, newAddr);
                         }
                     }
                 }
                 return null;
             }
-
-
         }
     }
 }
