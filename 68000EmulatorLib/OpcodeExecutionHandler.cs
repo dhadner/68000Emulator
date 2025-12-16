@@ -5,6 +5,8 @@ using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System.Diagnostics;
 using System.Drawing;
 using System.Net;
+using System.Runtime.Intrinsics.Arm;
+using static PendleCodeMonkey.MC68000EmulatorLib.Machine.Disassembler;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -426,6 +428,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             /// <summary>
             /// Perform a Binary Coded Decimal (BCD) operation (i.e. addition or subtraction).
+            /// ABCD: dest = dest + src + X
+            /// SBCD: dest = dest - src - X
+            /// This implementation matches the Rust/Snow emulator's 68000 behavior.
             /// </summary>
             /// <param name="opType">The type of BCD operation (Addition or Subtraction).</param>
             /// <param name="src">The source value to be used in the calculation.</param>
@@ -433,48 +438,69 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns>The result of the BCD operation.</returns>
             private uint BCDCalculation(BCDOperation opType, uint src, uint dest)
             {
-                int loVal;
-                int hiVal;
-                bool carry;
+                int x = Machine.CPU.ExtendFlag ? 1 : 0;
+                int a = (int)(src & 0xFF);
+                int b = (int)(dest & 0xFF);
+
                 if (opType == BCDOperation.Addition)
                 {
-                    loVal = (int)((src & 0x000F) + (dest & 0x000F) + (Machine.CPU.ExtendFlag ? 1 : 0));
-                    carry = loVal > 9;
-                    if (loVal > 9)
+                    // ABCD: dest + src + X (matches Rust alu_add_bcd)
+                    int oresult = a + b + x;
+                    int result = oresult;
+                    bool carry = false;
+
+                    // Check if low nibble needs adjustment:
+                    // Either half-carry occurred (bit 4 changed unexpectedly)
+                    // OR the low nibble result is >= 10
+                    if (((a ^ b ^ oresult) & 0x10) != 0 || (oresult & 0x0F) >= 0x0A)
                     {
-                        loVal -= 10;
+                        result += 0x06;
                     }
-                    hiVal = (int)(((src >> 4) & 0x000F) + ((dest >> 4) & 0x000F) + (carry ? 1 : 0));
-                    carry = hiVal > 9;
-                    if (hiVal > 9)
+
+                    // Check if high nibble needs adjustment:
+                    // Result (after low nibble correction) >= 0xA0
+                    if (result >= 0xA0)
                     {
-                        hiVal -= 10;
+                        result += 0x60;
+                        carry = true;
                     }
+
+                    Machine.CPU.CarryFlag = Machine.CPU.ExtendFlag = carry;
+                    if ((result & 0xFF) != 0)
+                    {
+                        Machine.CPU.ZeroFlag = false;
+                    }
+                    return (uint)(result & 0xFF);
                 }
                 else
                 {
-                    loVal = (int)((dest & 0x000F) - (src & 0x000F) - (Machine.CPU.ExtendFlag ? 1 : 0));
-                    carry = loVal < 0;
-                    if (loVal < 0)
-                    {
-                        loVal += 10;
-                    }
-                    hiVal = (int)(((dest >> 4) & 0x000F) - ((src >> 4) & 0x000F) - (carry ? 1 : 0));
-                    carry = hiVal < 0;
-                    if (hiVal < 0)
-                    {
-                        hiVal += 10;
-                    }
-                }
+                    // SBCD: dest - src - X (matches Rust alu_sub_bcd)
+                    // Note: In Rust, a=dest (minuend), b=src (subtrahend)
+                    // So we compute: dest - src - x = b - a - x
+                    int oresult = b - a - x;
+                    int result = oresult;
+                    bool carry = false;
 
-                var result = (hiVal << 4) + loVal;
-                Machine.CPU.CarryFlag = Machine.CPU.ExtendFlag = carry;
-                if (result != 0)
-                {
-                    Machine.CPU.ZeroFlag = false;
-                }
+                    // Check if low nibble needs adjustment (half-borrow occurred)
+                    if (((b ^ a ^ oresult) & 0x10) != 0)
+                    {
+                        result -= 0x06;
+                    }
 
-                return (uint)(result & 0x000000FF);
+                    // Check if high nibble needs adjustment (borrow occurred)
+                    if ((oresult & 0x100) != 0)
+                    {
+                        result -= 0x60;
+                        carry = true;
+                    }
+
+                    Machine.CPU.CarryFlag = Machine.CPU.ExtendFlag = carry;
+                    if ((result & 0xFF) != 0)
+                    {
+                        Machine.CPU.ZeroFlag = false;
+                    }
+                    return (uint)(result & 0xFF);
+                }
             }
 
             /// <summary>
@@ -746,12 +772,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     {
                         Machine.Debugger.DebugWriteAccess(address.Value);
                     }
-                    if (DeferredAddressRegisterUpdate.IsPreDec(eaType) == true)
+                    if ((instruction.Info.HandlerID != OpHandlerID.MOVE || DeferredAddressRegisterUpdate.IsPreDec(eaType) == true) && eaType == EAType.Destination && size != OpSize.Long)
                     {
                         // Pre-dec always happens regardless of bus or address errors.
                         DeferredAddressRegisterUpdate.Apply(eaType);
                     }
-                    // Access memory - may throw an Address Error or Bus Error trap ex`ception
+                    // Access memory - may throw an Address Error or Bus Error trap exception
                     switch (size)
                     {
                         case OpSize.Byte:
@@ -1123,11 +1149,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? MOVE(Instruction inst)
             {
-                var value = ReadEAValue(inst, EAType.Source);
                 OpSize size = inst.Size ?? OpSize.Word;
+                var value = ReadEAValue(inst, EAType.Source);
                 Machine.CPU.CarryFlag = false;
                 Machine.CPU.OverflowFlag = false;
-                Machine.CPU.ZeroFlag = false;
+                //if (size != OpSize.Long)
+                {
+                    Machine.CPU.ZeroFlag = value == 0;
+                    //    Machine.CPU.NegativeFlag = (size == OpSize.Byte && (value & 0x80) != 0) ||
+                    //                          (size == OpSize.Word && (value & 0x8000) != 0) ||
+                    //                          (size == OpSize.Long && (value & 0x80000000) != 0);
+                }
                 WriteEAValue(inst, value, EAType.Destination);
                 SetFlags(inst.Info.HandlerID, size, value);
                 return null;
@@ -2731,29 +2763,55 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return null;
             }
 
+            /// <summary>
+            /// Subtracts the destination operand and the extend bit from zero. The operation
+            /// is performed using binary-coded decimal arithmetic. The packed binary-coded decimal
+            /// result is saved in the destination location. This instruction produces the tens
+            /// complement of the destination if the extend bit is zero or the nines complement if the
+            /// extend bit is one. This is a byte operation only.
+            /// Computes: result = 0 - destination - X
+            /// This uses the same algorithm as SBCD with source=0.
+            /// </summary>
+            /// <param name="inst">The instruction to execute.</param>
+            /// <returns>A TrapException if a trap occurred, otherwise null.</returns>
             private TrapException? NBCD(Instruction inst)
             {
                 var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-                var loVal = 10 - (value & 0x0000000F) - (Machine.CPU.ExtendFlag ? 1 : 0);
-                bool carry = loVal < 10;
-                if (loVal >= 10)
+
+                // NBCD is equivalent to SBCD with source=0: result = 0 - dest - X
+                // Use the same algorithm as alu_sub_bcd from Rust
+                int x = Machine.CPU.ExtendFlag ? 1 : 0;
+                int a = 0;  // source is 0 for NBCD
+                int b = (int)(value & 0xFF);  // destination
+
+                int oresult = a - b - x;
+                int result = oresult;
+                bool carry = false;
+
+                // Check if low nibble needs adjustment (half-borrow occurred)
+                if (((a ^ b ^ oresult) & 0x10) != 0)
                 {
-                    loVal = 0;
-                }
-                var hiVal = 10 - ((value >> 4) & 0x0000000F) - (carry ? 1 : 0);
-                carry = hiVal < 10;
-                if (hiVal >= 10)
-                {
-                    hiVal = 0;
+                    result -= 0x06;
                 }
 
-                var result = (hiVal << 4) + loVal;
-                WriteEAValue(inst, (uint)(result & 0x000000FF), EAType.Destination);
+                // Check if high nibble needs adjustment (borrow occurred)
+                if ((oresult & 0x100) != 0)
+                {
+                    result -= 0x60;
+                    carry = true;
+                }
+
+                WriteEAValue(inst, (uint)(result & 0xFF), EAType.Destination);
+
+                // C and X are set if a borrow occurred
                 Machine.CPU.CarryFlag = Machine.CPU.ExtendFlag = carry;
-                if (result != 0)
+
+                // Z is cleared if result is non-zero, unchanged otherwise
+                if ((result & 0xFF) != 0)
                 {
                     Machine.CPU.ZeroFlag = false;
                 }
+
                 return null;
             }
 

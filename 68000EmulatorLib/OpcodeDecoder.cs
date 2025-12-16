@@ -279,6 +279,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.CMPI:
                     destEA = Helpers.GetEAMode(opcode);
                     if (UndefinedEA(destEA)) return null;
+
                     if ((destEA & 0b111000) == 0b001000 || // A(n) or
                         (destEA & 0b111111) == 0b111100 || // Immediate or
                         (destEA & 0b111010) == 0b111010)   // PCDisp or PCIndex
@@ -441,16 +442,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 case OpHandlerID.MOVEtoSR:
                 case OpHandlerID.MOVEtoCCR:
-                    sourceEA = Helpers.GetEAMode(opcode);
-                    opSize = OpSize.Word;
-                    if (UndefinedEA(sourceEA)) return null;
-                    if ((sourceEA & 0b111000) == 0b001000)
-                    {
-                        // Address register direct mode not allowed
-                        return null;
-                    }
-                    break;
-
                 case OpHandlerID.CHK:
                 case OpHandlerID.DIVU:
                 case OpHandlerID.DIVS:
@@ -458,6 +449,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.MULS:
                     sourceEA = Helpers.GetEAMode(opcode);
                     if (UndefinedEA(sourceEA)) return null;
+
                     if ((sourceEA & 0b111000) == 0b001000)
                     {
                         // Address register direct mode not allowed
@@ -486,6 +478,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.TST:
                     destEA = Helpers.GetEAMode(opcode);
                     if (UndefinedEA(destEA)) return null;
+
                     opSize = Helpers.GetOpSize(opcode);
                     if ((int)opSize == 0x03)
                     {
@@ -556,6 +549,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.OR:
                     destEA = Helpers.GetEAMode(opcode);
                     if (UndefinedEA(destEA)) return null;
+
                     if ((destEA & 0b111000) == 0b001000)
                     {
                         // An not allowed
@@ -581,6 +575,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.EOR:
                     destEA = Helpers.GetEAMode(opcode);
                     if (UndefinedEA(destEA)) return null;
+
                     if ((destEA & 0b111000) == 0b001000)
                     {
                         // An not allowed
@@ -608,6 +603,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.Scc:
                     destEA = Helpers.GetEAMode(opcode);
                     if (UndefinedEA(destEA)) return null;
+
                     if ((destEA & 0b111000) == 0b001000 || // An
                         (destEA & 0b111100) == 0b111100 || // illegal
                         (destEA & 0b111010) == 0b111010)   // illegal
@@ -620,6 +616,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.PEA:
                     sourceEA = Helpers.GetEAMode(opcode);
                     if (UndefinedEA(sourceEA)) return null;
+
                     opSize = OpSize.Long;
                     if ((sourceEA & 0b111000) == 0b000000 || // Dn
                         (sourceEA & 0b111000) == 0b001000 || // An
@@ -662,6 +659,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     opSize = (opcode & 0x0040) == 0 ? OpSize.Word : OpSize.Long;
                     destEA = Helpers.GetEAMode(opcode);
                     if (UndefinedEA(destEA)) return null;
+
                     bool regToMem = (opcode & 0b0000_0100_0000_0000) == 0;
                     if ((destEA & 0b111000) == 0b000000 || // Dn
                         (destEA & 0b111000) == 0b001000 || // An
@@ -736,6 +734,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     {
                         sourceEA = Helpers.GetEAMode(opcode);
                         if (UndefinedEA(sourceEA)) return null;
+
                         opSize = OpSize.Word;
                         if ((sourceEA & 0b111000) == 0b000000 || // Dn
                             (sourceEA & 0b111000) == 0b001000 || // An
