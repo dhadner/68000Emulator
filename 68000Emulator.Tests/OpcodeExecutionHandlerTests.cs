@@ -275,6 +275,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Act
             var (_, _, _, _) = machine.ExecutionHandler.EvaluateEffectiveAddress(inst, EAType.Source);
+            machine.ExecutionHandler.DeferredAddressRegisterUpdate.Apply();
 
             // Assert
             Assert.Equal(expRegValue, machine.CPU.ReadAddressRegister(0));
@@ -302,6 +303,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Act
             var (_, _, _, _) = machine.ExecutionHandler.EvaluateEffectiveAddress(inst, EAType.Source);
+            machine.ExecutionHandler.DeferredAddressRegisterUpdate.Apply();
 
             // Assert
             Assert.Equal(expRegValue, machine.CPU.ReadAddressRegister(7));
@@ -1511,7 +1513,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [InlineData(new ushort[] { 0x5744 }, 0x7FFF0002, 0x7FFFFFFF, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]     // subq.w #3,d4
         [InlineData(new ushort[] { 0x5744 }, 0x7FFF0003, 0x7FFF0000, SRFlags.Zero)]     // subq.w #3,d4
         [InlineData(new ushort[] { 0x5184 }, 0x7FFF7FFE, 0x7FFF7FF6, (SRFlags)0)]     // subq.l #8,d4
-        [InlineData(new ushort[] { 0x5184 }, 0x80000006, 0x7FFFFFFE, SRFlags.Carry | SRFlags.Extend)]     // subq.l #8,d4
+        [InlineData(new ushort[] { 0x5184 }, 0x80000006, 0x7FFFFFFE, SRFlags.Overflow)]     // subq.l #8,d4
         [InlineData(new ushort[] { 0x5184 }, 0x00000007, 0xFFFFFFFF, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]     // subq.l #8,d4
         [InlineData(new ushort[] { 0x5184 }, 0x00000008, 0x00000000, SRFlags.Zero)]     // subq.l #8,d4
         public void SUBQ(ushort[] code, uint initValue, uint expectedResult, SRFlags expectedFlags)
