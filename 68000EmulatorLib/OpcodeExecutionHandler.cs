@@ -2709,15 +2709,21 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             private TrapException? STOP(Instruction inst)
             {
                 var data = inst.SourceExtWord1;
-                if (data.HasValue)
+                if (!data.HasValue)
                 {
-                    // If not already in Supervisor mode or if the supplied data would take the system out of
-                    // Supervisor mode then raise an exception.
-                    if (!Machine.CPU.SupervisorMode || ((data.Value & (ushort)SRFlags.SupervisorMode) == 0))
-                    {
-                        return Helpers.CreateTRAPException(TrapVector.PrivilegeViolation);
-                    }
-                    Machine.CPU.SR = (SRFlags)data.Value;
+                    Debug.Assert(data.HasValue, "Emulator logic error - should not happen");
+                    throw Helpers.CreateTRAPException(TrapVector.IllegalInstruction);
+                }
+
+                // If not already in Supervisor mode then raise an exception.
+                if (!Machine.CPU.SupervisorMode)
+                {
+                    return Helpers.CreateTRAPException(TrapVector.PrivilegeViolation);
+                }
+                SRFlags oldSR = Machine.CPU.SR;
+                Machine.CPU.SR = (SRFlags)data.Value;
+                if (!oldSR.HasFlag(SRFlags.TraceMode))
+                {
                     Machine.StopExecution();
                 }
                 return null;

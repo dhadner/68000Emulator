@@ -98,7 +98,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             string? error = machine.LoadProgram("program.h68");
             Assert.Null(error);
 
-            machine.ExecuteUntilException();
+            machine.Execute();
 
             CPUState state = machine.GetCPUState();
             Assert.Equal((uint)0x20000, state.D5!.Value);      // Total loop count

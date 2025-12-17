@@ -612,14 +612,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// It returns after handling the TrapException.
         /// </remarks>
         /// <exception cref="TrapException"/>
-        public virtual void ExecuteUntilException()
+        public virtual TrapException?  ExecuteUntilException()
         {
             TrapException? exception;
             while (!IsEndOfData && !IsEndOfExecution && !ExecutionStopped)
             {
                 exception = ExecuteInstruction();
-                if (exception != null) throw exception;
+                if (exception != null) return exception;
             }
+            return null;
         }
 
         /// <summary>
@@ -794,7 +795,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Current IPL.
         /// </summary>
-        public virtual byte IPL { get; protected set; }
+        public virtual byte IPL { get; set; }
 
         /// <summary>
         /// Current Function Code (FC) outputs.
