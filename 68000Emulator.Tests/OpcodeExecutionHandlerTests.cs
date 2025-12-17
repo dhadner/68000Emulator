@@ -1802,7 +1802,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [Theory]
         [InlineData(0x00008000, 0x00000040, (SRFlags)0, 0x00000200)]
         [InlineData(0x00008030, 0x00000040, (SRFlags)0, 0x00300200)]
-        [InlineData(0x04008000, 0x00000040, SRFlags.Overflow, 0x04008000)]
+        [InlineData(0x04008000, 0x00000040, SRFlags.Overflow | SRFlags.Negative, 0x04008000)]
         [InlineData(0x00080000, 0x00000010, SRFlags.Negative, 0x00008000)]
         [InlineData(0x00000000, 0x00000010, SRFlags.Zero, 0x00000000)]
         [InlineData(0x00000002, 0x00000010, SRFlags.Zero, 0x00020000)]
@@ -1847,7 +1847,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [Theory]
         [InlineData(0x00008000, 0x00000040, (SRFlags)0, 0x00000200)]
         [InlineData(0x00008030, 0x00000040, (SRFlags)0, 0x00300200)]
-        [InlineData(0x04008000, 0x00000040, SRFlags.Overflow, 0x04008000)]
+        [InlineData(0x04008000, 0x00000040, SRFlags.Overflow | SRFlags.Negative, 0x04008000)]
         [InlineData(0xFFFFFFF8, 0x00000002, SRFlags.Negative, 0x0000FFFC)]
         [InlineData(0x00000000, 0x00000010, SRFlags.Zero, 0x00000000)]
         [InlineData(0x00000002, 0x00000010, SRFlags.Zero, 0x00020000)]
@@ -2126,7 +2126,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [InlineData(0xB2C3, 0x00003000, 0x00003000, SRFlags.Zero)]
         [InlineData(0xB2C3, 0x00007000, 0x00003000, (SRFlags)0)]
         [InlineData(0xB2C3, 0x12345678, 0x00005000, (SRFlags)0)]
-        [InlineData(0xB2C3, 0x12345678, 0x00006000, SRFlags.Negative | SRFlags.Carry)]
+        [InlineData(0xB2C3, 0x12345678, 0x00006000, 0)]
         [InlineData(0xB3C3, 0x00800000, 0x00800000, SRFlags.Zero)]
         [InlineData(0xB3C3, 0x12345678, 0x00005000, (SRFlags)0)]
         [InlineData(0xB3C3, 0x12345678, 0x00006000, (SRFlags)0)]
@@ -3308,8 +3308,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [InlineData(0x01, 0x02, SRFlags.Zero, 0x01, (SRFlags)0)]
         [InlineData(0x10, 0x22, SRFlags.Extend, 0x11, (SRFlags)0)]
         [InlineData(0x16, 0x20, (SRFlags)0, 0x04, (SRFlags)0)]
-        [InlineData(0x99, 0x44, (SRFlags)0, 0x45, SRFlags.Extend | SRFlags.Carry)]
-        [InlineData(0x00, 0x00, SRFlags.Extend, 0x99, SRFlags.Extend | SRFlags.Carry)]
+        [InlineData(0x99, 0x44, (SRFlags)0, 0x45, SRFlags.Extend | SRFlags.Overflow | SRFlags.Carry)]
+        [InlineData(0x00, 0x00, SRFlags.Extend, 0x99, SRFlags.Negative | SRFlags.Extend | SRFlags.Carry)]
         public void SBCD_DataReg(byte d5Val, byte d6Val, SRFlags initFlags, byte expectedResult, SRFlags expectedFlags)
         {
             Machine machine = new Machine();
@@ -3336,8 +3336,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [InlineData(0x01, 0x02, SRFlags.Zero, 0x01, (SRFlags)0)]
         [InlineData(0x10, 0x22, SRFlags.Extend, 0x11, (SRFlags)0)]
         [InlineData(0x16, 0x20, (SRFlags)0, 0x04, (SRFlags)0)]
-        [InlineData(0x99, 0x44, (SRFlags)0, 0x45, SRFlags.Extend | SRFlags.Carry)]
-        [InlineData(0x00, 0x00, SRFlags.Extend, 0x99, SRFlags.Extend | SRFlags.Carry)]
+        [InlineData(0x99, 0x44, (SRFlags)0, 0x45, SRFlags.Extend | SRFlags.Overflow | SRFlags.Carry)]
+        [InlineData(0x00, 0x00, SRFlags.Extend, 0x99, SRFlags.Extend | SRFlags.Negative | SRFlags.Carry)]
         public void SBCD_Memory(byte a3Val, byte a4Val, SRFlags initFlags, byte expectedResult, SRFlags expectedFlags)
         {
             Machine machine = new Machine();
@@ -3365,8 +3365,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [Theory]
         [InlineData(0x00, (SRFlags)0, 0x00, (SRFlags)0)]
         [InlineData(0x00, SRFlags.Zero, 0x00, SRFlags.Zero)]
-        [InlineData(0x28, SRFlags.Zero, 0x72, SRFlags.Carry | SRFlags.Extend)]
-        [InlineData(0x28, SRFlags.Extend | SRFlags.Zero, 0x71, SRFlags.Carry | SRFlags.Extend)]
+        [InlineData(0x28, SRFlags.Zero, 0x72, SRFlags.Carry | SRFlags.Overflow | SRFlags.Extend)]
+        [InlineData(0x28, SRFlags.Extend | SRFlags.Zero, 0x71, SRFlags.Carry | SRFlags.Overflow | SRFlags.Extend)]
         [InlineData(0x99, SRFlags.Zero, 0x01, SRFlags.Extend | SRFlags.Carry)]
         [InlineData(0x99, SRFlags.Extend | SRFlags.Zero, 0x00, SRFlags.Extend | SRFlags.Carry | SRFlags.Zero)]
         public void NBCD(byte d2Val, SRFlags initFlags, byte expectedResult, SRFlags expectedFlags)

@@ -1,4 +1,5 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
+using System.Runtime.CompilerServices;
 using static PendleCodeMonkey.MC68000EmulatorLib.Machine;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
@@ -17,6 +18,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </remarks>
         /// <param name="opcode">The opcode from which the effective address mode should be extracted.</param>
         /// <returns>The extracted effective address mode value.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte GetEAMode(ushort opcode) => (byte)(opcode & 0x003F);
 
         /// <summary>
@@ -30,6 +32,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </remarks>
         /// <param name="opcode">The opcode from which the effective address mode should be extracted.</param>
         /// <returns>The extracted effective address mode value.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte GetReversedEAMode(ushort opcode) => (byte)(((opcode & 0x01C0) >> 3) | (opcode & 0x0E00) >> 9);
 
         /// <summary>
@@ -41,6 +44,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </remarks>
         /// <param name="opcode">The opcode from which the operation size should be extracted.</param>
         /// <returns>The extracted operation size value.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static OpSize GetOpSize(ushort opcode)
         {
             return (OpSize)((opcode & 0x00C0) >> 6);
@@ -55,6 +59,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </remarks>
         /// <param name="opcode">The opcode from which the operation mode should be extracted.</param>
         /// <returns>The extracted operation mode value.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static byte GetOpMode(ushort opcode)
         {
             return (byte)((opcode & 0x01C0) >> 6);
@@ -69,6 +74,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </remarks>
         /// <param name="size">The data size (Byte, Word, or Long).</param>
         /// <returns>The bit mask for the specified data size.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint SizeMask(OpSize size)
         {
             return size switch
@@ -84,6 +90,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         /// <param name="size">The data size (Byte, Word, or Long).</param>
         /// <returns>A value containing only the most significant bit for the specified data size.</returns>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint SizeMSB(OpSize size)
         {
             return size switch
@@ -138,6 +145,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         /// <param name="inst"></param>
         /// <exception cref="IllegalInstruction">Thrown if no extension word.</exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void AssertHasSourceExtWord1(Instruction inst)
         {
             if (inst.SourceExtWord1 == null)

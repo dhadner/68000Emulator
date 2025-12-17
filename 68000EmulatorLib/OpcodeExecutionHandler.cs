@@ -336,7 +336,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     case OpHandlerID.ORI:
                     case OpHandlerID.ANDI:
                     case OpHandlerID.EORI:
-                    case OpHandlerID.MOVE:
                     case OpHandlerID.MOVEQ:
                     case OpHandlerID.OR:
                     case OpHandlerID.EOR:
@@ -428,7 +427,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     case OpHandlerID.ROR:
                     case OpHandlerID.ROXL:
                     case OpHandlerID.ROXR:
+                    case OpHandlerID.MOVE:
                     default:
+                        // For these operations, the op handler is responsible for setting the flags as needed.
                         break;
                 }
             }
@@ -1173,18 +1174,25 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             private TrapException? MOVE(Instruction inst)
             {
                 OpSize size = inst.Size ?? OpSize.Word;
-                var value = ReadEAValue(inst, EAType.Source);
+                uint value = ReadEAValue(inst, EAType.Source);
+
                 Machine.CPU.CarryFlag = false;
                 Machine.CPU.OverflowFlag = false;
-                //if (size != OpSize.Long)
+                if (size != OpSize.Long)
                 {
                     Machine.CPU.ZeroFlag = value == 0;
-                    Machine.CPU.NegativeFlag = (size == OpSize.Byte && (value & 0x80) != 0) ||
-                                          (size == OpSize.Word && (value & 0x8000) != 0) ||
-                                          (size == OpSize.Long && (value & 0x80000000) != 0);
+                    Machine.CPU.NegativeFlag = (value & Helpers.SizeMSB(size)) != 0;
                 }
+
                 WriteEAValue(inst, value, EAType.Destination);
-                SetFlags(inst.Info.HandlerID, size, value);
+
+                if (size == OpSize.Long)
+                {
+                    // For long moves, flags are set after the write in case of address error.
+                    Machine.CPU.ZeroFlag = value == 0;
+                    Machine.CPU.NegativeFlag = (value & 0x80000000) != 0;
+                }
+
                 return null;
             }
 
@@ -1746,7 +1754,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// 
             ///     1. Division by zero causes a trap. 
             /// 
-            ///     2. Overflow may be detected and set before the instruction completes. If the instruction detects an overflow, it sets the overflow condition code, and the operands are unaffected.
+            ///     2. Overflow may be detected and set before the instruction completes. If the instruction 
+            ///     detects an overflow, it sets the overflow condition code, and the operands are unaffected.
             /// 
             /// Condition codes:
             /// 
@@ -1806,7 +1815,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// 
             ///     1. Division by zero causes a trap. 
             /// 
-            ///     2. Overflow may be detected and set before the instruction completes. If the instruction detects an overflow, it sets the overflow condition code, and the operands are unaffected.
+            ///     2. Overflow may be detected and set before the instruction completes. If the instruction 
+            ///     detects an overflow, it sets the overflow condition code, and the operands are unaffected.
             /// 
             /// Condition codes:
             /// 
