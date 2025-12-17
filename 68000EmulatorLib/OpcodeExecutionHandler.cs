@@ -1172,9 +1172,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 //if (size != OpSize.Long)
                 {
                     Machine.CPU.ZeroFlag = value == 0;
-                    //    Machine.CPU.NegativeFlag = (size == OpSize.Byte && (value & 0x80) != 0) ||
-                    //                          (size == OpSize.Word && (value & 0x8000) != 0) ||
-                    //                          (size == OpSize.Long && (value & 0x80000000) != 0);
+                    Machine.CPU.NegativeFlag = (size == OpSize.Byte && (value & 0x80) != 0) ||
+                                          (size == OpSize.Word && (value & 0x8000) != 0) ||
+                                          (size == OpSize.Long && (value & 0x80000000) != 0);
                 }
                 WriteEAValue(inst, value, EAType.Destination);
                 SetFlags(inst.Info.HandlerID, size, value);
@@ -1914,7 +1914,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 int regNum = (inst.Opcode & 0x0E00) >> 9;
                 int dest = (int)Machine.CPU.ReadAddressRegister(regNum);
                 var result = dest - signedSource;
-                SetFlags(inst.Info.HandlerID, size, (uint)result, source, (uint)dest);
+                SetFlags(inst.Info.HandlerID, OpSize.Long, (uint)result, (uint)signedSource, (uint)dest);
                 return null;
             }
 
@@ -2756,6 +2756,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return null;
             }
 
+            /// <summary>
+            /// Add and subtract packed BCD values (bytes).
+            /// </summary>
+            /// <param name="inst"></param>
+            /// <returns></returns>
             private TrapException? ABCD_SBCD(Instruction inst)
             {
                 // Determine if we're handling an ABCD instruction or a SBCD instruction by analyzing the top 4 bits of the
