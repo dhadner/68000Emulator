@@ -537,7 +537,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             const ushort SR_MASK = 0x271F; // Ignore trace bit errors for now, then -> 0xA71F
             var expectedSr = (SRFlags)(requiredState.Sr & SR_MASK);
             var actualSr = (SRFlags)((ushort)cpu.SR & SR_MASK);
-            //CheckError(expectedSr, actualSr, $"Expected SR: ${(ushort)expectedSr:x4} ({FormatStatusRegister(expectedSr)}), Actual SR: ${(ushort)actualSr:x4} ({FormatStatusRegister(actualSr)})");
+            CheckError(expectedSr, actualSr, $"Expected SR: ${(ushort)expectedSr:x4} ({FormatStatusRegister(expectedSr)}), Actual SR: ${(ushort)actualSr:x4} ({FormatStatusRegister(actualSr)})");
 
             // Check stack pointers after execution
             if ((requiredState.Sr & 0x2000) != 0) // Is supervisor

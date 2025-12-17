@@ -438,16 +438,20 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns>The result of the BCD operation.</returns>
             private uint BCDCalculation(BCDOperation opType, uint src, uint dest)
             {
-                int x = Machine.CPU.ExtendFlag ? 1 : 0;
-                int a = (int)(src & 0xFF);
-                int b = (int)(dest & 0xFF);
+                uint x = Machine.CPU.ExtendFlag ? 1u : 0;
+                uint a = src & 0xFF;
+                uint b = dest & 0xFF;
+
+                // The N and V flags are undefined for this operation.
+                // We only set the Z, C, and X flags.
 
                 if (opType == BCDOperation.Addition)
                 {
                     // ABCD: dest + src + X (matches Rust alu_add_bcd)
-                    int oresult = a + b + x;
-                    int result = oresult;
+                    uint oresult = a + b + x;
+                    uint result = oresult;
                     bool carry = false;
+                    bool overflow = false;
 
                     // Check if low nibble needs adjustment:
                     // Either half-carry occurred (bit 4 changed unexpectedly)
@@ -455,51 +459,63 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     if (((a ^ b ^ oresult) & 0x10) != 0 || (oresult & 0x0F) >= 0x0A)
                     {
                         result += 0x06;
+                        overflow = overflow || (((~oresult & 0x80) & (result & 0x80)) != 0);
                     }
 
                     // Check if high nibble needs adjustment:
                     // Result (after low nibble correction) >= 0xA0
                     if (result >= 0xA0)
                     {
+                        uint r = result;
                         result += 0x60;
                         carry = true;
+                        overflow = overflow || (((~r & 0x80) & (result & 0x80)) != 0);
                     }
 
+                    Machine.CPU.NegativeFlag = (result & 0x80) != 0;
+                    Machine.CPU.OverflowFlag = overflow;
                     Machine.CPU.CarryFlag = Machine.CPU.ExtendFlag = carry;
                     if ((result & 0xFF) != 0)
                     {
                         Machine.CPU.ZeroFlag = false;
                     }
-                    return (uint)(result & 0xFF);
+                    return result & 0xFF;
                 }
                 else
                 {
                     // SBCD: dest - src - X (matches Rust alu_sub_bcd)
                     // Note: In Rust, a=dest (minuend), b=src (subtrahend)
                     // So we compute: dest - src - x = b - a - x
-                    int oresult = b - a - x;
-                    int result = oresult;
+                    uint oresult = b - a - x;
+                    uint result = oresult;
                     bool carry = false;
+                    bool overflow = false;
 
                     // Check if low nibble needs adjustment (half-borrow occurred)
                     if (((b ^ a ^ oresult) & 0x10) != 0)
                     {
                         result -= 0x06;
+                        carry = ((~oresult & 0x80) & (result & 0x80)) != 0;
+                        overflow = overflow || ((oresult & 0x80) & (~result & 0x80)) != 0;
                     }
 
                     // Check if high nibble needs adjustment (borrow occurred)
                     if ((oresult & 0x100) != 0)
                     {
+                        uint r = result;
                         result -= 0x60;
                         carry = true;
+                        overflow = overflow || ((r & 0x80) & (~result & 0x80)) != 0;
                     }
 
+                    Machine.CPU.OverflowFlag = overflow;
+                    Machine.CPU.NegativeFlag = (result & 0x80) != 0;
                     Machine.CPU.CarryFlag = Machine.CPU.ExtendFlag = carry;
                     if ((result & 0xFF) != 0)
                     {
                         Machine.CPU.ZeroFlag = false;
                     }
-                    return (uint)(result & 0xFF);
+                    return result & 0xFF;
                 }
             }
 
@@ -2776,48 +2792,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// complement of the destination if the extend bit is zero or the nines complement if the
             /// extend bit is one. This is a byte operation only.
             /// Computes: result = 0 - destination - X
-            /// This uses the same algorithm as SBCD with source=0.
             /// </summary>
             /// <param name="inst">The instruction to execute.</param>
             /// <returns>A TrapException if a trap occurred, otherwise null.</returns>
             private TrapException? NBCD(Instruction inst)
             {
-                var value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
-
-                // NBCD is equivalent to SBCD with source=0: result = 0 - dest - X
-                // Use the same algorithm as alu_sub_bcd from Rust
-                int x = Machine.CPU.ExtendFlag ? 1 : 0;
-                int a = 0;  // source is 0 for NBCD
-                int b = (int)(value & 0xFF);  // destination
-
-                int oresult = a - b - x;
-                int result = oresult;
-                bool carry = false;
-
-                // Check if low nibble needs adjustment (half-borrow occurred)
-                if (((a ^ b ^ oresult) & 0x10) != 0)
-                {
-                    result -= 0x06;
-                }
-
-                // Check if high nibble needs adjustment (borrow occurred)
-                if ((oresult & 0x100) != 0)
-                {
-                    result -= 0x60;
-                    carry = true;
-                }
-
-                WriteEAValue(inst, (uint)(result & 0xFF), EAType.Destination);
-
-                // C and X are set if a borrow occurred
-                Machine.CPU.CarryFlag = Machine.CPU.ExtendFlag = carry;
-
-                // Z is cleared if result is non-zero, unchanged otherwise
-                if ((result & 0xFF) != 0)
-                {
-                    Machine.CPU.ZeroFlag = false;
-                }
-
+                uint value = ReadEAValue(inst, EAType.Destination, suppressIncDec: true);
+                uint result = BCDCalculation(BCDOperation.Subtraction, value & 0xff, 0);
+                WriteEAValue(inst, result, EAType.Destination);
                 return null;
             }
 
