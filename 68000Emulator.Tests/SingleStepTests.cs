@@ -720,7 +720,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                     break;
 
                 NormalizeTestCase(testcase);
-                if (testcase.Name.StartsWith("001 CMP.w (A4)+, (A0)+ b14c"))
+                if (testcase.Name.StartsWith("009 DIVS (A7)+, D5 8bdf"))
                 {
                     Debug.WriteLine($"Looking at failing test case {testcase.Name}");
                 }

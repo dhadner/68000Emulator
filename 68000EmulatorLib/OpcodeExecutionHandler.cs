@@ -2,11 +2,15 @@
 #define CHECK_PC_FOR_ZERO
 
 using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.Net;
+using System.Reflection;
 using System.Runtime.Intrinsics.Arm;
+using static PendleCodeMonkey.MC68000EmulatorLib.Machine;
 using static PendleCodeMonkey.MC68000EmulatorLib.Machine.Disassembler;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -324,13 +328,16 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 bool resultMsbSet = (result & msb) != 0;
                 switch (opID)
                 {
+                    case OpHandlerID.DIVU:
+                    case OpHandlerID.DIVS:
+                        Machine.CPU.NegativeFlag = resultMsbSet;
+                        Machine.CPU.ZeroFlag = (result & mask) == 0;
+                        break;
                     case OpHandlerID.ORI:
                     case OpHandlerID.ANDI:
                     case OpHandlerID.EORI:
                     case OpHandlerID.MOVE:
                     case OpHandlerID.MOVEQ:
-                    case OpHandlerID.DIVU:
-                    case OpHandlerID.DIVS:
                     case OpHandlerID.OR:
                     case OpHandlerID.EOR:
                     case OpHandlerID.MULU:
@@ -1725,50 +1732,122 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return null;
             }
 
+            /// <summary>
+            /// Operation: Destination ÷ Source → Destination 
+            /// 
+            /// Assembler Syntax:  DIVU.W  <ea>,Dn32/16 → 16r – 16q
+            ///
+            /// Description: Divides the unsigned destination operand by the unsigned source operand and
+            /// stores the unsigned result in the destination. The instruction divides 
+            /// a long word by a word.The result is a quotient in the lower word (least significant 
+            /// 16 bits) and a remainder in the upper word(most significant 16 bits).
+            /// 
+            /// Two special conditions may arise during the operation: 
+            /// 
+            ///     1. Division by zero causes a trap. 
+            /// 
+            ///     2. Overflow may be detected and set before the instruction completes. If the instruction detects an overflow, it sets the overflow condition code, and the operands are unaffected.
+            /// 
+            /// Condition codes:
+            /// 
+            ///     X — Not affected. 
+            ///     N — Set if the quotient is negative; cleared otherwise; undefined if overflow or divide
+            ///         by zero occurs.
+            ///     Z — Set if the quotient is zero; cleared otherwise; undefined if overflow or divide by
+            ///         zero occurs.
+            ///     V — Set if division overflow occurs; undefined if divide by zero occurs; cleared otherwise.
+            ///     C — Always cleared. 
+            /// </summary>
+            /// <param name="inst"></param>
+            /// <returns></returns>
             private TrapException? DIVU(Instruction inst)
             {
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
-                uint dRegVal = Machine.CPU.ReadDataRegister(dRegNum);
-                var value = ReadEAValue(inst, EAType.Source);
-                if (value == 0)
+                uint dividend = Machine.CPU.ReadDataRegister(dRegNum);
+                uint divisor = ReadEAValue(inst, EAType.Source);
+
+                Machine.CPU.CarryFlag = false;
+                Machine.CPU.ZeroFlag = false;
+                Machine.CPU.OverflowFlag = false;
+                Machine.CPU.NegativeFlag = false;
+
+                if (divisor == 0)
                 {
                     return Helpers.CreateTRAPException(TrapVector.DivideByZero);
                 }
 
-                var res = dRegVal / value;
-                if (res > 0xFFFF)
+                uint quotient = dividend / divisor;
+                if (quotient > ushort.MaxValue)
                 {
                     Machine.CPU.OverflowFlag = true;
+                    Machine.CPU.NegativeFlag = true;
                     return null;
                 }
-                var remainder = dRegVal % value;
-                var result = (res & 0xFFFF) | (remainder << 16);
+
+                uint remainder = dividend % divisor;
+                uint result = ((quotient & 0xFFFF) | (remainder << 16));
                 Machine.CPU.WriteDataRegister(dRegNum, result);
-                SetFlags(inst.Info.HandlerID, OpSize.Word, res);
+                SetFlags(inst.Info.HandlerID, OpSize.Word, quotient);
                 return null;
             }
 
+            /// <summary>
+            /// Operation: Destination ÷ Source → Destination 
+            /// 
+            /// Assembler Syntax:  DIVS.W  <ea>,Dn32/16 → 16r – 16q
+            ///
+            /// Description: Divides the signed destination operand by the signed source operand and
+            /// stores the signed result in the destination. The instruction divides 
+            /// a long word by a word.The result is a quotient in the lower word (least significant 
+            /// 16 bits) and a remainder in the upper word(most significant 16 bits). The sign of the 
+            /// remainder is the same as the sign of the dividend.
+            /// 
+            /// Two special conditions may arise during the operation: 
+            /// 
+            ///     1. Division by zero causes a trap. 
+            /// 
+            ///     2. Overflow may be detected and set before the instruction completes. If the instruction detects an overflow, it sets the overflow condition code, and the operands are unaffected.
+            /// 
+            /// Condition codes:
+            /// 
+            ///     X — Not affected. 
+            ///     N — Set if the quotient is negative; cleared otherwise; undefined if overflow or divide
+            ///         by zero occurs.
+            ///     Z — Set if the quotient is zero; cleared otherwise; undefined if overflow or divide by
+            ///         zero occurs.
+            ///     V — Set if division overflow occurs; undefined if divide by zero occurs; cleared otherwise.
+            ///     C — Always cleared. 
+            /// </summary>
+            /// <param name="inst"></param>
+            /// <returns></returns>
             private TrapException? DIVS(Instruction inst)
             {
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
-                uint dRegVal = Machine.CPU.ReadDataRegister(dRegNum);
-                var value = ReadEAValue(inst, EAType.Source);
-                if (value == 0)
+                int dividend = (int)Machine.CPU.ReadDataRegister(dRegNum);
+                int divisor = Helpers.SignExtendValue(ReadEAValue(inst, EAType.Source), OpSize.Word);
+
+                Machine.CPU.CarryFlag = false;
+                Machine.CPU.ZeroFlag = false;
+                Machine.CPU.OverflowFlag = false;
+                Machine.CPU.NegativeFlag = false;
+
+                if (divisor == 0)
                 {
                     return Helpers.CreateTRAPException(TrapVector.DivideByZero);
                 }
-                var signedVal = Helpers.SignExtendValue(value, OpSize.Word);
 
-                var res = (int)dRegVal / signedVal;
-                if (res < -32768 || res > 32767)
+                int quotient = dividend / divisor;
+                if (quotient < short.MinValue || quotient > short.MaxValue)
                 {
                     Machine.CPU.OverflowFlag = true;
+                    Machine.CPU.NegativeFlag = true;
                     return null;
                 }
-                var remainder = (int)dRegVal % signedVal; // Sign of remainder = sign of dRegVal
-                var result = (res & 0xFFFF) | (remainder << 16);
-                Machine.CPU.WriteDataRegister(dRegNum, (uint)result);
-                SetFlags(inst.Info.HandlerID, OpSize.Word, (uint)res);
+
+                int remainder = dividend % divisor; // Sign of remainder = sign of dividend
+                uint result = (uint)((quotient & 0xFFFF) | (remainder << 16));
+                Machine.CPU.WriteDataRegister(dRegNum, result);
+                SetFlags(inst.Info.HandlerID, OpSize.Word, (uint)quotient);
                 return null;
             }
 
