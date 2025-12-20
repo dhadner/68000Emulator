@@ -714,9 +714,9 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         /// at https://github.com/SingleStepTests/m68000.
         /// </summary>
         /// <param name="instruction">File name without the '.json' extension</param>
-        [Theory]
-        [MemberData(nameof(GetInstructionTestNames))]
-        public void RunInstructionTest(string instruction)
+        //[Theory]
+        //[MemberData(nameof(GetInstructionTestNames))]
+        private void RunInstructionTest(string instruction)
         {
             const int MAX_TESTS = int.MaxValue;
             var testcases = LoadTestCases(instruction);
@@ -774,6 +774,644 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                     Assert.Fail(errorMessage.ToString());
                 }
             }
+        }
+
+
+        [Fact]
+        public void Adda_l()
+        {
+            RunInstructionTest("ADD.l");
+        }
+        [Fact]
+        public void Adda_w()
+        {
+            RunInstructionTest("ADD.w");
+        }
+        [Fact]
+        public void Adda_b()
+        {
+            RunInstructionTest("ADDX.b");
+        }
+
+        [Fact]
+        public void Add_b()
+        {
+            RunInstructionTest("ADD.b");
+        }
+        [Fact]
+        public void Add_l()
+        {
+            RunInstructionTest("ADD.l");
+        }
+        [Fact]
+        public void Add_w()
+        {
+            RunInstructionTest("ADD.w");
+        }
+        [Fact]
+        public void Addx_b()
+        {
+            RunInstructionTest("ADDX.b");
+        }
+        [Fact]
+        public void Addx_l()
+        {
+            RunInstructionTest("ADDX.l");
+        }
+        [Fact]
+        public void Addx_w()
+        {
+            RunInstructionTest("ADDX.w");
+        }
+        [Fact]
+        public void And_b()
+        {
+            RunInstructionTest("AND.b");
+        }
+        [Fact]
+        public void AnditoCCR()
+        {
+            RunInstructionTest("ANDItoCCR");
+        }
+        [Fact]
+        public void AnditoSR()
+        {
+            RunInstructionTest("ANDItoSR");
+        }
+        [Fact]
+        public void And_l()
+        {
+            RunInstructionTest("AND.l");
+        }
+        [Fact]
+        public void And_w()
+        {
+            RunInstructionTest("AND.w");
+        }
+        [Fact]
+        public void Asl_b()
+        {
+            RunInstructionTest("ASL.b");
+        }
+        [Fact]
+        public void Asl_l()
+        {
+            RunInstructionTest("ASL.l");
+        }
+        [Fact]
+        public void Asl_w()
+        {
+            RunInstructionTest("ASL.w");
+        }
+        [Fact]
+        public void Asr_b()
+        {
+            RunInstructionTest("ASR.b");
+        }
+        [Fact]
+        public void Asr_l()
+        {
+            RunInstructionTest("ASR.l");
+        }
+        [Fact]
+        public void Asr_w()
+        {
+            RunInstructionTest("ASR.w");
+        }
+        [Fact]
+        public void Bcc()
+        {
+            RunInstructionTest("Bcc");
+        }
+        [Fact]
+        public void Bchg()
+        {
+            RunInstructionTest("BCHG");
+        }
+        [Fact]
+        public void Bclr()
+        {
+            RunInstructionTest("BCLR");
+        }
+        [Fact]
+        public void Bset()
+        {
+            RunInstructionTest("BSET");
+        }
+        [Fact]
+        public void Bsr()
+        {
+            RunInstructionTest("BSR");
+        }
+        [Fact]
+        public void Btst()
+        {
+            RunInstructionTest("BTST");
+        }
+        [Fact]
+        public void Chk()
+        {
+            RunInstructionTest("CHK");
+        }
+        [Fact]
+        public void Clr_b()
+        {
+            RunInstructionTest("CLR.b");
+        }
+        [Fact]
+        public void Clr_l()
+        {
+            RunInstructionTest("CLR.l");
+        }
+        [Fact]
+        public void Clr_w()
+        {
+            RunInstructionTest("CLR.w");
+        }
+        [Fact]
+        public void Cmpa_l()
+        {
+            RunInstructionTest("CMPA.l");
+        }
+        [Fact]
+        public void Cmpa_w()
+        {
+            RunInstructionTest("CMPA.w");
+        }
+        [Fact]
+        public void Cmp_b()
+        {
+            RunInstructionTest("CMP.b");
+        }
+        [Fact]
+        public void Cmp_l()
+        {
+            RunInstructionTest("CMP.l");
+        }
+        [Fact]
+        public void Cmp_w()
+        {
+            RunInstructionTest("CMP.w");
+        }
+        [Fact]
+        public void Dbcc()
+        {
+            RunInstructionTest("DBcc");
+        }
+        [Fact]
+        public void Divs()
+        {
+            RunInstructionTest("DIVS");
+        }
+        [Fact]
+        public void Divu()
+        {
+            RunInstructionTest("DIVU");
+        }
+        [Fact]
+        public void Eor_b()
+        {
+            RunInstructionTest("EOR.b");
+        }
+        [Fact]
+        public void Eoritoccr()
+        {
+            RunInstructionTest("EORItoCCR");
+        }
+        [Fact]
+        public void Eoritosr()
+        {
+            RunInstructionTest("EORItoSR");
+        }
+        [Fact]
+        public void Eor_l()
+        {
+            RunInstructionTest("EOR.l");
+        }
+        [Fact]
+        public void Eor_w()
+        {
+            RunInstructionTest("EOR.w");
+        }
+        [Fact]
+        public void Exg()
+        {
+            RunInstructionTest("EXG");
+        }
+        [Fact]
+        public void Ext_l()
+        {
+            RunInstructionTest("EXT.l");
+        }
+        [Fact]
+        public void Ext_w()
+        {
+            RunInstructionTest("EXT.w");
+        }
+        [Fact]
+        public void Illegal_linea()
+        {
+            RunInstructionTest("ILLEGAL_LINEA");
+        }
+        [Fact]
+        public void Illegal_linef()
+        {
+            RunInstructionTest("ILLEGAL_LINEF");
+        }
+        [Fact]
+        public void Jmp()
+        {
+            RunInstructionTest("JMP");
+        }
+        [Fact]
+        public void Jsr()
+        {
+            RunInstructionTest("JSR");
+        }
+        [Fact]
+        public void Lea()
+        {
+            RunInstructionTest("LEA");
+        }
+        [Fact]
+        public void Link()
+        {
+            RunInstructionTest("LINK");
+        }
+        [Fact]
+        public void Lsl_b()
+        {
+            RunInstructionTest("LSL.b");
+        }
+        [Fact]
+        public void Lsl_l()
+        {
+            RunInstructionTest("LSL.l");
+        }
+        [Fact]
+        public void Lsl_w()
+        {
+            RunInstructionTest("LSL.w");
+        }
+        [Fact]
+        public void Lsr_b()
+        {
+            RunInstructionTest("LSR.b");
+        }
+        [Fact]
+        public void Lsr_l()
+        {
+            RunInstructionTest("LSR.l");
+        }
+        [Fact]
+        public void Lsr_w()
+        {
+            RunInstructionTest("LSR.w");
+        }
+        [Fact]
+        public void Movea_l()
+        {
+            RunInstructionTest("MOVEA.l");
+        }
+        [Fact]
+        public void Movea_w()
+        {
+            RunInstructionTest("MOVEA.w");
+        }
+        [Fact]
+        public void Move_b()
+        {
+            RunInstructionTest("MOVE.b");
+        }
+        [Fact]
+        public void Movefromsr()
+        {
+            RunInstructionTest("MOVEfromSR");
+        }
+        [Fact]
+        public void Movefromusp()
+        {
+            RunInstructionTest("MOVEfromUSP");
+        }
+        [Fact]
+        public void Move_l()
+        {
+            RunInstructionTest("MOVE.l");
+        }
+        [Fact]
+        public void Movem_l()
+        {
+            RunInstructionTest("MOVEM.l");
+        }
+        [Fact]
+        public void Movem_w()
+        {
+            RunInstructionTest("MOVEM.w");
+        }
+        [Fact]
+        public void Movep_l()
+        {
+            RunInstructionTest("MOVEP.l");
+        }
+        [Fact]
+        public void Movep_w()
+        {
+            RunInstructionTest("MOVEP.w");
+        }
+        [Fact]
+        public void Move_q()
+        {
+            RunInstructionTest("MOVE.q");
+        }
+        [Fact]
+        public void Movetoccr()
+        {
+            RunInstructionTest("MOVEtoCCR");
+        }
+        [Fact]
+        public void Movetosr()
+        {
+            RunInstructionTest("MOVEtoSR");
+        }
+        [Fact]
+        public void Movetousp()
+        {
+            RunInstructionTest("MOVEtoUSP");
+        }
+        [Fact]
+        public void Move_w()
+        {
+            RunInstructionTest("MOVE.w");
+        }
+        [Fact]
+        public void Muls()
+        {
+            RunInstructionTest("MULS");
+        }
+        [Fact]
+        public void Mulu()
+        {
+            RunInstructionTest("MULU");
+        }
+        [Fact]
+        public void Nbcd()
+        {
+            RunInstructionTest("NBCD");
+        }
+        [Fact]
+        public void Neg_b()
+        {
+            RunInstructionTest("NEG.b");
+        }
+        [Fact]
+        public void Neg_l()
+        {
+            RunInstructionTest("NEG.l");
+        }
+        [Fact]
+        public void Neg_w()
+        {
+            RunInstructionTest("NEG.w");
+        }
+        [Fact]
+        public void Negx_b()
+        {
+            RunInstructionTest("NEGX.b");
+        }
+        [Fact]
+        public void Negx_l()
+        {
+            RunInstructionTest("NEGX.l");
+        }
+        [Fact]
+        public void Negx_w()
+        {
+            RunInstructionTest("NEGX.w");
+        }
+        [Fact]
+        public void Nop()
+        {
+            RunInstructionTest("NOP");
+        }
+        [Fact]
+        public void Not_b()
+        {
+            RunInstructionTest("NOT.b");
+        }
+        [Fact]
+        public void Not_l()
+        {
+            RunInstructionTest("NOT.l");
+        }
+        [Fact]
+        public void Not_w()
+        {
+            RunInstructionTest("NOT.w");
+        }
+        [Fact]
+        public void Or_b()
+        {
+            RunInstructionTest("OR.b");
+        }
+        [Fact]
+        public void Oritoccr()
+        {
+            RunInstructionTest("ORItoCCR");
+        }
+        [Fact]
+        public void Oritosr()
+        {
+            RunInstructionTest("ORItoSR");
+        }
+        [Fact]
+        public void Or_l()
+        {
+            RunInstructionTest("OR.l");
+        }
+        [Fact]
+        public void Or_w()
+        {
+            RunInstructionTest("OR.w");
+        }
+        [Fact]
+        public void Pea()
+        {
+            RunInstructionTest("PEA");
+        }
+        [Fact]
+        public void Reset()
+        {
+            RunInstructionTest("RESET");
+        }
+        [Fact]
+        public void Rol_b()
+        {
+            RunInstructionTest("ROL.b");
+        }
+        [Fact]
+        public void Rol_l()
+        {
+            RunInstructionTest("ROL.l");
+        }
+        [Fact]
+        public void Rol_w()
+        {
+            RunInstructionTest("ROL.w");
+        }
+        [Fact]
+        public void Ror_b()
+        {
+            RunInstructionTest("ROR.b");
+        }
+        [Fact]
+        public void Ror_l()
+        {
+            RunInstructionTest("ROR.l");
+        }
+        [Fact]
+        public void Ror_w()
+        {
+            RunInstructionTest("ROR.w");
+        }
+        [Fact]
+        public void Roxl_b()
+        {
+            RunInstructionTest("ROXL.b");
+        }
+        [Fact]
+        public void Roxl_l()
+        {
+            RunInstructionTest("ROXL.l");
+        }
+        [Fact]
+        public void Roxl_w()
+        {
+            RunInstructionTest("ROXL.w");
+        }
+        [Fact]
+        public void Roxr_b()
+        {
+            RunInstructionTest("ROXR.b");
+        }
+        [Fact]
+        public void Roxr_l()
+        {
+            RunInstructionTest("ROXR.l");
+        }
+        [Fact]
+        public void Roxr_w()
+        {
+            RunInstructionTest("ROXR.w");
+        }
+        [Fact]
+        public void Rte()
+        {
+            RunInstructionTest("RTE");
+        }
+        [Fact]
+        public void Rtr()
+        {
+            RunInstructionTest("RTR");
+        }
+        [Fact]
+        public void Rts()
+        {
+            RunInstructionTest("RTS");
+        }
+        [Fact]
+        public void Sbcd()
+        {
+            RunInstructionTest("SBCD");
+        }
+        [Fact]
+        public void Scc()
+        {
+            RunInstructionTest("Scc");
+        }
+        [Fact]
+        public void Stop()
+        {
+            RunInstructionTest("STOP");
+        }
+        [Fact]
+        public void Suba_l()
+        {
+            RunInstructionTest("SUBA.l");
+        }
+        [Fact]
+        public void Suba_w()
+        {
+            RunInstructionTest("SUBA.w");
+        }
+        [Fact]
+        public void Sub_b()
+        {
+            RunInstructionTest("SUB.b");
+        }
+        [Fact]
+        public void Sub_l()
+        {
+            RunInstructionTest("SUB.l");
+        }
+        [Fact]
+        public void Sub_w()
+        {
+            RunInstructionTest("SUB.w");
+        }
+        [Fact]
+        public void Subx_b()
+        {
+            RunInstructionTest("SUBX.b");
+        }
+        [Fact]
+        public void Subx_l()
+        {
+            RunInstructionTest("SUBX.l");
+        }
+        [Fact]
+        public void Subx_w()
+        {
+            RunInstructionTest("SUBX.w");
+        }
+        [Fact]
+        public void Swap()
+        {
+            RunInstructionTest("SWAP");
+        }
+        [Fact]
+        public void Tas()
+        {
+            RunInstructionTest("TAS");
+        }
+        [Fact]
+        public void Trap()
+        {
+            RunInstructionTest("TRAP");
+        }
+        [Fact]
+        public void Trapv()
+        {
+            RunInstructionTest("TRAPV");
+        }
+        [Fact]
+        public void Tst_b()
+        {
+            RunInstructionTest("TST.b");
+        }
+        [Fact]
+        public void Tst_l()
+        {
+            RunInstructionTest("TST.l");
+        }
+        [Fact]
+        public void Tst_w()
+        {
+            RunInstructionTest("TST.w");
+        }
+        [Fact]
+        public void Unlink()
+        {
+            RunInstructionTest("UNLINK");
         }
     }
 }

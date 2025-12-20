@@ -9,6 +9,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     /// </summary>
     public class CPU
     {
+        private SRFlags _sr = 0;
+
         public CPU()
         {
             Initialize();
@@ -42,12 +44,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Gets or sets the Status Register value.
         /// </summary>
-        public SRFlags SR 
-        { 
-            get { return field; } 
-            set { field = value & (SRFlags)Machine.SR_IMPLEMENTED_BITS_68000; } 
-        } = 0;
-
+        public SRFlags SR
+        {
+            get { return _sr; }
+            set { _sr = value & (SRFlags)Machine.SR_IMPLEMENTED_BITS_68000; }
+        }
 
         // **********************
         // Flag helper properties

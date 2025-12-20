@@ -9,7 +9,6 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 {
     public class OpcodeExecutionHandlerTests
     {
-#pragma warning disable S4144 // Methods should not have identical implementations
 #pragma warning disable IDE0090 // Use 'new(...)'
 #pragma warning disable IDE0300 // Simplify collection initialization
         /// <summary>
@@ -176,7 +175,6 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         {
             // Arrange - start PC = 0x4000, D0 = 0x0011
             var machine = CreateMachine();
-            uint startPC = machine.CPU.PC;
 
             // Create an instance of the Instruction class. We pass a zero opcode value and a null InstructionInfo object here
             // because these are not used when evaluating the effective address (so we don't need to worry about supplying
@@ -2126,7 +2124,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [InlineData(0xB2C3, 0x00003000, 0x00003000, SRFlags.Zero)]
         [InlineData(0xB2C3, 0x00007000, 0x00003000, (SRFlags)0)]
         [InlineData(0xB2C3, 0x12345678, 0x00005000, (SRFlags)0)]
-        [InlineData(0xB2C3, 0x12345678, 0x00006000, 0)]
+        [InlineData(0xB2C3, 0x12345678, 0x00006000, (SRFlags)0)]
         [InlineData(0xB3C3, 0x00800000, 0x00800000, SRFlags.Zero)]
         [InlineData(0xB3C3, 0x12345678, 0x00005000, (SRFlags)0)]
         [InlineData(0xB3C3, 0x12345678, 0x00006000, (SRFlags)0)]
@@ -3589,7 +3587,6 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Assert.Equal((uint)0x10293847, machine.CPU.ReadAddressRegister(2));
             Assert.Equal((uint)0x56473829, machine.CPU.ReadAddressRegister(3));
         }
-#pragma warning restore S4144 // Methods should not have identical implementations
 
     }
 }

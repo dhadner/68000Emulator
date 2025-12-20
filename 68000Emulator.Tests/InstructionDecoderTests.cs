@@ -16,7 +16,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         private const string TEST_DATA_PATH = @"..\..\..\..\68000Emulator.Tests\68000.official.json";
         private readonly ITestOutputHelper _output;
 
-        public class LegalOpcodeData
+        public struct LegalOpcodeData
         {
             public ushort Opcode;
             public bool Legal;
@@ -73,10 +73,10 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             var machine = new Machine();
             InstructionDecoder decoder = new(machine);
 
-            byte[] data = { 0, 0 };
+            byte[] data = [0, 0];
             machine.LoadExecutableData(data, START_ADDRESS);
             bool passed = true;
-            int[] fails = { 0, 0 };
+            int[] fails = [0, 0];
             for (int pass = 0; pass < 2; pass++)
             {
                 foreach (var opcodeData in list)
@@ -159,7 +159,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [Fact]
         public void NewDecoder_ShouldNotBeNull()
         {
-            InstructionDecoder decoder = new InstructionDecoder(new Machine());
+            InstructionDecoder decoder = new(new Machine());
 
             Assert.NotNull(decoder);
         }
@@ -167,8 +167,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [Fact]
         public void ReadNextPCWord_ShouldReturnValueWhenPCIsWithinLoadedData()
         {
-            Machine machine = new Machine();
-            var _ = machine.LoadExecutableData(new byte[] { 1, 2, 3, 4, 5, 6 }, 0x2000);
+            Machine machine = new();
+            var _ = machine.LoadExecutableData([1, 2, 3, 4, 5, 6], 0x2000);
 
             var value = machine.ReadNextPCWord();
 
@@ -178,9 +178,9 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [Fact]
         public void FetchInstruction_ShouldFetchValidInstruction()
         {
-            Machine machine = new Machine();
+            Machine machine = new();
             InstructionDecoder decoder = new (machine);
-            var _ = machine.LoadExecutableData(new byte[] { 0x30, 0x3C, 0x00, 0x32 }, 0x2000);      // instruction is: move.w #50,d0
+            var _ = machine.LoadExecutableData([0x30, 0x3C, 0x00, 0x32], 0x2000);      // instruction is: move.w #50,d0
 
             var instruction = decoder.FetchInstruction();
 
