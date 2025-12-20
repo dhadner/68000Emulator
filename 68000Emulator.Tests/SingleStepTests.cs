@@ -410,7 +410,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
         private const string LEADING_BLANKS = "   ";
 
-        private static void DumpCode(Address startAddress, SortedDictionary<Address, byte> memory, Machine machine, Disassembler disassembler, StringBuilder sb)
+        private static void DumpCode(Address startAddress, SortedDictionary<Address, byte> memory, Disassembler disassembler, StringBuilder sb)
         {
             byte[] code = GetContiguousBytes(startAddress, memory);
             var lines = disassembler.DisassembleBytes(startAddress, code);
@@ -440,7 +440,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             StringBuilder sb = new();
 
             sb.AppendLine("Code:");
-            DumpCode(startAddress, initialMemory, machine, disassembler, sb);
+            DumpCode(startAddress, initialMemory, disassembler, sb);
 
             sb.AppendLine("Initial CPU state:");
             DumpCpuState(initialCpu, sb);
