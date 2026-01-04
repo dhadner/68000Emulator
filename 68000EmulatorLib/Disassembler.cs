@@ -121,7 +121,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 /// <summary>
                 /// End of data not reached until end of address space.
                 /// </summary>
-                public override bool IsEndOfData => CPU.PC >= 0xffffffff;
+                public override bool IsEndOfData => CPU.CurrentPC >= 0xffffffff;
 
                 /// <summary>
                 /// For the purposes of disassembly, end of execution is the entire
@@ -427,8 +427,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                     // Set machine parameters for this disassembler machine
                     Disassembling = true;
-                    Machine.CPU.PC = startAddress;
-                    Machine.CPU.Prefetch.Clear();
+                    Machine.SetPC(startAddress);
+                    Machine.SetExecutionLimits(startAddress, length);
+
                     StartAddress = startAddress;
                     Length = length;
                     CurrentAddress = StartAddress;
@@ -774,9 +775,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 DisassemblyRecord? record = null;
                 uint oldAddress = CurrentAddress;
-                Machine.CPU.PC = CurrentAddress;
-                Machine.ExecutingAtAddress = CurrentAddress;
-                Machine.CPU.Prefetch.Clear();
                 try
                 {
                     do
@@ -786,6 +784,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                         // Decoder fetches the instruction at the current PC, so set it to
                         // where we want to disassembler.
+                        Machine.SetPC(CurrentAddress);
+
                         Instruction? inst = Machine.Decoder.FetchInstruction();
                         if (inst == null)
                         {
@@ -829,7 +829,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             op!.MachineCode = machineCode;
                             op.Assembly = sb.ToString();
                             record = new DisassemblyRecord(op, IsEndOfData);
-                            CurrentAddress = Machine.CPU.PC;
                         }
                     } while (false);
                 }
@@ -843,9 +842,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     {
                         // Restore address on failure
                         CurrentAddress = oldAddress;
-                        Machine.CPU.PC = CurrentAddress;
-                        Machine.CPU.Prefetch.Clear();
                     }
+                    else
+                    {
+                        CurrentAddress = oldAddress + (uint)record.MachineCode.Length;
+                    }
+                    Machine.SetPC(CurrentAddress);
+
                     Disassembling = false;
                 }
                 return record;
@@ -1049,33 +1052,21 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     break;
                                 case (byte)AddrMode.PCDisp:
                                     {
-                                        // PC has been incremented past the extension word.  The definition of
-                                        // PC displacement uses the value of the extension word address as the PC value.
-                                        int pcDecrement = 2; // Assume source, PC just after ext1 or dest, PC just after ext1
-                                        if (eaType == EAType.Source && instruction.DestExtWord1 != null)
-                                        {
-                                            pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
-                                        }
-                                        address = (uint)((int)Machine.CPU.PC - pcDecrement + (short)ext1!.Value);
+                                        uint pc = Machine.CurrentInstructionAddress + 2;
+
+                                        address = (uint)((int)pc + (short)ext1!.Value);
                                         operand = new LabelOperand(address.Value, AddrMode.PCDisp);
                                     }
                                     break;
                                 case (byte)AddrMode.PCIndex:
                                     {
+                                        uint pc = Machine.CurrentInstructionAddress + 2;
                                         byte disp = (byte)(ext1!.Value & 0x00FF);
                                         byte indexRegNum = (byte)((ext1!.Value & 0x7000) >> 12);
                                         OpSize sz = (ext1.Value & 0x0800) == 0 ? OpSize.Word : OpSize.Long;
                                         bool indexIsAddressRegister = (ext1.Value & 0x8000) != 0;
 
-                                        // PC has been incremented past the extension word.  The definition of
-                                        // PC displacement uses the value of the extension word address as the PC value.
-                                        int pcDecrement = 2; // Assume source, PC just after ext1 or dest, PC just after ext1
-                                        if (eaType == EAType.Source && instruction.DestExtWord1 != null)
-                                        {
-                                            pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
-                                        }
-
-                                        uint baseAddress = (uint)((sbyte)disp + (int)Machine.CPU.PC - pcDecrement);
+                                        uint baseAddress = (uint)((sbyte)disp + (int)pc);
                                         operand = new PCIndexOperand(indexRegNum, indexIsAddressRegister, baseAddress, sz);
                                     }
                                     break;
@@ -1128,7 +1119,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="sb"></param>
             protected Operation AppendMnemonic(Instruction inst, StringBuilder sb)
             {
-                Operation op = new(Machine.ExecutingAtAddress, inst.Info.Mnemonic);
+                Operation op = new(Machine.CurrentInstructionAddress, inst.Info.Mnemonic);
                 sb.Append(inst.Info.Mnemonic);
                 return op;
             }
@@ -1183,7 +1174,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 string mnemonic = inst.Info.Mnemonic;
                 mnemonic = mnemonic[..^"toCCR".Length];
-                Operation op = new(Machine.ExecutingAtAddress, mnemonic);
+                Operation op = new(Machine.CurrentInstructionAddress, mnemonic);
                 sb.Append(mnemonic);
                 sb.AppendTab(EA_COLUMN);
 
@@ -1208,7 +1199,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 string mnemonic = inst.Info.Mnemonic;
                 mnemonic = mnemonic[..^"toSR".Length];
-                Operation op = new(Machine.ExecutingAtAddress, mnemonic);
+                Operation op = new(Machine.CurrentInstructionAddress, mnemonic);
                 sb.Append(mnemonic);
                 sb.AppendTab(EA_COLUMN);
 
@@ -1231,7 +1222,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             protected Operation? MOVEtoSR(Instruction inst, StringBuilder sb)
             {
-                Operation op = new(Machine.ExecutingAtAddress, "MOVE");
+                Operation op = new(Machine.CurrentInstructionAddress, "MOVE");
                 sb.Append("MOVE");
                 sb.AppendTab(EA_COLUMN);
 
@@ -1244,7 +1235,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             protected Operation? MOVEtoCCR(Instruction inst, StringBuilder sb)
             {
-                Operation op = new(Machine.ExecutingAtAddress, "MOVE");
+                Operation op = new(Machine.CurrentInstructionAddress, "MOVE");
                 sb.Append("MOVE");
                 sb.AppendTab(EA_COLUMN);
 
@@ -1257,7 +1248,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             protected Operation? MOVEfromSR(Instruction inst, StringBuilder sb)
             {
-                Operation op = new(Machine.ExecutingAtAddress, "MOVE");
+                Operation op = new(Machine.CurrentInstructionAddress, "MOVE");
                 sb.Append("MOVE");
                 sb.AppendTab(EA_COLUMN);
 
@@ -1607,8 +1598,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     AppendCondition(cond, sb);
                 }
 
-                Operation op = new(Machine.ExecutingAtAddress, sb.ToString());
-                uint pc = Machine.CPU.PC;
+                Operation op = new(Machine.CurrentInstructionAddress, sb.ToString());
+                uint pc = Machine.CPU.CurrentPC;
                 int disp = inst.Opcode & 0x00FF;
                 OpSize size = OpSize.Word;
                 if (disp == 0)
@@ -1659,7 +1650,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected Operation BRA_BSR(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
-                uint pc = Machine.CPU.PC;
+                uint pc = Machine.CPU.CurrentPC;
                 int disp = inst.Opcode & 0x00FF;
                 OpSize size = OpSize.Word;
                 if (disp == 0)
@@ -1754,12 +1745,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 Condition cond = (Condition)((inst.Opcode & 0x0F00) >> 8);
                 AppendCondition(cond, sb);
 
-                Operation op = new(Machine.ExecutingAtAddress, sb.ToString(), OpSize.Word);
+                Operation op = new(Machine.CurrentInstructionAddress, sb.ToString(), OpSize.Word);
                 sb.Append(".W");
                 sb.AppendTab(EA_COLUMN);
 
                 int dRegNum = inst.Opcode & 0x0007;
-                uint pc = Machine.CPU.PC;
+                uint pc = Machine.CPU.CurrentPC;
 
                 // Note: extra -2 to account for PC pointing at the next instruction, not on the extension word for the
                 // current instruction (as the displacement for DBcc instructions assumes)
@@ -1793,7 +1784,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 Condition condition = (Condition)((inst.Opcode & 0x0F00) >> 8);
                 AppendCondition(condition, sb);
 
-                Operation op = new(Machine.ExecutingAtAddress, sb.ToString(), OpSize.Byte);
+                Operation op = new(Machine.CurrentInstructionAddress, sb.ToString(), OpSize.Byte);
                 sb.Append(".B"); // Size is always byte
                 sb.AppendTab(EA_COLUMN);
 
@@ -1958,7 +1949,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             protected Operation MOVEUSP(Instruction inst, StringBuilder sb)
             {
-                Operation op = new(Machine.ExecutingAtAddress, "MOVE");
+                Operation op = new(Machine.CurrentInstructionAddress, "MOVE");
                 sb.Append("MOVE");
                 AppendTab(EA_COLUMN, sb);
 
@@ -2126,7 +2117,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             protected virtual Operation LINEA(Instruction inst, StringBuilder sb)
             {
-                Operation op = new(Machine.ExecutingAtAddress, "LINEA");
+                Operation op = new(Machine.CurrentInstructionAddress, "LINEA");
                 sb.Append($"LINEA");
                 sb.AppendTab(EA_COLUMN);
 
@@ -2139,7 +2130,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             protected virtual Operation LINEF(Instruction inst, StringBuilder sb)
             {
-                Operation op = new(Machine.ExecutingAtAddress, "LINEF");
+                Operation op = new(Machine.CurrentInstructionAddress, "LINEF");
                 sb.Append($"LINEF");
                 sb.AppendTab(EA_COLUMN);
 

@@ -71,7 +71,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Machine machine = new Machine();
             var _ = machine.LoadExecutableData(new byte[] { 1, 2, 3, 4, 5, 6 }, 0x2000);
 
-            Assert.Equal((uint)0x2000, machine.CPU.PC);
+            Assert.Equal((uint)0x2000, machine.CPU.CurrentPC);
         }
 
 
@@ -106,7 +106,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Assert.Equal((uint)0x0badf00d, state.D6!.Value);   // Marker register
             Assert.Equal((uint)0x00002000, state.USP!.Value);
             Assert.Equal((uint)0x00001800, state.SSP!.Value);
-            Assert.Equal((uint)0x0001006c, state.PC!.Value);
+            Assert.Equal((uint)0x00010068, state.CurrentPC!);  // Stop instruction freezes PC
         }
 
         [Fact]
@@ -123,7 +123,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         {
             Machine machine = new Machine();
             var _ = machine.LoadExecutableData(new byte[] { 1, 2, 3, 4, 5, 6 }, 0x2000);
-            machine.CPU.PC = 0x2008;
+            machine.CPU.CurrentPC = 0x2008;
 
             Assert.True(machine.IsEndOfData);
         }

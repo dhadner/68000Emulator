@@ -132,7 +132,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     if (Prefetch != null)
                     {
-                        return PC.Value - Prefetch.ByteCount;
+                        return PC.Value - Prefetch.Size;
                     }
                     return PC.Value;
                 }

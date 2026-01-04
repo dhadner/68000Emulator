@@ -26,8 +26,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
     /// 
     /// Tests are randomly generated, in substantial volume.
     ///  
-    /// Valid opcodes are bucketed by operation; slightly more than 8,000 tests per operation are provided, giving 
-    ///   a total of a little over 1,000,000 tests.
+    /// Valid opcodes are bucketed by operation; 2,500 tests per operation are provided, giving 
+    ///   a total of  315,000 tests.
     ///  
     ///  Further:
     ///  
@@ -220,12 +220,12 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             cpuState.D7 = testcaseState.D7;
             cpuState.USP = testcaseState.Usp;
             cpuState.SSP = testcaseState.Ssp;
-            cpuState.PC = testcaseState.Pc;
+            cpuState.PC = testcaseState.Pc; // Has already been incremented past the prefetch queue.
             cpuState.SR = (SRFlags)testcaseState.Sr;
             cpuState.Prefetch = new PrefetchQueue();
             foreach (var word in testcaseState.Prefetch)
             {
-                cpuState.Prefetch.PushBack(word);
+                cpuState.Prefetch.Enqueue(word);
             }
             return cpuState;
         }
@@ -435,7 +435,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             CPUState finalCpu = GetCPUState(testcase.Final);
             var initialMemory = GetMemory(testcase.Initial);
             var finalMemory = GetMemory(testcase.Final);
-            var startAddress = testcase.Initial.Pc;
+            var startAddress = testcase.Initial.Pc - (Address)(testcase.Initial.Prefetch.Count * 2);
 
             StringBuilder sb = new();
 
@@ -539,6 +539,20 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             var actualA6 = cpu.ReadAddressRegister(6);
             CheckError(requiredState.A6, actualA6, $"A6 mismatch. Expected: {requiredState.A6:x8}, Actual: {actualA6:x8}");
 
+            // Check the PC and prefetch queue against the required state
+            CheckError(requiredState.Pc, cpu.PC, $"PC mismatch. Expected: ${requiredState.Pc:x8}, Actual: ${cpu.PC:x8}");
+            int requiredCount = requiredState.Prefetch.Count;
+            int actualCount = cpu.Prefetch.Count;
+            CheckError(requiredCount, actualCount, $"Prefetch length error: Expected: {requiredState.Prefetch.Count}, Actual: {cpu.Prefetch.Count}");
+            ushort[] prefetchContents = cpu.Prefetch.ToArray();
+            if (requiredCount == actualCount)
+            {
+                for (int i = 0; i < requiredState.Prefetch.Count; i++)
+                {
+                    CheckError(requiredState.Prefetch[i], prefetchContents[i], $"Prefetch contents error at word {i}: Expected: {requiredState.Prefetch[i]}, Actual: {prefetchContents[i]}");
+                }
+            }
+
             // The M68000_SR_MASK from Rust is 0xA71F. We should only compare these bits.
             const ushort SR_MASK = 0x271F; // Ignore trace bit errors for now, then -> 0xA71F
             var expectedSr = (SRFlags)(requiredState.Sr & SR_MASK);
@@ -572,7 +586,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         /// <summary>
-        /// Set the memory to the required initial state.
+        /// Set the memory to the required initial state.  Assumes the machine CPU state
+        /// has already been set including prefetch queue loading.
         /// </summary>
         /// <param name="requiredState"></param>
         /// <param name="machine"></param>
@@ -600,17 +615,24 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             uint len = high - low;
             byte[] zeroes = new byte[len];
 
-            // Save PC since LoadExecutableData will change it.
-            uint pc = machine.CPU.PC;
+            // Save PC and prefetch queue since LoadExecutableData will change them.
+            uint pc = machine.CPU.PC; // Already incremented past prefetch queue.
+            ushort[] prefetch = machine.CPU.Prefetch.ToArray();
 
-            // Zero out the range and set the _loadedAddress and _dataLength
-            // used for IsEndOfData.
+            // Zero out the entire range and set the _loadedAddress and _dataLength
+            // used for IsEndOfData.  This is to satisfy the EndOfData
+            // logic used in the run loop.
             machine.LoadExecutableData(zeroes, low);
 
-            // Restore PC
-            machine.CPU.PC = pc;
+            // Restore PC and prefetch queue
+            machine.CPU.PC = pc; // Already incremented past prefetch queue.
+            machine.CPU.Prefetch.Clear();
+            foreach (ushort word in prefetch)
+            {
+                machine.CPU.Prefetch.Enqueue(word);
+            }
 
-            // No ordering can be assumned in the RAM list of addresses and bytes.
+            // No ordering can be assumed in the RAM list of addresses and bytes.
             foreach (var ramEntry in requiredState.Ram)
             {
                 machine.Memory.WriteByte(ramEntry.Address, ramEntry.Data);
@@ -680,10 +702,14 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 cpu.SSP = requiredState.Ssp;
                 cpu.WriteAddressRegister(7, requiredState.Usp);
             }
-            // The PC in the test data has already been adjusted to account for prefetch.
-            // I.e., it has already been decremented by 4.
-            cpu.PC = requiredState.Pc;
+            cpu.PC = requiredState.Pc; // Has already been incremented past the prefetch queue.
+
+            // Load the prefetch queue.
             cpu.Prefetch.Clear();
+            foreach (var word in requiredState.Prefetch)
+            {
+                cpu.Prefetch.Enqueue(word);
+            }
         }
 
         /// <summary>
@@ -705,8 +731,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
         private static void NormalizeTestCase(M68KJsonTestCase testcase)
         {
-            testcase.Initial.Pc -= 4; // Account for prefetch
-            testcase.Final.Pc -= 4;   // Account for prefetch
+            //testcase.Initial.Pc -= 4; // Account for prefetch
+            //testcase.Final.Pc -= 4;   // Account for prefetch
         }
 
         /// <summary>
@@ -746,6 +772,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 SetMemoryState(testcase.Initial, machine);
 
                 machine.CallDepth = 1;         // To ensure that an RTS is actually performed.
+                machine.SetExecutionLimits(0, 0xffffffff);
 
                 // Execute the instruction
                 TrapException? exception = machine.ExecuteInstruction();

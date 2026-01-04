@@ -89,7 +89,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Address of the currently-executing (or about to be executed) instruction.
         /// </summary>
-        public uint ExecutingAtAddress { get; protected set; }
+        public uint CurrentInstructionAddress { get; set; }
 
         /// <summary>
         /// Raise an address error trap exception and set appropriate info
@@ -134,7 +134,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Gets a value indicating if the machine has reached the end of the loaded executable data.
         /// </summary>
-        public virtual bool IsEndOfData => (CPU.PC - CPU.Prefetch.ByteCount) >= _loadedAddress + _dataLength;
+        public virtual bool IsEndOfData => CPU.Prefetch.IsEmpty && CPU.PC >= _loadedAddress + _dataLength;
 
         /// <summary>
         /// Gets a value indicating if the execution of code has been terminated.
@@ -169,7 +169,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         {
             Memory.Clear();
             CPU.Reset(initializing);
-            ExecutingAtAddress = CPU.PC;
+            CurrentInstructionAddress = CPU.PC - CPU.Prefetch.Size;
             IsEndOfExecution = false;
             ExecutionStopped = false;
             Exception = null;
@@ -179,21 +179,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
 
         /// <summary>
-        /// Loads the prefetch queue (if not already loaded)
-        /// and update the PC accordingly.
+        /// Set load address and length manually.
         /// </summary>
-        public void LoadPrefetch(bool flush = true)
+        /// <param name="lowAddress"></param>
+        /// <param name="length"></param>
+        public virtual void SetExecutionLimits(uint lowAddress, uint length)
         {
-            if (flush)
-            {
-                CPU.Prefetch.Clear();
-            }
-            while (CPU.Prefetch.Count < CPU.Prefetch.Capacity && !IsEndOfData)
-            {
-                ushort word = Memory.ReadWord(CPU.PC);
-                CPU.Prefetch.PushBack(word);
-                CPU.PC += 2;
-            }
+            _loadedAddress = lowAddress;
+            _dataLength = length;
         }
 
         /// <summary>
@@ -271,16 +264,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
 
         /// <summary>
-        /// Get the current CPU execution state with the PC adjusted back
-        /// by the length of the prefetch queue.
-        /// </summary>
-        /// <returns></returns>
-        public (uint pc, SRFlags sr) GetExecutionState()
-        {
-            return (CPU.PC, CPU.SR);
-        }
-
-        /// <summary>
         /// Set the state of settings in the CPU according to the values in the supplied <see cref="CPUState"/> object.
         /// </summary>
         /// <remarks>
@@ -291,6 +274,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public virtual void SetCPUState(CPUState state)
         {
             state.ToCPU(CPU);
+            if (state.PC.HasValue && state.Prefetch != null)
+            {
+                CurrentInstructionAddress = CPU.CurrentPC;
+            }
         }
 
         /// <summary>
@@ -302,76 +289,97 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
 
         /// <summary>
-        /// Read word at PC and increment the PC to the next word.
+        /// Return the next word at the CurrentPC and increment the CurrentPC.
+        /// Accesses the prefetch queue and refills as needed.
         /// </summary>
-        /// <returns></returns>
+        /// <returns>The next word in prefetch queue at the CurrentPC address.</returns>
         internal ushort ReadNextPCWord()
         {
-            ushort value;
-            if (!IsEndOfData)
+            /// <summary>
+            /// Read word at the PC and increment the PC to the next word.
+            /// </summary>
+            /// <returns></returns>
+            ushort ReadNextWord()
             {
-                value = Memory.ReadWord(CPU.PC);
-                CPU.IncrementPC(2);
+                ushort value = Memory.ReadWord(CPU.PC);
+                CPU.PC += 2;
+                return value;
+            }
+
+            ushort value;
+
+            if (CPU.Prefetch.Count == CPU.Prefetch.Capacity)
+            {
+                // Prefetch queue is full - normal case
+                value = CPU.Prefetch.Dequeue();
+                CPU.Prefetch.Enqueue(ReadNextWord());
             }
             else
             {
-                value = 0;
+                if (CPU.Prefetch.IsEmpty)
+                {
+                    value = ReadNextWord();
+                }
+                else
+                {
+                    value = CPU.Prefetch.Dequeue();
+                }
+                // Prefetch queue is not full - initial filling of the queue
+                while (CPU.Prefetch.Count < CPU.Prefetch.Capacity && !IsEndOfData)
+                {
+                    CPU.Prefetch.Enqueue(ReadNextWord());
+                }
             }
             return value;
         }
 
         /// <summary>
-        /// Return the word located at the Program Counter, and then increment the Program Counter.
+        /// Ensure the prefetch queue is filled to capacity by fetching words from memory.
         /// </summary>
-        /// <returns>The word located at the Program Counter.</returns>
-        internal ushort ReadPrefetch(bool force = false)
+        /// <exception cref="InvalidOperationException">Thrown if attempting to read beyond the loaded data area.</exception>"
+        /// <exception cref="TrapException">Thrown if a bus error occurs while reading memory.</exception>"
+        public void FillPrefetch()
         {
-            ushort value;
-            if (IsEndOfData)
+            while (CPU.Prefetch.Count < CPU.Prefetch.Capacity && (CPU.PC & LEGAL_ADDRESS_MASK) < _loadedAddress + _dataLength)
             {
-                if (CPU.Prefetch.IsEmpty)
-                {
-                    throw new InvalidOperationException("Execution has run past the end of the loaded data.");
-                }
-                value = CPU.Prefetch.PopFront();
+                ushort word = Memory.ReadWord(CPU.PC);
+                CPU.Prefetch.Enqueue(word);
+                CPU.PC += 2;
             }
-            else
-            {
-                if (CPU.Prefetch.Count == CPU.Prefetch.Capacity)
-                {
-                    // Prefetch queue is full - normal case
-                    value = CPU.Prefetch.PopFront();
-                    if (force)
-                    {
-                        CPU.Prefetch.PushBack(ReadNextPCWord());
-                    }
-                }
-                else
-                {
-                    if (CPU.Prefetch.IsEmpty)
-                    {
-                        value = ReadNextPCWord();
-                    }
-                    else
-                    {
-                        value = CPU.Prefetch.PopFront();
-                    }
-                    // Prefetch queue is not full - initial filling of the queue
-                    while (CPU.Prefetch.Count < CPU.Prefetch.Capacity && !IsEndOfData && force)
-                    {
-                        CPU.Prefetch.PushBack(ReadNextPCWord());
-                    }
-                }
-            }
-            return value;
         }
 
+        /// <summary>
+        /// Clear prefetch queue.
+        /// </summary>
+        public void ClearPrefetch()
+        {
+            CPU.Prefetch.Clear();
+        }
+
+        /// <summary>
+        /// Set the PC to the specified value, clear the prefetch queue, and reload it.
+        /// </summary>
+        /// <param name="newPC"></param>
+        /// <exception cref="TrapException">Thrown if an address error occurs while filling the prefetch queue.</exception>"
+        public void SetPC(uint newPC)
+        {
+            CPU.CurrentPC = newPC;
+
+            CurrentInstructionAddress = CPU.CurrentPC;
+            CurrentInstruction.AccessAddress = newPC;
+            CurrentInstruction.AccessAddressType = EAType.Source;
+
+            Debug.Assert(newPC == CPU.CurrentPC);
+
+            FillPrefetch(); // Throws address error if odd address
+        }
 
         /// <summary>
         /// Load executable data into memory at the specified address.
         /// </summary>
         /// <remarks>
-        /// Loading executable data also sets the Program Counter to the address of the loaded data.
+        /// Loading executable data also sets the Program Counter to the address of the loaded data
+        /// and clears the prefetch queue.
         /// </remarks>
         /// <param name="data">The executable data to be loaded.</param>
         /// <param name="loadAddress">The address at which the executable data should be loaded.</param>
@@ -381,10 +389,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         {
             if (Memory.LoadData(data, loadAddress, clearBeforeLoad))
             {
-                CPU.PC = loadAddress;
-                CPU.Prefetch.Clear();
                 _loadedAddress = loadAddress;
                 _dataLength = (uint)data.Length;
+                SetPC(loadAddress);
                 return true;
             }
             return false;
@@ -394,7 +401,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Load executable data into memory at the specified address.
         /// </summary>
         /// <remarks>
-        /// Loading executable data also sets the Program Counter to the address of the loaded data.
+        /// Loading executable data also sets the Program Counter to the address of the loaded data
+        /// and then fills the prefetch queue (which also increments the PC).
         /// </remarks>
         /// <param name="data">The 16-bit executable data to be loaded.</param>
         /// <param name="loadAddress">The address at which the executable data should be loaded.</param>
@@ -405,10 +413,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             var bData = ToByteArray(data);
             if (Memory.LoadData(bData, loadAddress, clearBeforeLoad))
             {
-                CPU.PC = loadAddress;
-                CPU.Prefetch.Clear();
                 _loadedAddress = loadAddress;
                 _dataLength = (uint)bData.Length;
+                SetPC(loadAddress);
                 return true;
             }
             return false;
@@ -439,7 +446,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
 
         /// <summary>
-        /// Load from an S-Record file.
+        /// Load from an S-Record file. Clears the prefetch queue.
         /// </summary>
         /// <param name="sFile">S-Record executable file path</param>
         /// <param name="patch"><c>true</c> to prevent clearing all memory before loading
@@ -457,13 +464,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             LoadingProgram = false;
             if (!patch && errMsg == null)
             {
-                if (startingAddress.HasValue)
-                {
-                    CPU.PC = startingAddress.Value;
-                    CPU.Prefetch.Clear();
-                }
                 _loadedAddress = lowestAddress;
                 _dataLength = highestAddress - lowestAddress;
+                if (startingAddress.HasValue)
+                {
+                    SetPC(startingAddress.Value);
+                }
             }
             return errMsg;
         }
@@ -615,6 +621,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public virtual TrapException?  ExecuteUntilException()
         {
             TrapException? exception;
+            FillPrefetch();
             while (!IsEndOfData && !IsEndOfExecution && !ExecutionStopped)
             {
                 exception = ExecuteInstruction();
@@ -628,6 +635,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         public virtual void Execute()
         {
+            FillPrefetch();
             while (!IsEndOfData && !IsEndOfExecution && !ExecutionStopped)
             {
                 ExecuteInstruction();
@@ -642,6 +650,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// instead</exception>
         public virtual TrapException? ExecuteOpCode()
         {
+            CurrentInstructionAddress = CPU.CurrentPC;
             var instruction = Decoder.FetchInstruction();
             if (instruction == null)
             {
@@ -688,7 +697,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             //
             // Most expected exceptions (such as LINEA exceptions) are returned
             // here rather than thrown to minimize overhead.
-            ExecutingAtAddress = CPU.PC;
             TrapException? e = ExecuteOpCode();
             if (e != null)
             {
@@ -698,6 +706,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             if (exception != null)
             {
                 // Handle Group0 and Group1/2 exceptions here.
+                // ExecutingAtAddress updated as part of exception handling.
                 try
                 {
                     if (exception?.TrapDetails.Group == 0)
@@ -731,6 +740,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     exception = eh;
                 }
             }
+            else
+            {
+                // Address of next instruction to be executed.
+                CurrentInstructionAddress = CPU.CurrentPC;
+            }
             if (traceMode)
             {
                 TrapException? traceException = new TrapException((ushort)TrapVector.Trace);
@@ -752,7 +766,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     case (true, false, false, true):
                     case (true, false, false, false):
                     case (true, false, true, false):
-                    case (true, false, true, true): 
+                    case (true, false, true, true):
                         CPU.TraceMode = true;
                         break;
                     case (false, false, false, true):
@@ -866,6 +880,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             return null;
         }
 
+        /// <summary>
+        /// Initialize CPU (PC, Prefetch, SR) and ExceptionDetails based on trap vector and exception type.
+        /// </summary>
+        /// <param name="te"></param>
+        /// <param name="evEntry"></param>
+        /// <returns>False if trap details are not defined (should only be the case if trap number >= 1024)</returns>
         protected bool SetupException(TrapException te, out ExceptionDetails evEntry)
         {
             if (!te.TrapDetails.IsDefined)
@@ -878,6 +898,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             uint trapVectorPC = Memory.ReadLong((uint)te.Vector * 4);
 
             CPU.PC = trapVectorPC;
+            CPU.Prefetch.Clear();
+            FillPrefetch();
+            CurrentInstructionAddress = CPU.CurrentPC;
+
             CPU.SR |= SRFlags.SupervisorMode;
             CPU.SR &= ~SRFlags.TraceMode;
             if (evEntry.IsInterrupt)
@@ -887,7 +911,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 ushort level = (ushort)(te.Vector - (byte)TrapVector.Interrupt + 1);
                 CPU.SR |= (SRFlags)(level << 8);
             }
-            CPU.Prefetch.Clear();
 
             return true;
         }
@@ -899,8 +922,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="te"></param>
         protected void HandleGroup0Exception(TrapException te)
         {
-            uint nextInstructionPC = CPU.PC;
-            uint oldPC = ExecutingAtAddress;
+            uint nextInstructionPC = CPU.CurrentPC;
+            uint oldPC = CurrentInstructionAddress;
             SRFlags oldSR = CPU.SR;
 
             if (!SetupException(te, out ExceptionDetails evEntry))
@@ -914,7 +937,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 throw new ArgumentException($"Trap exception is not Group 0, it is Group {(byte)group}", nameof(te));
             }
 
-            Logger.Log(LogLevel.Debug, "CPU", () => $"Group 0 Trap Exception handled: {te.Vector} Trap handler: {CPU.PC:x8} Called from: {oldPC:x8}");
+            Logger.Log(LogLevel.Debug, "CPU", () => $"Group 0 Trap Exception handled: {te.Vector} Trap handler: {CPU.CurrentPC:x8} Called from: {oldPC:x8}");
 
             ushort fcWord = (ushort)evEntry.Fc;
             fcWord |= 0x0018;               // Default to read and not an instruction
@@ -943,8 +966,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="te"></param>
         protected TrapException? HandleTrapException(TrapException te)
         {
-            uint nextInstructionPC = CPU.PC;
-            uint oldPC = ExecutingAtAddress;
+            uint nextInstructionPC = CPU.CurrentPC;
+            uint oldPC = CurrentInstructionAddress;
             SRFlags oldSR = CPU.SR;
 
             if (!SetupException(te, out ExceptionDetails evEntry))
@@ -957,10 +980,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 throw new ArgumentException("Trap exception is not Group 1 or Group 2", nameof(te));
             }
 
-            uint trapVectorContents = Memory.ReadLong((uint)te.Vector * 4) & 0x00ffffff;
+            uint trapVectorContents = Memory.ReadLong((uint)te.Vector * 4);
             Logger.Log(LogLevel.Debug, "CPU", () => $"Group {(int)group} Trap Exception handled: {te.Vector} Trap handler: {trapVectorContents:x8} Called from: {oldPC:x8}");
 
             CPU.PC = trapVectorContents;
+            CPU.Prefetch.Clear();
+            FillPrefetch();
+
             CPU.SR |= SRFlags.SupervisorMode;
             CPU.SR &= ~SRFlags.TraceMode;
             if (evEntry.IsInterrupt)
@@ -970,7 +996,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 ushort level = (ushort)(te.Vector - (byte)TrapVector.Interrupt + 1);
                 CPU.SR |= (SRFlags)(level << 8);
             }
-            CPU.Prefetch.Clear();
 
             switch (evEntry.Group)
             {

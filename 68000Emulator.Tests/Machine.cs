@@ -32,14 +32,6 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         /// <summary>
-        /// Gets a value indicating if the machine has reached the end of the loaded executable data.
-        /// </summary>
-        internal new bool IsEndOfData
-        {
-            get { return base.IsEndOfData; }
-        }
-
-        /// <summary>
         /// Gets a value indicating if the execution of code has been terminated.
         /// </summary>
         /// <remarks>

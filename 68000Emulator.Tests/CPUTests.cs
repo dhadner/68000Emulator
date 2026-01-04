@@ -200,22 +200,6 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0x00123456, 2, 0x00123458)]
-        [InlineData(0x12341234, 4, 0x12341238)]
-        [InlineData(0x00222222, 16, 0x00222232)]
-        public void IncrementPC(uint value, byte numBytes, uint expectedResult)
-        {
-            CPU cpu = new CPU
-            {
-                PC = value
-            };
-            cpu.IncrementPC(numBytes);
-
-            // Assert
-            Assert.Equal(expectedResult, cpu.PC);
-        }
-
-        [Theory]
         [InlineData(Condition.T, (SRFlags)0, true)]
         [InlineData(Condition.F, (SRFlags)0, false)]
         [InlineData(Condition.HI, (SRFlags)0, true)]

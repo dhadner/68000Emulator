@@ -47,7 +47,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public SRFlags SR
         {
             get { return _sr; }
-            set { _sr = value & (SRFlags)Machine.SR_IMPLEMENTED_BITS_68000; }
+            internal set { _sr = value & (SRFlags)Machine.SR_IMPLEMENTED_BITS_68000; }
         }
 
         // **********************
@@ -413,16 +413,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             };
         }
 
-        /// <summary>
-        /// Increment the value of the Program Counter.
-        /// </summary>
-        /// <param name="numBytes">The number of bytes by which the program counter should be incremented.</param>
-        internal void IncrementPC(byte numBytes) => PC += numBytes;
-
-        /// <summary>
-        /// CPU prefetch queue.
-        /// </summary>
-        public PrefetchQueue Prefetch { get; } = new();
+        // **********************
+        // CPU reset action(s)
+        // **********************
 
         /// <summary>
         /// Reset action event.
@@ -435,6 +428,36 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public virtual void ResetExternalDevices()
         {
             ResetExternalDevicesAction?.Invoke();
+        }
+
+        // **********************
+        // Prefetch Queue
+        // **********************
+
+        /// <summary>
+        /// CPU prefetch queue. Loading and managing the prefetch queue is the responsibility
+        /// of the calling code since those actions need access to memory, bounds info, etc.
+        /// </summary>
+        internal PrefetchQueue Prefetch { get; } = new();
+
+        /// <summary>
+        /// Current PC adjusted for prefetch queue.  Points to the next memory location to be read
+        /// by the CPU (which may already be in the prefetch queue).
+        /// </summary>
+        public uint CurrentPC         
+        {
+            get
+            {
+                return PC - Prefetch.Size;
+            }
+            internal set
+            {
+                // Set the new value and clear the prefetch queue.  Refilling is the 
+                // responsibility of the calling code since those actions need access to memory,
+                // bounds info, etc.
+                PC = value;
+                Prefetch.Clear();
+            }
         }
     }
 }

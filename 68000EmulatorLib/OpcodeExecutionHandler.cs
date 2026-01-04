@@ -2,15 +2,7 @@
 #define CHECK_PC_FOR_ZERO
 
 using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Drawing;
-using System.Net;
-using System.Reflection;
-using System.Runtime.Intrinsics.Arm;
-using static PendleCodeMonkey.MC68000EmulatorLib.Machine;
-using static PendleCodeMonkey.MC68000EmulatorLib.Machine.Disassembler;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -640,8 +632,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return address;
             }
 
-
-
             /// <summary>
             /// Execute the specified instruction.
             /// </summary>
@@ -651,7 +641,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 if (_handlers.TryGetValue(instruction.Info.HandlerID, out OpHandler? value))
                 {
 #if CHECK_PC_FOR_ZERO
-                    uint oldPC = Machine.CPU.PC;
+                    uint oldPC = Machine.CPU.CurrentPC;
 #endif
                     TrapException? e;
                     try
@@ -672,13 +662,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     var sp = (sr & SRFlags.SupervisorMode) != 0 ? Machine.CPU.SSP : Machine.CPU.USP;
                     if (sp == 0)
                     {
-                        Logger.Log(LogLevel.Critical, "STACK", $"Stack Pointer == 0: PC = {Machine.CPU.PC:x8}");
+                        Logger.Log(LogLevel.Critical, "STACK", $"Stack Pointer == 0: PC = {Machine.CPU.CurrentPC:x8}");
                     }
 #endif
 #if CHECK_PC_FOR_ZERO
-                    if (Machine.CPU.PC < 0x100)
+                    if ((Machine.CPU.CurrentPC) < 0x100)
                     {
-                        Logger.Log(LogLevel.Critical, "CPU", $"PC < 0x100: original PC = {oldPC:x8}, new PC = {Machine.CPU.PC:x8}");
+                        Logger.Log(LogLevel.Critical, "CPU", $"PC < 0x100: original PC = {oldPC:x8}, new PC = {Machine.CPU.CurrentPC:x8}");
                         Machine.IsEndOfExecution = true;
                     }
 #endif
@@ -937,13 +927,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 case (byte)AddrMode.PCDisp:
                                     {
                                         Debug.Assert(ext1.HasValue, EXT_WORD_NOT_AVAILABLE);
+
                                         int pcDecrement = 2; // Assume source, PC just after ext1 or dest, PC just after ext1
                                         if (eaType == EAType.Source && instruction.DestExtWord1 != null)
                                         {
                                             pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
                                         }
 
-                                        address = (uint)((int)Machine.CPU.PC - pcDecrement + (short)ext1.Value);
+                                        address = (uint)((int)Machine.CPU.CurrentPC - pcDecrement + (short)ext1.Value);
                                     }
                                     break;
                                 case (byte)AddrMode.PCIndex:
@@ -967,7 +958,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         {
                                             pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
                                         }
-                                        address = (uint)((int)Machine.CPU.PC - pcDecrement + (int)indexValue + (sbyte)disp);
+                                        address = (uint)((int)Machine.CPU.CurrentPC - pcDecrement + (int)indexValue + (sbyte)disp);                                  
                                     }
                                     break;
                                 case (byte)AddrMode.Immediate:
@@ -1387,12 +1378,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     ushort sr = Machine.PopWord();
                     uint address = Machine.PopLong();
-                    Machine.CPU.PC = address;
-                    Machine.CPU.Prefetch.Clear();
+
                     Machine.CPU.SR = (SRFlags)sr;
 
-                    // Check address to jump to
-                    Machine.CheckUnalignedAccess(EAType.Source, OpSize.Long, address);
+                    Machine.SetPC(address);
                 }
                 else
                 {
@@ -1420,15 +1409,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                 }
                 uint address = Machine.PopLong();
-
-                Machine.CPU.PC = address;
-                Machine.CPU.Prefetch.Clear();
-
+                Machine.SetPC(address);
                 CallDepth--;
-
-                // Check address to jump to
-                Machine.CheckUnalignedAccess(EAType.Source, OpSize.Long, address);
-
                 return null;
             }
 
@@ -1451,12 +1433,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 Machine.CPU.SR = (SRFlags)srValue;
                 uint address = Machine.PopLong();
 
-                Machine.CPU.PC = address;
-                Machine.CPU.Prefetch.Clear();
-
-                // Check address to jump to
-                Machine.CheckUnalignedAccess(EAType.Source, OpSize.Long, address);
-
+                Machine.SetPC(address);
                 return null;
             }
 
@@ -1465,14 +1442,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 var (_, _, address, _) = EvaluateEffectiveAddress(inst, EAType.Source);
                 if (address.HasValue)
                 {
-                    if ((address & 1) != 0)
-                    {
-                        Helpers.RaiseTRAPException(TrapVector.AddressError);
-                    }
-                    Machine.PushLong(Machine.CPU.PC - Machine.CPU.Prefetch.ByteCount);
-
-                    Machine.CPU.PC = address.Value;
-                    Machine.CPU.Prefetch.Clear();
+                    uint pc = Machine.CPU.CurrentPC;
+                    Machine.SetPC(address.Value);  // Throws address error if odd address
+                    Machine.PushLong(pc);
 
                     CallDepth++;
                 }
@@ -1484,12 +1456,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 var (_, _, address, _) = EvaluateEffectiveAddress(inst, EAType.Source);
                 if (address.HasValue)
                 {
-                    if ((address & 1) != 0)
-                    {
-                        Helpers.RaiseTRAPException(TrapVector.AddressError);
-                    }
-                    Machine.CPU.PC = address.Value;
-                    Machine.CPU.Prefetch.Clear();
+                    Machine.SetPC(address.Value);
                 }
                 return null;
             }
@@ -1614,15 +1581,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         if (inst.SourceExtWord1.HasValue)
                         {
                             int disp = Helpers.SignExtendValue(inst.SourceExtWord1.Value, OpSize.Word) - 2;
-                            uint address = (uint)(Machine.CPU.PC + disp);
+                            uint address = (uint)(Machine.CPU.CurrentPC + disp);
                             if ((address & 1) != 0)
                             {
                                 // Restore the register
                                 Machine.CPU.WriteDataRegister(dRegNum, (uint)(newDRegVal + 1), OpSize.Word);
+
+                                Machine.CurrentInstruction.AccessAddress = address;
+                                Machine.CurrentInstruction.AccessAddressType = EAType.Source;
                                 Helpers.RaiseTRAPException(TrapVector.AddressError);
                             }
-                            Machine.CPU.PC = address;
-                            Machine.CPU.Prefetch.Clear();
+                            Machine.SetPC(address);
                         }
                     }
                 }
@@ -1631,7 +1600,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? BRA(Instruction inst)
             {
-                uint pc = Machine.CPU.PC;
+                uint pc = Machine.CPU.CurrentPC;
                 int disp = inst.Opcode & 0x00FF;
                 if (disp == 0)
                 {
@@ -1652,20 +1621,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
 
                 uint address = (uint)(pc + disp);
-                if ((address & 1) != 0)
-                {
-                    Helpers.RaiseTRAPException(TrapVector.AddressError);
-                }
-
-                Machine.CPU.PC = address;
-                Machine.CPU.Prefetch.Clear();
-
+                Machine.SetPC(address);
                 return null;
             }
 
             private TrapException? BSR(Instruction inst)
             {
-                uint pc = Machine.CPU.PC;
+                uint pc = Machine.CPU.CurrentPC;
                 int disp = inst.Opcode & 0x00FF;
                 if (disp == 0 && inst.SourceExtWord1.HasValue)
                 {
@@ -1682,20 +1644,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     disp = Helpers.SignExtendValue((uint)disp, OpSize.Byte);
                 }
 
-                Machine.PushLong(Machine.CPU.PC);
+                Machine.PushLong(Machine.CPU.CurrentPC);
                 uint address = (uint)(pc + disp);
                 if ((address & 1) != 0)
                 {
+                    Machine.CurrentInstruction.AccessAddress = address;
+                    Machine.CurrentInstruction.AccessAddressType = EAType.Source;
                     Helpers.RaiseTRAPException(TrapVector.AddressError);
                 }
 
-                Machine.CPU.PC = address;
-                Machine.CPU.Prefetch.Clear();
-
+                Machine.SetPC(address);
                 CallDepth++;
-
-                // Check address to jump to
-                Machine.CheckUnalignedAccess(EAType.Source, OpSize.Long, address);
                 return null;
             }
 
@@ -1704,7 +1663,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 int condition = (inst.Opcode & 0x0F00) >> 8;
                 if (Machine.CPU.EvaluateCondition((Condition)condition))
                 {
-                    uint pc = Machine.CPU.PC;
+                    uint pc = Machine.CPU.CurrentPC;
                     int disp = inst.Opcode & 0x00FF;
                     if (disp == 0 && inst.SourceExtWord1.HasValue)
                     {
@@ -1721,12 +1680,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         disp = Helpers.SignExtendValue((uint)disp, OpSize.Byte);
                     }
                     uint address = (uint)(pc + disp);
-                    if ((address & 1) != 0)
-                    {
-                        Helpers.RaiseTRAPException(TrapVector.AddressError);
-                    }
-                    Machine.CPU.PC = address;
-                    Machine.CPU.Prefetch.Clear();
+                    Machine.SetPC(address);
                 }
                 return null;
             }
@@ -2745,9 +2699,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     bitNum &= 0x0000001F;
                 }
 
+                var bit = _bit[bitNum];
                 var value = ReadEAValue(inst, EAType.Destination, !isBTST);
+
                 // Test the specified bit and set the Zero flag accordingly.
-                Machine.CPU.ZeroFlag = (value & _bit[bitNum]) == 0;
+                Machine.CPU.ZeroFlag = (value & bit) == 0;
 
                 // Modify the specified bit as necessary for the instruction being executed (but do nothing more for
                 // BTST as we've already performed the test, which is all that is needed for this instruction)
@@ -2755,13 +2711,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 switch (operation)
                 {
                     case 0x01:      // BCHG
-                        result ^= _bit[bitNum];
+                        result ^= bit;
                         break;
                     case 0x02:      // BCLR
-                        result &= ~_bit[bitNum];
+                        result &= ~bit;
                         break;
                     case 0x03:      // BSET
-                        result |= _bit[bitNum];
+                        result |= bit;
                         break;
                     default:
                         // BTST operation so nothing more to do.
@@ -2831,6 +2787,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     Machine.StopExecution();
                 }
+                Machine.SetPC(Machine.CurrentInstructionAddress);
                 return null;
             }
 
@@ -2953,48 +2910,47 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 int addressRegister;
 
                 var (_, _, address, _) = EvaluateEffectiveAddress(inst, EAType.Destination, suppressIncDec: true);
-                if (address.HasValue)
+                Debug.Assert(address.HasValue, "OpcodeDecoder and InstructionDecoder should have ensured that a MOVEM instruction has a valid effective address.");
+
+                DeferredAddressRegisterUpdate.Clear(); // Not needed - handled below
+
+                if ((address.Value & 1) != 0)
                 {
-                    DeferredAddressRegisterUpdate.Clear(); // Not needed - handled below
+                    // Address is unaligned
+                    throw Helpers.CreateTRAPException(TrapVector.AddressError);
+                }
+                if (!inst.SourceExtWord1.HasValue)
+                {
+                    // MOVEM instruction must have a source extension word.
+                    Debug.Assert(inst.SourceExtWord1.HasValue, "OpcodeDecoder and InstructionDecoder should have ensured that a MOVEM instruction has a source extension word.");
+                    throw Helpers.CreateTRAPException(TrapVector.IllegalInstruction);
+                }
+                ushort regMask = inst.SourceExtWord1.Value;
+                OpSize size = inst.Size ?? OpSize.Long;
+                bool regToMem = (inst.Opcode & 0x0400) == 0;
 
-                    if ((address.Value & 1) != 0)
+                if (regToMem)
+                {
+                    if (((inst.Opcode >> 3) & 0x0007) == 0x0004)
                     {
-                        // Address is unaligned
-                        throw Helpers.CreateTRAPException(TrapVector.AddressError);
-                    }
-                    if (!inst.SourceExtWord1.HasValue)
-                    {
-                        // MOVEM instruction must have a source extension word.
-                        Debug.Assert(inst.SourceExtWord1.HasValue, "OpcodeDecoder and InstructionDecoder should have ensured that a MOVEM instruction has a source extension word.");
-                        throw Helpers.CreateTRAPException(TrapVector.IllegalInstruction);
-                    }
-                    ushort regMask = inst.SourceExtWord1.Value;
-                    OpSize size = inst.Size ?? OpSize.Long;
-                    bool regToMem = (inst.Opcode & 0x0400) == 0;
-
-                    if (regToMem)
-                    {
-                        if (((inst.Opcode >> 3) & 0x0007) == 0x0004)
-                        {
-                            // Pre-decrement addressing mode
-                            addressRegister = inst.Opcode & 0x0007;
-                            var newAddr = MOVEM_RegToMemPreDec(regMask, cpu, address.Value, size);
-                            Machine.CPU.WriteAddressRegister(addressRegister, newAddr);
-                        }
-                        else
-                        {
-                            MOVEM_RegToMem(regMask, cpu, address.Value, size);
-                        }
+                        // Pre-decrement addressing mode
+                        addressRegister = inst.Opcode & 0x0007;
+                        var newAddr = MOVEM_RegToMemPreDec(regMask, cpu, address.Value, size);
+                        Machine.CPU.WriteAddressRegister(addressRegister, newAddr);
                     }
                     else
                     {
-                        var newAddr = MOVEM_MemToReg(regMask, address.Value, size);
-                        // If post-increment addressing then update the address register.
-                        if (((inst.Opcode >> 3) & 0x0007) == 0x0003)
-                        {
-                            addressRegister = inst.Opcode & 0x0007;
-                            Machine.CPU.WriteAddressRegister(addressRegister, newAddr);
-                        }
+                        MOVEM_RegToMem(regMask, cpu, address.Value, size);
+                    }
+                }
+                else
+                {
+                    var newAddr = MOVEM_MemToReg(regMask, address.Value, size);
+                    // If post-increment addressing then update the address register.
+                    if (((inst.Opcode >> 3) & 0x0007) == 0x0003)
+                    {
+                        addressRegister = inst.Opcode & 0x0007;
+                        Machine.CPU.WriteAddressRegister(addressRegister, newAddr);
                     }
                 }
                 return null;

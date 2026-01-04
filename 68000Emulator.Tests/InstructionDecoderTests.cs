@@ -73,7 +73,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             var machine = new Machine();
             InstructionDecoder decoder = new(machine);
 
-            byte[] data = [0, 0];
+            byte[] data = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
             machine.LoadExecutableData(data, START_ADDRESS);
             bool passed = true;
             int[] fails = [0, 0];
@@ -84,7 +84,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                     machine.Memory.WriteWord(START_ADDRESS, opcodeData.Opcode);
                     Assert.Equal(opcodeData.Opcode, machine.Memory.ReadWord(START_ADDRESS));
 
-                    machine.CPU.PC = START_ADDRESS;
+                    machine.SetPC(START_ADDRESS);
+
                     var instruction = decoder.FetchInstruction();
                     if (instruction != null)
                     {

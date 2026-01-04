@@ -39,7 +39,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             public Instruction? FetchInstruction()
             {
                 // Read the next word (which contains the instruction opcode)
-                uint pc = Machine.CPU.PC;
+                uint instructionAddress = Machine.CPU.CurrentPC;
                 var opcode = Machine.ReadNextPCWord(); // This increments the PC
 
                 // Locate the instruction for this opcode.
@@ -49,7 +49,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     // Fill in any immediate data and extension words for the instruction
                     ReadImmDataAndExtWords(opcode, inst); // May increment the PC further
 
-                    inst.Address = pc;
+                    inst.Address = instructionAddress;
 
                     // Clear Group 0 trap info
                     inst.AccessAddress = null;
@@ -62,7 +62,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     // Illegal instruction - set current instruction to dummy instruction for
                     // address trace purposes.
                     Machine.CurrentInstruction = new(opcode, new(opcode,0xffff,"<illegal>", OpHandlerID.ILLEGAL));
-                    Machine.CurrentInstruction.Address = pc;
+                    Machine.CurrentInstruction.Address = instructionAddress;
                 }
 
                 // Return instruction or null if this is not a recognised opcode (i.e. an illegal instruction)
