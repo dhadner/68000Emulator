@@ -7,6 +7,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     /// <summary>
     /// Implementation of the <see cref="CPU"/> class.
     /// </summary>
+    [RequiresMachineThread()]
+
     public class CPU
     {
         private SRFlags _sr = 0;

@@ -5,6 +5,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     /// <summary>
     /// Implementation of the <see cref="Memory"/> class.
     /// </summary>
+    [RequiresMachineThread()]
     public class Memory
     {
         /// <summary>

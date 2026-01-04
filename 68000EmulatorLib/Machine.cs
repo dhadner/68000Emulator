@@ -13,6 +13,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     /// Includes <see cref="OpcodeExecutionHandler"/>, <see cref="InstructionDecoder"/>, and <see cref="SRecordLoader"/> classes so they
     /// can access protected members that used to be internal but now need to be available to subclasses in other assemblies.
     /// </summary>
+    [RequiresMachineThread()]
     public partial class Machine
     {
         internal const uint MAX_MEMORY_SIZE = 0x01000000;        // Default to 16MB of memory allocated for emulator (the max an actual 68000 processor can address).
