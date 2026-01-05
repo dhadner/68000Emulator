@@ -19,6 +19,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
 
         /// <summary>
+        /// 24-bit addressing on 68000 processors.
+        /// </summary>
+        public const uint LEGAL_ADDRESS_MASK = 0x00FFFFFF;
+
+        /// <summary>
         /// Gets or sets the data register values.
         /// </summary>
         internal uint[] DataRegisters { get; set; } = new uint[8];

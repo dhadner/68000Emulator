@@ -11,10 +11,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     /// </summary>
     public partial class Machine
     {
-        /// <summary>
-        /// MC68000 supports 24-bit addressing.
-        /// </summary>
-        public const uint LEGAL_ADDRESS_MASK = 0x00ffffff;
 
         /// <summary>
         /// Take an arbitrary 32-bit number and mask it to be a legal
@@ -25,7 +21,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static uint Make24BitAddress(uint address)
         {
-            return address & LEGAL_ADDRESS_MASK;
+            return address & CPU.LEGAL_ADDRESS_MASK;
         }
 
         /// <summary>

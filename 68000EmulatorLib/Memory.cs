@@ -5,7 +5,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     /// <summary>
     /// Implementation of the <see cref="Memory"/> class.
     /// </summary>
-    [RequiresMachineThread()]
+    [RequiresMachineThread]
     public class Memory
     {
         /// <summary>
@@ -29,8 +29,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="loadAddress">The address at which the data should be loaded.</param>
         /// <param name="clearBeforeLoad"><c>true</c> if all memory should be cleared before loading, otherwise <c>false</c>.</param>
         /// <returns><c>true</c> if the data was loaded into memory, otherwise <c>false</c>.</returns>
+        /// <exception cref="InvalidOperationException"></exception>
+        [RequiresMachineThread]
         public virtual bool LoadData(byte[] data, uint loadAddress, bool clearBeforeLoad = true)
         {
+            Machine.AssertIsMachineThread();
             loadAddress &= 0x00FFFFFF;
 
             // Check that the data being loaded will actually fit at the specified load address.
@@ -53,7 +56,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Clear all of the <see cref="Memory"/> instance's data.
         /// </summary>
-        public virtual void Clear() => Data.AsSpan().Fill(0);
+        [RequiresMachineThread]
+        public virtual void Clear()
+        {
+            Machine.AssertIsMachineThread();
+
+            Data.AsSpan().Fill(0);
+        }
 
         /// <summary>
         /// Return the specified block of memory.
@@ -61,9 +70,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="address">Start address of the requested block of memory.</param>
         /// <param name="length">Length (in bytes) of the block of memory to be retrieved.</param>
         /// <returns>Read-only copy of the requested memory.</returns>
+        [RequiresMachineThread]
         public virtual ReadOnlySpan<byte> DumpMemory(uint address, uint length)
         {
-            address &= 0x00FFFFFF;
+            Machine.AssertIsMachineThread();
+
+            address &= CPU.LEGAL_ADDRESS_MASK;
 
             if (address + length > Data.Length)
             {
@@ -82,9 +94,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         /// <param name="address">The address of the memory to be read.</param>
         /// <returns>The value that was read from the specified address.</returns>
+        [RequiresMachineThread]
         public virtual byte ReadByte(uint address)
         {
-            address &= 0x00FFFFFF;
+            Machine.AssertIsMachineThread();
+
+            address &= CPU.LEGAL_ADDRESS_MASK;
             if (address >= Data.Length)
             {
                 Helpers.RaiseTRAPException(TrapVector.AddressError);
@@ -99,9 +114,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="address">The address of the memory to be read.</param>
         /// <returns>The 16-bit value that was read from the specified address.</returns>
         /// <exception cref="TrapException">Thrown if an address error occurs while reading memory.</exception>
+        [RequiresMachineThread]
         public virtual ushort ReadWord(uint address)
         {
-            address &= 0x00FFFFFF;
+            Machine.AssertIsMachineThread();
+
+            address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0 || address > Data.Length - 2)
             {
                 Helpers.RaiseTRAPException(TrapVector.AddressError);
@@ -116,9 +134,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="address">The address of the memory to be read.</param>
         /// <returns>The 32-bit value that was read from the specified address.</returns>
         /// <exception cref="TrapException">Thrown if an address error occurs while reading memory.</exception>
+        [RequiresMachineThread]
         public virtual uint ReadLong(uint address)
         {
-            address &= 0x00FFFFFF;
+            Machine.AssertIsMachineThread();
+
+            address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0 || address > Data.Length - 4)
             {
                 Helpers.RaiseTRAPException(TrapVector.AddressError);
@@ -132,9 +153,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         /// <param name="address">The address at which the value should be written.</param>
         /// <param name="value">The value to be written to the specified address.</param>
+        [RequiresMachineThread]
         public virtual void WriteByte(uint address, byte value)
         {
-            address &= 0x00FFFFFF;
+            Machine.AssertIsMachineThread();
+
+            address &= CPU.LEGAL_ADDRESS_MASK;
             if (address >= Data.Length)
             {
                 Helpers.RaiseTRAPException(TrapVector.AddressError);
@@ -152,9 +176,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="address">The address at which the value should be written.</param>
         /// <param name="value">The value to be written to the specified address.</param>
         /// <exception cref="TrapException">Thrown if an address error occurs while writing memory.</exception>
+        [RequiresMachineThread]
         public virtual void WriteWord(uint address, ushort value)
         {
-            address &= 0x00FFFFFF;
+            Machine.AssertIsMachineThread();
+
+            address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0 || address > Data.Length - 2)
             {
                 Helpers.RaiseTRAPException(TrapVector.AddressError);
@@ -173,9 +200,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="address">The address at which the value should be written.</param>
         /// <param name="value">The value to be written to the specified address.</param>
         /// <exception cref="TrapException">Thrown if an address error occurs while writing memory.</exception>
+        [RequiresMachineThread]
         public virtual void WriteLong(uint address, uint value)
         {
-            address &= 0x00FFFFFF;
+            Machine.AssertIsMachineThread();
+
+            address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0 || address > Data.Length - 4)
             {
                 Helpers.RaiseTRAPException(TrapVector.AddressError);
@@ -196,14 +226,17 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         /// <param name="address">The address of the memory to be read.</param>
         /// <returns>Result containing the byte value or an error message.</returns>
+        [RequiresMachineThread]
         public virtual Result<byte, string> TryReadByte(uint address)
         {
-            address &= 0x00FFFFFF;
+            Machine.AssertIsMachineThread();
+
+            address &= CPU.LEGAL_ADDRESS_MASK;
             if (address >= Data.Length)
             {
-                return Result<byte, string>.Err($"Address ${address:X8} out of range (max ${Data.Length - 1:X8})");
+                return Err($"Address ${address:X8} out of range (max ${Data.Length - 1:X8})");
             }
-            return Result<byte, string>.Ok(Data[address]);
+            return Ok(Data[address]);
         }
 
         /// <summary>
@@ -212,18 +245,21 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         /// <param name="address">The address of the memory to be read.</param>
         /// <returns>Result containing the word value or an error message.</returns>
+        [RequiresMachineThread]
         public virtual Result<ushort, string> TryReadWord(uint address)
         {
-            address &= 0x00FFFFFF;
+            Machine.AssertIsMachineThread();
+
+            address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0)
             {
-                return Result<ushort, string>.Err($"Word read at odd address ${address:X8}");
+                return Err($"Word read at odd address ${address:X8}");
             }
             if (address > Data.Length - 2)
             {
-                return Result<ushort, string>.Err($"Address ${address:X8} out of range for word read (max ${Data.Length - 2:X8})");
+                return Err($"Address ${address:X8} out of range for word read (max ${Data.Length - 2:X8})");
             }
-            return Result<ushort, string>.Ok((ushort)((Data[address] << 8) + Data[address + 1]));
+            return Ok((ushort)((Data[address] << 8) + Data[address + 1]));
         }
 
         /// <summary>
@@ -232,18 +268,21 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         /// <param name="address">The address of the memory to be read.</param>
         /// <returns>Result containing the long value or an error message.</returns>
+        [RequiresMachineThread]
         public virtual Result<uint, string> TryReadLong(uint address)
-        {
-            address &= 0x00FFFFFF;
+        {            
+            Machine.AssertIsMachineThread();
+
+            address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0)
             {
-                return Result<uint, string>.Err($"Long read at odd address ${address:X8}");
+                return Err($"Long read at odd address ${address:X8}");
             }
             if (address > Data.Length - 4)
             {
-                return Result<uint, string>.Err($"Address ${address:X8} out of range for long read (max ${Data.Length - 4:X8})");
+                return Err($"Address ${address:X8} out of range for long read (max ${Data.Length - 4:X8})");
             }
-            return Result<uint, string>.Ok((uint)((Data[address] << 24) + (Data[address + 1] << 16) + (Data[address + 2] << 8) + Data[address + 3]));
+            return Ok((uint)((Data[address] << 24) + (Data[address + 1] << 16) + (Data[address + 2] << 8) + Data[address + 3]));
         }
 
         /// <summary>
@@ -253,15 +292,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="address">The address at which the value should be written.</param>
         /// <param name="value">The value to be written to the specified address.</param>
         /// <returns>Result indicating success or an error message.</returns>
+        [RequiresMachineThread]
         public virtual Result<string> TryWriteByte(uint address, byte value)
         {
-            address &= 0x00FFFFFF;
+            Machine.AssertIsMachineThread();
+
+            address &= CPU.LEGAL_ADDRESS_MASK;
             if (address >= Data.Length)
             {
-                return Result<string>.Err($"Address ${address:X8} out of range (max ${Data.Length - 1:X8})");
+                return Err($"Address ${address:X8} out of range (max ${Data.Length - 1:X8})");
             }
             Data[address] = value;
-            return Result<string>.Ok();
+            return Ok();
         }
 
         /// <summary>
@@ -271,20 +313,23 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="address">The address at which the value should be written.</param>
         /// <param name="value">The value to be written to the specified address.</param>
         /// <returns>Result indicating success or an error message.</returns>
+        [RequiresMachineThread]
         public virtual Result<string> TryWriteWord(uint address, ushort value)
         {
-            address &= 0x00FFFFFF;
+            Machine.AssertIsMachineThread();
+
+            address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0)
             {
-                return Result<string>.Err($"Word write at odd address ${address:X8}");
+                return Err($"Word write at odd address ${address:X8}");
             }
             if (address > Data.Length - 2)
             {
-                return Result<string>.Err($"Address ${address:X8} out of range for word write (max ${Data.Length - 2:X8})");
+                return Err($"Address ${address:X8} out of range for word write (max ${Data.Length - 2:X8})");
             }
             Data[address] = (byte)((value >> 8) & 0xFF);
             Data[address + 1] = (byte)(value & 0xFF);
-            return Result<string>.Ok();
+            return Ok();
         }
 
         /// <summary>
@@ -294,22 +339,25 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="address">The address at which the value should be written.</param>
         /// <param name="value">The value to be written to the specified address.</param>
         /// <returns>Result indicating success or an error message.</returns>
+        [RequiresMachineThread]
         public virtual Result<string> TryWriteLong(uint address, uint value)
         {
-            address &= 0x00FFFFFF;
+            Machine.AssertIsMachineThread();
+
+            address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0)
             {
-                return Result<string>.Err($"Long write at odd address ${address:X8}");
+                return Err($"Long write at odd address ${address:X8}");
             }
             if (address > Data.Length - 4)
             {
-                return Result<string>.Err($"Address ${address:X8} out of range for long write (max ${Data.Length - 4:X8})");
+                return Err($"Address ${address:X8} out of range for long write (max ${Data.Length - 4:X8})");
             }
             Data[address] = (byte)((value >> 24) & 0xFF);
             Data[address + 1] = (byte)((value >> 16) & 0xFF);
             Data[address + 2] = (byte)((value >> 8) & 0xFF);
             Data[address + 3] = (byte)(value & 0xFF);
-            return Result<string>.Ok();
+            return Ok();
         }
 
         /// <summary>
@@ -319,12 +367,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="address">Start address.</param>
         /// <param name="length">Number of bytes to read.</param>
         /// <returns>Result containing the byte array or an error message.</returns>
+        [RequiresMachineThread]
         public virtual Result<byte[], string> TryReadBytes(uint address, uint length)
         {
-            address &= 0x00FFFFFF;
+            Machine.AssertIsMachineThread();
+
+            address &= CPU.LEGAL_ADDRESS_MASK;
             if (address + length > Data.Length)
             {
-                return Result<byte[], string>.Err($"Read range ${address:X8}-${address + length - 1:X8} exceeds memory bounds (max ${Data.Length - 1:X8})");
+                return Err($"Read range ${address:X8}-${address + length - 1:X8} exceeds memory bounds (max ${Data.Length - 1:X8})");
             }
             byte[] result = new byte[length];
             Array.Copy(Data, address, result, 0, length);
@@ -338,19 +389,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="address">Start address.</param>
         /// <param name="data">Bytes to write.</param>
         /// <returns>Result indicating success or an error message.</returns>
+        [RequiresMachineThread]
         public virtual Result<string> TryWriteBytes(uint address, byte[] data)
         {
+            Machine.AssertIsMachineThread();
+
             if (data == null)
             {
-                return Result<string>.Err("Data array is null");
+                return Err("Data array is null");
             }
-            address &= 0x00FFFFFF;
+            address &= CPU.LEGAL_ADDRESS_MASK;
             if (address + data.Length > Data.Length)
             {
-                return Result<string>.Err($"Write range ${address:X8}-${address + (uint)data.Length - 1:X8} exceeds memory bounds (max ${Data.Length - 1:X8})");
+                return Err($"Write range ${address:X8}-${address + (uint)data.Length - 1:X8} exceeds memory bounds (max ${Data.Length - 1:X8})");
             }
             Array.Copy(data, 0, Data, address, data.Length);
-            return Result<string>.Ok();
+            return Ok();
         }
 
         #endregion

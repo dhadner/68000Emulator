@@ -1,10 +1,6 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
-using System.Data;
 using System.Diagnostics;
-using System.Net;
-using System.Security;
 using System.Text;
-using System.Transactions;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -13,7 +9,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     /// Includes <see cref="OpcodeExecutionHandler"/>, <see cref="InstructionDecoder"/>, and <see cref="SRecordLoader"/> classes so they
     /// can access protected members that used to be internal but now need to be available to subclasses in other assemblies.
     /// </summary>
-    [RequiresMachineThread()]
+    [RequiresMachineThread]
     public partial class Machine
     {
         internal const uint MAX_MEMORY_SIZE = 0x01000000;        // Default to 16MB of memory allocated for emulator (the max an actual 68000 processor can address).
@@ -26,6 +22,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Single lock object for entire machine (==> no deadlocks)
         /// </summary>
         public static System.Threading.Lock MachineLock { get; } = new();
+
+        /// <summary>
+        /// ManagedThreadId for machine thread.
+        /// </summary>
+        public static int? MachineThreadId { get; set; }
 
         /// <summary>
         /// True when loading a file into memory.
@@ -52,6 +53,28 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="memorySize">The size (in bytes) of memory to be allocated for the emulator [optional].</param>
         public Machine(uint? memorySize = null) : this(new Memory(memorySize ?? MAX_MEMORY_SIZE))
         {
+        }
+
+        /// <summary>
+        /// Return true if the MachineThreadId has not been set or if the current thread is the machine thread.
+        /// </summary>
+        /// <returns></returns>
+        public static bool IsMachineThread()
+        {
+            return MachineThreadId == null || MachineThreadId == Thread.CurrentThread.ManagedThreadId;
+        }
+
+        /// <summary>
+        /// Throw exception if not called from machine thread.
+        /// </summary>
+        /// <exception cref="InvalidOperationException"></exception>
+        [RequiresMachineThread]
+        public static void AssertIsMachineThread()
+        {
+            if (!IsMachineThread())
+            {
+                throw new InvalidOperationException("Cross-thread call not allowed");
+            }
         }
 
         /// <summary>
@@ -341,7 +364,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <exception cref="TrapException">Thrown if a bus error occurs while reading memory.</exception>"
         public void FillPrefetch()
         {
-            while (CPU.Prefetch.Count < CPU.Prefetch.Capacity && (CPU.PC & LEGAL_ADDRESS_MASK) < _loadedAddress + _dataLength)
+            while (CPU.Prefetch.Count < CPU.Prefetch.Capacity && (CPU.PC & CPU.LEGAL_ADDRESS_MASK) < _loadedAddress + _dataLength)
             {
                 ushort word = Memory.ReadWord(CPU.PC);
                 CPU.Prefetch.Enqueue(word);
