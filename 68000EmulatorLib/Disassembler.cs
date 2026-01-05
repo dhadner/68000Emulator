@@ -564,49 +564,57 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns></returns>
             protected DisassemblyRecord GetNonExecutableSectionRecord(uint address, uint length, NonExecutableSection section)
             {
-                address = GetClosestLowerLegalAddress(address, section);
-
-                uint itemOpSize = OpSizeToLength(section.ItemOpSize);
-
-                Directive dir = new(address, "DC", section.ItemOpSize);
-
-                uint itemsPerLine = section.ItemsPerLine;
-
-                // Shrink the OpSize if needed.  The
-                if (itemOpSize > length)
+                try
                 {
-                    if (length == 2)
+                    Machine.Memory.Disassembling = true;
+                    address = GetClosestLowerLegalAddress(address, section);
+
+                    uint itemOpSize = OpSizeToLength(section.ItemOpSize);
+
+                    Directive dir = new(address, "DC", section.ItemOpSize);
+
+                    uint itemsPerLine = section.ItemsPerLine;
+
+                    // Shrink the OpSize if needed.  The
+                    if (itemOpSize > length)
                     {
-                        dir.Size = OpSize.Word;
+                        if (length == 2)
+                        {
+                            dir.Size = OpSize.Word;
+                        }
+                        else
+                        {
+                            dir.Size = OpSize.Byte;
+                        }
                     }
-                    else
+                    itemOpSize = OpSizeToLength(dir.Size!.Value);
+
+                    length = Math.Min(length, itemOpSize * itemsPerLine);
+
+                    // Length of NES that is contained in this record.
+                    uint nesRecordLength = section.Length - (address - section.Address);
+
+                    uint recordLength = Math.Min(length, nesRecordLength);
+                    dir.MachineCode = new byte[recordLength];
+                    for (uint i = 0; i < recordLength; i++)
                     {
-                        dir.Size = OpSize.Byte;
+                        // Can't use ReadNextByte() because NonExecutableDataDisassembly(...)
+                        // will call it below and calling it here would result in double
+                        // incrementing CurrentAddress.  Note that Machine.Memory can be
+                        // overridden in derived classes to access memory-mapped I/O as well
+                        // (also applies to ReadNextByte() since it calls Machine.Memory.ReadByte(...),
+                        // - so I/O could be read twice).
+                        dir.MachineCode[i] = Machine.Memory.ReadByte(address + i);
                     }
+
+                    NonExecutableDataDisassembly(dir, length, address, section.DisplayRadix);
+                    var record = new DisassemblyRecord(dir);
+                    return record;
                 }
-                itemOpSize = OpSizeToLength(dir.Size!.Value);
-
-                length = Math.Min(length, itemOpSize * itemsPerLine);
-
-                // Length of NES that is contained in this record.
-                uint nesRecordLength = section.Length - (address - section.Address);
-
-                uint recordLength = Math.Min(length, nesRecordLength);
-                dir.MachineCode = new byte[recordLength];
-                for (uint i = 0; i < recordLength; i++)
+                finally
                 {
-                    // Can't use ReadNextByte() because NonExecutableDataDisassembly(...)
-                    // will call it below and calling it here would result in double
-                    // incrementing CurrentAddress.  Note that Machine.Memory can be
-                    // overridden in derived classes to access memory-mapped I/O as well
-                    // (also applies to ReadNextByte() since it calls Machine.Memory.ReadByte(...),
-                    // - so I/O could be read twice).
-                    dir.MachineCode[i] = Machine.Memory.ReadByte(address + i);
+                    Machine.Memory.Disassembling = false;
                 }
-
-                NonExecutableDataDisassembly(dir, length, address, section.DisplayRadix);
-                var record = new DisassemblyRecord(dir);
-                return record;
             }
 
             /// <summary>
