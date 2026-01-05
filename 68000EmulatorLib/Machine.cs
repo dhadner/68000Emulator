@@ -81,7 +81,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Disassembler for logging purposes, etc.
         /// </summary>
-        public Disassembler Disasm { get; set; }
+        public Disassembler? Disasm { get; set; }
 
         /// <summary>
         /// Gets the <see cref="CPU"/> instance used by this machine.
