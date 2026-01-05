@@ -37,7 +37,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 7 => "FTRAPcc, TRAPcc, TRAPV Instructions",
                 8 => "Privilege Violation",
                 9 => "Trace",
-                10 => "Line 1010 Emulator (Unimplemented A- Line Opcode)",
+                10 => "Line 1010 Emulator (Unimplemented A-Line Opcode)",
                 11 => "Line 1111 Emulator (Unimplemented F-Line Opcode)",
                 13 => "Coprocessor Protocol Violation",
                 14 => "Format Error",

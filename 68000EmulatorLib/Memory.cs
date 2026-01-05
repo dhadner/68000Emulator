@@ -1,4 +1,5 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
+using System.Runtime.CompilerServices;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -23,6 +24,24 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         internal byte[] Data { get; set; }
 
         /// <summary>
+        /// Set by disassembler to allow thread and access checks to be overridden.
+        /// </summary>
+        public bool Disassembling { get; set; }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [RequiresMachineThread]
+        protected void AssertIsMachineThread()
+        {
+#if DEBUG
+            if (Disassembling)
+            {
+                return;
+            }
+            Machine.AssertIsMachineThread();
+#endif
+        }
+
+        /// <summary>
         /// Load data into the specified address, optionally clearing all memory before doing so.
         /// </summary>
         /// <param name="data">The data to be loaded.</param>
@@ -33,7 +52,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual bool LoadData(byte[] data, uint loadAddress, bool clearBeforeLoad = true)
         {
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
             loadAddress &= 0x00FFFFFF;
 
             // Check that the data being loaded will actually fit at the specified load address.
@@ -45,7 +64,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             Span<byte> machineMemorySpan = Data;
             if (clearBeforeLoad)
             {
-                machineMemorySpan.Fill(0);
+                machineMemorySpan.Clear();
             }
             Span<byte> dataSpan = data;
             Span<byte> loadMemorySpan = machineMemorySpan.Slice((int)loadAddress, dataSpan.Length);
@@ -59,9 +78,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual void Clear()
         {
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
 
-            Data.AsSpan().Fill(0);
+            Data.AsSpan().Clear();
         }
 
         /// <summary>
@@ -73,7 +92,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual ReadOnlySpan<byte> DumpMemory(uint address, uint length)
         {
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
 
             address &= CPU.LEGAL_ADDRESS_MASK;
 
@@ -97,7 +116,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual byte ReadByte(uint address)
         {
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
 
             address &= CPU.LEGAL_ADDRESS_MASK;
             if (address >= Data.Length)
@@ -117,7 +136,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual ushort ReadWord(uint address)
         {
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
 
             address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0 || address > Data.Length - 2)
@@ -137,7 +156,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual uint ReadLong(uint address)
         {
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
 
             address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0 || address > Data.Length - 4)
@@ -156,7 +175,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual void WriteByte(uint address, byte value)
         {
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
 
             address &= CPU.LEGAL_ADDRESS_MASK;
             if (address >= Data.Length)
@@ -179,7 +198,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual void WriteWord(uint address, ushort value)
         {
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
 
             address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0 || address > Data.Length - 2)
@@ -203,7 +222,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual void WriteLong(uint address, uint value)
         {
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
 
             address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0 || address > Data.Length - 4)
@@ -229,7 +248,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual Result<byte, string> TryReadByte(uint address)
         {
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
 
             address &= CPU.LEGAL_ADDRESS_MASK;
             if (address >= Data.Length)
@@ -248,7 +267,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual Result<ushort, string> TryReadWord(uint address)
         {
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
 
             address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0)
@@ -271,7 +290,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual Result<uint, string> TryReadLong(uint address)
         {            
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
 
             address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0)
@@ -295,7 +314,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual Result<string> TryWriteByte(uint address, byte value)
         {
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
 
             address &= CPU.LEGAL_ADDRESS_MASK;
             if (address >= Data.Length)
@@ -316,7 +335,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual Result<string> TryWriteWord(uint address, ushort value)
         {
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
 
             address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0)
@@ -342,7 +361,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual Result<string> TryWriteLong(uint address, uint value)
         {
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
 
             address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0)
@@ -370,7 +389,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual Result<byte[], string> TryReadBytes(uint address, uint length)
         {
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
 
             address &= CPU.LEGAL_ADDRESS_MASK;
             if (address + length > Data.Length)
@@ -392,7 +411,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [RequiresMachineThread]
         public virtual Result<string> TryWriteBytes(uint address, byte[] data)
         {
-            Machine.AssertIsMachineThread();
+            AssertIsMachineThread();
 
             if (data == null)
             {

@@ -1,5 +1,6 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
@@ -61,21 +62,26 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns></returns>
         public static bool IsMachineThread()
         {
-            return MachineThreadId == null || MachineThreadId == Thread.CurrentThread.ManagedThreadId;
+            return MachineThreadId == null || MachineThreadId == Environment.CurrentManagedThreadId;
         }
 
         /// <summary>
         /// Throw exception if not called from machine thread.
         /// </summary>
         /// <exception cref="InvalidOperationException"></exception>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [RequiresMachineThread]
         public static void AssertIsMachineThread()
         {
-            if (!IsMachineThread())
-            {
-                throw new InvalidOperationException("Cross-thread call not allowed");
-            }
+#if DEBUG
+            Debug.Assert(IsMachineThread());
+#endif
         }
+
+        /// <summary>
+        /// Disassembler for logging purposes, etc.
+        /// </summary>
+        public Disassembler Disasm { get; set; }
 
         /// <summary>
         /// Gets the <see cref="CPU"/> instance used by this machine.
@@ -336,7 +342,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 // Prefetch queue is full - normal case
                 value = CPU.Prefetch.Dequeue();
-                CPU.Prefetch.Enqueue(ReadNextWord());
+                if (CPU.PC < _loadedAddress + _dataLength)
+                {
+                    CPU.Prefetch.Enqueue(ReadNextWord());
+                }
             }
             else
             {
@@ -771,7 +780,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
             if (traceMode)
             {
-                TrapException? traceException = new TrapException((ushort)TrapVector.Trace);
+                TrapException? traceException = new((ushort)TrapVector.Trace);
 
                 switch ((exception != null, group12Exception != null, group0Exception != null, CPU.SupervisorMode))
                 {
@@ -1005,8 +1014,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             uint trapVectorContents = Memory.ReadLong((uint)te.Vector * 4);
-            Logger.Log(LogLevel.Debug, "CPU", () => $"Group {(int)group} Trap Exception handled: {te.Vector} Trap handler: {trapVectorContents:x8} Called from: {oldPC:x8}");
-
             CPU.PC = trapVectorContents;
             CPU.Prefetch.Clear();
             FillPrefetch();
@@ -1021,15 +1028,31 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 CPU.SR |= (SRFlags)(level << 8);
             }
 
+            // Get name of trap if applicable
+            if (te.Vector == (ushort)TrapVector.LineAInstruction)
+            {
+                string? trapName = Disasm?.GetTrapName(CurrentInstruction.Opcode);
+                if (trapName != null)
+                {
+                    Logger.Log(LogLevel.Debug, "CPU", () => $"{trapName}, handler: {trapVectorContents:x8} Called from: {oldPC:x8}");
+                }
+                else
+                {
+                    Logger.Log(LogLevel.Debug, "CPU", () => $"LineA Trap: {CurrentInstruction.Opcode:x4}, handler: {trapVectorContents:x8} Called from: {oldPC:x8}");
+                }
+            }
+            else
+            {
+                Logger.Log(LogLevel.Debug, "CPU", () => $"Trap: {te.Vector} ({te.TrapDetails.Description}), handler: {trapVectorContents:x8} Called from: {oldPC:x8}");
+            }
+
             switch (evEntry.Group)
             {
                 case EG.Group1:
-                    Logger.Log(LogLevel.Debug, "CPU", () => $"Group 1 Trap Exception handled: {te.Vector} Trap handler: {trapVectorContents:x8} Called from: {oldPC:x8}");
                     PushLong(nextInstructionPC);
                     PushWord((ushort)oldSR);
                     break;
                 case EG.Group2:
-                    Logger.Log(LogLevel.Debug, "CPU", () => $"Group 2 Trap Exception handled: {te.Vector} Trap handler: {trapVectorContents:x8} Called from: {oldPC:x8}");
                     PushLong(oldPC);
                     PushWord((ushort)oldSR);
                     break;

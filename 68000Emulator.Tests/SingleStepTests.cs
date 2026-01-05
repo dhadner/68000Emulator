@@ -544,7 +544,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             int requiredCount = requiredState.Prefetch.Count;
             int actualCount = cpu.Prefetch.Count;
             CheckError(requiredCount, actualCount, $"Prefetch length error: Expected: {requiredState.Prefetch.Count}, Actual: {cpu.Prefetch.Count}");
-            ushort[] prefetchContents = cpu.Prefetch.ToArray();
+            ushort[] prefetchContents = [.. cpu.Prefetch];
             if (requiredCount == actualCount)
             {
                 for (int i = 0; i < requiredState.Prefetch.Count; i++)
@@ -617,7 +617,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Save PC and prefetch queue since LoadExecutableData will change them.
             uint pc = machine.CPU.PC; // Already incremented past prefetch queue.
-            ushort[] prefetch = machine.CPU.Prefetch.ToArray();
+            ushort[] prefetch = [.. machine.CPU.Prefetch];
 
             // Zero out the entire range and set the _loadedAddress and _dataLength
             // used for IsEndOfData.  This is to satisfy the EndOfData
@@ -789,7 +789,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
                 if (errors.Count > 0)
                 {
-                    Disassembler disassembler = new Disassembler(machine);
+                    Disassembler disassembler = new(machine);
                     StringBuilder errorMessage = new();
                     errorMessage.AppendLine($"Test case: {testcase.Name}");
                     foreach (var error in errors)

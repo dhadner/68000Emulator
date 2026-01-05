@@ -40,7 +40,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns>A hex string representation of the byte array.</returns>
             public static string ByteArrayToHexString(byte[] bytes)
             {
-                return BitConverter.ToString(bytes).Replace("-", "").ToLower();
+                return Convert.ToHexStringLower(bytes);
             }
 
             /// <summary>
@@ -111,7 +111,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     // Initialize registers from the actual machine.
                     SetCPUState(machine.GetCPUState());
-                    Debugger = machine.Debugger;
                 }
 
                 /// <summary>
@@ -748,15 +747,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 get
                 {
-                    if (Machine.Debugger == null)
-                    {
-                        return false;
-                    }
-                    return Machine.Debugger.Disassembling;
+                    return Machine.Memory.Disassembling;
                 }
                 set
                 {
-                    Machine.Debugger?.Disassembling = value;
+                    Machine.Memory.Disassembling = value;
                 }
             }
 
@@ -2109,6 +2104,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 #pragma warning restore S2325 // Methods and properties that don't access instance data should be static
             {
                 throw new NotSupportedException("Operation unknown");
+            }
+
+            public virtual string? GetTrapName(ushort opcode)
+            {
+                return null;
             }
 
             protected virtual Operation LINEA(Instruction inst, StringBuilder sb)
