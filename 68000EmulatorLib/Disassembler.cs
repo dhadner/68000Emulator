@@ -1057,7 +1057,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                             pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
                                         }
 
-                                        address = (uint)((int)Machine.CPU.CurrentPC - pcDecrement + (short)ext1.Value);
+                                        address = (uint)((int)Machine.CPU.CurrentPC - pcDecrement + (short)ext1!.Value);
                                         operand = new LabelOperand(address.Value, AddrMode.PCDisp);
                                     }
                                     break;
