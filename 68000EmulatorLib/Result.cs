@@ -15,12 +15,13 @@
 
         /// <summary>
         /// Creates a successful result with the specified value.
+        /// If value is null/default and T is a collection type, an empty collection is used instead.
         /// </summary>
-        /// <param name="value"></param>
-        /// <param name="_">dummy parameter only needed to resolve call to correct constructor overload</param>
-        private Result(T value, bool _)
+        /// <param name="value">The success value, or null/default for collection types to get an empty collection.</param>
+        /// <param name="_">Dummy parameter only needed to resolve call to correct constructor overload.</param>
+        private Result(T? value, bool _)
         {
-            _value = value;
+            _value = IsNullOrDefault(value) ? GetDefaultValue() : value;
             _error = default;
             _isSuccess = true;
         }
@@ -34,6 +35,17 @@
             _value = default;
             _error = error;
             _isSuccess = false;
+        }
+
+        /// <summary>
+        /// Determines if a value is null or default.
+        /// </summary>
+        /// <param name="value">The value to check.</param>
+        /// <returns>True if the value is null or equals default(T).</returns>
+        private static bool IsNullOrDefault(T? value)
+        {
+            if (value == null) return true;
+            return EqualityComparer<T>.Default.Equals(value, default!);
         }
 
         /// <summary>
@@ -67,8 +79,11 @@
 
         /// <summary>
         /// Creates a successful result with the specified value.
+        /// If value is null/default and T is a collection type, an empty collection is used instead.
         /// </summary>
-        public static Result<T, TError> Ok(T value) => new(value, true);
+        /// <param name="value">The success value, or default for collection types to get an empty collection.</param>
+        /// <returns>A successful Result containing the value or an appropriate default.</returns>
+        public static Result<T, TError> Ok(T? value = default) => new(value, true);
 
         /// <summary>
         /// Creates a failed result with the specified error.
@@ -78,14 +93,64 @@
         internal static Result<T, TError> ValueResultErr(TError error) => new(error);
 
         /// <summary>
+        /// Gets the default value for type T.
+        /// Returns an empty collection for array types and common collection types
+        /// (List, Dictionary, HashSet, Queue, Stack, etc.), or default(T) for other types.
+        /// </summary>
+        /// <returns>An appropriate default value for type T.</returns>
+        private static T GetDefaultValue()
+        {
+            var type = typeof(T);
+
+            // Handle array types - create empty array
+            if (type.IsArray)
+            {
+                var elementType = type.GetElementType()!;
+                return (T)(object)Array.CreateInstance(elementType, 0);
+            }
+
+            // Handle string type - return empty string instead of null
+            if (type == typeof(string))
+            {
+                return (T)(object)string.Empty;
+            }
+
+            // Handle generic collection types that have parameterless constructors
+            // This covers List<>, Dictionary<,>, HashSet<>, Queue<>, Stack<>, 
+            // LinkedList<>, SortedSet<>, SortedList<,>, SortedDictionary<,>, etc.
+            if (type.IsGenericType &&
+                typeof(System.Collections.IEnumerable).IsAssignableFrom(type))
+            {
+                var constructor = type.GetConstructor(Type.EmptyTypes);
+                if (constructor != null)
+                {
+                    return (T)constructor.Invoke(null);
+                }
+            }
+
+            // Handle non-generic collection types (ArrayList, Hashtable, etc.)
+            if (typeof(System.Collections.IEnumerable).IsAssignableFrom(type))
+            {
+                var constructor = type.GetConstructor(Type.EmptyTypes);
+                if (constructor != null)
+                {
+                    return (T)constructor.Invoke(null);
+                }
+            }
+
+            // For all other types, use default
+            return default!;
+        }
+
+        /// <summary>
         /// Implicitly converts a void-style Result (Result&lt;TError&gt;) into a value Result (Result&lt;T, TError&gt;).
-        /// On success the conversion returns a null/default error. On failure the error is preserved.
-        /// In other words, this should only be used to cast the return value of Result<typeparamref name="TError"/>.Err(error).
+        /// On success the conversion returns an appropriate default value (empty array/list for collection types).
+        /// On failure the error is preserved.
         /// </summary>
         /// <param name="result">Source Result&lt;TError&gt; to convert.</param>
         /// <returns>Converted Result&lt;T, TError&gt;.</returns>
-        public static implicit operator Result<T, TError>(Result<TError> result) => 
-            result.IsSuccess ? Result<T, TError>.Ok(default) : Result<T, TError>.ValueResultErr(result.Error);
+        public static implicit operator Result<T, TError>(Result<TError> result) =>
+            result.IsSuccess ? Ok() : ValueResultErr(result.Error);
 
         /// <summary>
         /// Deconstructs the result for pattern matching.
