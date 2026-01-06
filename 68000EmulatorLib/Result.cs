@@ -85,20 +85,7 @@
         /// <param name="result">Source Result&lt;TError&gt; to convert.</param>
         /// <returns>Converted Result&lt;T, TError&gt;.</returns>
         public static implicit operator Result<T, TError>(Result<TError> result) => 
-            result.IsSuccess ? ThrowError(result) : Result<T, TError>.ValueResultErr(result.Error);
-
-        /// <summary>
-        /// Throw error if DEBUG, else return an error with a null/default value.
-        /// </summary>
-        /// <param name="result"></param>
-        /// <returns></returns>
-        private static Result<T, TError> ThrowError(Result<TError> result)
-        {
-#if DEBUG
-            throw new InvalidOperationException("Cannot convert a successful Result<TError> to Result<T, TError>");
-#endif
-            return Result<T, TError>.ValueResultErr(result.Error);
-        }
+            result.IsSuccess ? Result<T, TError>.Ok(default) : Result<T, TError>.ValueResultErr(result.Error);
 
         /// <summary>
         /// Deconstructs the result for pattern matching.
@@ -257,7 +244,7 @@
         /// <summary>
         /// Creates a failed result with the specified error.
         /// </summary>
-        public static Result<TError> Err(TError error) => new(false, error);
+        public static Result<TError> Err(TError? error = default) => new(false, error);
 
         /// <summary>
         /// Deconstructs the result for pattern matching.
