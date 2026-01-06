@@ -1051,21 +1051,32 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                     break;
                                 case (byte)AddrMode.PCDisp:
                                     {
-                                        uint pc = Machine.CurrentInstructionAddress + 2;
+                                        int pcDecrement = 2; // Assume source, PC just after ext1 or dest, PC just after ext1
+                                        if (eaType == EAType.Source && instruction.DestExtWord1 != null)
+                                        {
+                                            pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
+                                        }
 
-                                        address = (uint)((int)pc + (short)ext1!.Value);
+                                        address = (uint)((int)Machine.CPU.CurrentPC - pcDecrement + (short)ext1.Value);
                                         operand = new LabelOperand(address.Value, AddrMode.PCDisp);
                                     }
                                     break;
                                 case (byte)AddrMode.PCIndex:
                                     {
-                                        uint pc = Machine.CurrentInstructionAddress + 2;
                                         byte disp = (byte)(ext1!.Value & 0x00FF);
                                         byte indexRegNum = (byte)((ext1!.Value & 0x7000) >> 12);
                                         OpSize sz = (ext1.Value & 0x0800) == 0 ? OpSize.Word : OpSize.Long;
                                         bool indexIsAddressRegister = (ext1.Value & 0x8000) != 0;
 
-                                        uint baseAddress = (uint)((sbyte)disp + (int)pc);
+                                        // PC has been incremented past the extension word.  The definition of
+                                        // PC displacement uses the value of the extension word address as the PC value.
+                                        int pcDecrement = 2; // Assume source, PC just after ext1 or dest, PC just after ext1
+                                        if (eaType == EAType.Source && instruction.DestExtWord1 != null)
+                                        {
+                                            pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
+                                        }
+                                        uint baseAddress = (uint)((int)Machine.CPU.CurrentPC - pcDecrement + (sbyte)disp);
+
                                         operand = new PCIndexOperand(indexRegNum, indexIsAddressRegister, baseAddress, sz);
                                     }
                                     break;
