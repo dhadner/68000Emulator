@@ -90,7 +90,7 @@
         /// To create an error result, use Result&lt;TError&gt;.Err(error) and 
         /// cast the Result&lt;TError&gt; to Result&lt;T, TError&gt;
         /// </summary>
-        internal static Result<T, TError> ValueResultErr(TError error) => new(error);
+        public static Result<T, TError> ErrResult(TError error) => new(error);
 
         /// <summary>
         /// Gets the default value for type T.
@@ -150,7 +150,7 @@
         /// <param name="result">Source Result&lt;TError&gt; to convert.</param>
         /// <returns>Converted Result&lt;T, TError&gt;.</returns>
         public static implicit operator Result<T, TError>(Result<TError> result) =>
-            result.IsSuccess ? Ok() : ValueResultErr(result.Error);
+            result.IsSuccess ? Ok() : ErrResult(result.Error);
 
         /// <summary>
         /// Deconstructs the result for pattern matching.
@@ -202,7 +202,7 @@
         /// result.Then(x => x.ToString())  // Transform int to string
         /// </example>
         public Result<TNew, TError> Then<TNew>(Func<T, TNew> transform) =>
-            _isSuccess ? Result<TNew, TError>.Ok(transform(_value!)) : Result<TNew, TError>.ValueResultErr(_error!);
+            _isSuccess ? Result<TNew, TError>.Ok(transform(_value!)) : Result<TNew, TError>.ErrResult(_error!);
 
         /// <summary>
         /// Chains an operation that can fail.
@@ -212,7 +212,23 @@
         /// result.Then(x => Validate(x))  // Validate returns Result
         /// </example>
         public Result<TNew, TError> Then<TNew>(Func<T, Result<TNew, TError>> nextStep) =>
-            _isSuccess ? nextStep(_value!) : Result<TNew, TError>.ValueResultErr(_error!);
+            _isSuccess ? nextStep(_value!) : Result<TNew, TError>.ErrResult(_error!);
+
+        /// <summary>
+        /// Chains an operation that can fail.
+        /// If successful, returns the next result; otherwise propagates the error.
+        /// Warning: The nextResult argument is evaluated eagerly!
+        /// </summary>
+        public Result<TNew, TError> Then<TNew>(Result<TNew, TError> nextResult) =>
+            _isSuccess ? nextResult : Result<TNew, TError>.ErrResult(_error!);
+
+        /// <summary>
+        /// Chains an operation that can fail.
+        /// If successful, returns the next result; otherwise propagates the error.
+        /// Warning: The nextResult argument is evaluated eagerly!
+        /// </summary>
+        public Result<TError> Then(Result<TError> nextResult) =>
+            _isSuccess ? nextResult : Result<TError>.Err(_error!);
 
         /// <summary>
         /// Transforms the error if failed, preserving success. This is useful when
@@ -221,7 +237,7 @@
         ///  - Translating technical errors to user-friendly messages
         /// </summary>
         public Result<T, TNewError> MapError<TNewError>(Func<TError, TNewError> transform) =>
-            _isSuccess ? Result<T, TNewError>.Ok(_value!) : Result<T, TNewError>.ValueResultErr(transform(_error!));
+            _isSuccess ? Result<T, TNewError>.Ok(_value!) : Result<T, TNewError>.ErrResult(transform(_error!));
 
         /// <summary>
         /// Executes an action if successful, returns self for chaining.
@@ -340,6 +356,14 @@
             _isSuccess ? nextStep() : this;
 
         /// <summary>
+        /// Chains an operation that can fail.
+        /// If successful, returns the next result; otherwise propagates the error.
+        /// Warning: The nextResult argument is evaluated eagerly!
+        /// </summary>
+        public Result<TError> Then(Result<TError> nextResult) =>
+            _isSuccess ? nextResult : this;
+
+        /// <summary>
         /// Transforms the error if failed, preserving success. This is useful when
         ///  - Converting between error types at layer boundaries
         ///  - Adding context to errors as they bubble up
@@ -401,7 +425,7 @@
         /// </summary>
         public static Result<T, TError> ToResult<T, TError>(this (TError? error, T? value) tuple)
             where TError : class =>
-            tuple.error == null ? Result<T, TError>.Ok(tuple.value!) : Result<T, TError>.ValueResultErr(tuple.error);
+            tuple.error == null ? Result<T, TError>.Ok(tuple.value!) : Result<T, TError>.ErrResult(tuple.error);
 
         /// <summary>
         /// Converts a nullable error to Result&lt;TError&gt; (null = success).
@@ -452,7 +476,7 @@
             var result = await resultTask;
             return result.IsSuccess
                 ? await nextStep(result.Value)
-                : Result<TNew, TError>.ValueResultErr(result.Error);
+                : Result<TNew, TError>.ErrResult(result.Error);
         }
 
         /// <summary>

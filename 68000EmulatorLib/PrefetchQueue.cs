@@ -1,15 +1,20 @@
-﻿namespace PendleCodeMonkey.MC68000EmulatorLib
+﻿using System;
+using System.Collections.Generic;
+using System.Runtime.Serialization;
+
+namespace PendleCodeMonkey.MC68000EmulatorLib
 {
     /// <summary>
     /// CPU prefetch queue for the Motorola 68000 processor.
     /// </summary>
-    public sealed class PrefetchQueue : Queue<ushort>
+    [Serializable]
+    public sealed class PrefetchQueue : Queue<ushort>, ISerializable
     {
+        private int _capacity;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="PrefetchQueue"/> class with a default capacity of 2.
         /// </summary>
-        /// <remarks>This constructor creates a prefetch queue with an initial capacity of 2.  Use this
-        /// constructor when you want to initialize the queue with the default capacity.</remarks>
         public PrefetchQueue() : this(2)
         {
         }
@@ -18,9 +23,38 @@
         /// Initializes a new instance of the <see cref="PrefetchQueue"/> class with specified capacity.
         /// </summary>
         /// <param name="capacity">Maximum number of words the queue can hold (must be at least 1).</param>
-        /// <exception cref="ArgumentOutOfRangeException">Thrown if capacity is less than 1.</exception>
         private PrefetchQueue(int capacity) : base(capacity)
         {
+            _capacity = capacity;
+        }
+
+        /// <summary>
+        /// Constructor for deserialization.
+        /// </summary>
+        /// <param name="info"></param>
+        /// <param name="context"></param>
+        private PrefetchQueue(SerializationInfo info, StreamingContext context) : base(info.GetInt32("Capacity"))
+        {
+            _capacity = info.GetInt32("Capacity");
+            ushort[]? items = (ushort[]?)info.GetValue("Items", typeof(ushort[]));
+            if (items != null)
+            {
+                foreach (var item in items)
+                {
+                    Enqueue(item);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Returns the data needed to serialize the object.
+        /// </summary>
+        /// <param name="info"></param>
+        /// <param name="context"></param>
+        public void GetObjectData(SerializationInfo info, StreamingContext context)
+        {
+            info.AddValue("Capacity", Capacity);
+            info.AddValue("Items", ToArray());
         }
 
         /// <summary>
@@ -38,8 +72,6 @@
         /// Copies the contents and state from another prefetch queue into this instance.
         /// </summary>
         /// <param name="source">The source prefetch queue to copy from.</param>
-        /// <exception cref="ArgumentNullException">Thrown if source is null.</exception>
-        /// <exception cref="ArgumentException">Thrown if source has a different capacity.</exception>
         public void From(PrefetchQueue source)
         {
             if (source == null)
@@ -47,8 +79,9 @@
             if (source == this)
                 return;
             Clear();
-            EnsureCapacity(source.Capacity);
-            foreach(var item in source)
+            // Queue doesn't expose capacity setter or Trim, but internal array grows effectively.
+            // We rely on constructor or natural growth.
+            foreach (var item in source)
             {
                 Enqueue(item);
             }
@@ -68,5 +101,10 @@
         /// Gets a value indicating whether the queue is at capacity.
         /// </summary>
         public bool IsFull => Count == Capacity;
+
+        /// <summary>
+        /// Helper property to expose expected capacity since Queue&lt;T&gt; does not expose it publicly.
+        /// </summary>
+        public int Capacity { get => _capacity; private set => _capacity = value; }
     }
 }
