@@ -8,7 +8,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     /// CPU prefetch queue for the Motorola 68000 processor.
     /// </summary>
     [Serializable]
-    public sealed class PrefetchQueue : Queue<ushort>, ISerializable
+    public sealed class PrefetchQueue : Queue<ushort>
     {
         private int _capacity;
 
@@ -26,35 +26,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         private PrefetchQueue(int capacity) : base(capacity)
         {
             _capacity = capacity;
-        }
-
-        /// <summary>
-        /// Constructor for deserialization.
-        /// </summary>
-        /// <param name="info"></param>
-        /// <param name="context"></param>
-        private PrefetchQueue(SerializationInfo info, StreamingContext context) : base(info.GetInt32("Capacity"))
-        {
-            _capacity = info.GetInt32("Capacity");
-            ushort[]? items = (ushort[]?)info.GetValue("Items", typeof(ushort[]));
-            if (items != null)
-            {
-                foreach (var item in items)
-                {
-                    Enqueue(item);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Returns the data needed to serialize the object.
-        /// </summary>
-        /// <param name="info"></param>
-        /// <param name="context"></param>
-        public void GetObjectData(SerializationInfo info, StreamingContext context)
-        {
-            info.AddValue("Capacity", Capacity);
-            info.AddValue("Items", ToArray());
         }
 
         /// <summary>

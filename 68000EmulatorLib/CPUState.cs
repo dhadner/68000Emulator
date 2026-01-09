@@ -123,6 +123,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
         /// <summary>
         /// Current PC taking into account the prefetch queue.
+        /// That is, the PC adjusted backwards by the size of the prefetch queue
+        /// to give the address of the next instruction to be executed or next
+        /// extension word to be read.
         /// </summary>
         public uint? CurrentPC
         {
@@ -250,7 +253,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Transfer values from the specified <see cref="CPU"/> instance into this <see cref="CPUState"/> instance.
         /// </summary>
         /// <param name="cpu">The <see cref="CPU"/> instance from which the state values should be transferred.</param>
-        public void FromCPU(CPU cpu)
+        public void From(CPU cpu)
         {
             D0 = cpu.ReadDataRegister(0);
             D1 = cpu.ReadDataRegister(1);

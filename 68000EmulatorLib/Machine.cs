@@ -279,7 +279,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public CPUState GetCPUState()
         {
             CPUState state = new();
-            state.FromCPU(CPU);
+            state.From(CPU);
             return state;
         }
 
@@ -290,7 +290,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="state">A <see cref="CPUState"/> object that will receive the current CPU state settings.</param>
         public void GetCPUState(ref CPUState state)
         {
-            state.FromCPU(CPU);
+            state.From(CPU);
         }
 
         /// <summary>
@@ -405,6 +405,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             Debug.Assert(newPC == CPU.CurrentPC);
 
             FillPrefetch(); // Throws address error if odd address
+        }
+
+        /// <summary>
+        /// Return PC adjusted back for prefetch queue.
+        /// </summary>
+        /// <returns></returns>
+        public uint GetPC()
+        {
+            return CPU.CurrentPC;
         }
 
         /// <summary>
