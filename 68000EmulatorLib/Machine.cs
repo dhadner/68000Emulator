@@ -66,7 +66,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
 
         /// <summary>
-        /// Throw exception if not called from machine thread.
+        /// Fails assertion if not called from machine thread.
         /// </summary>
         /// <exception cref="InvalidOperationException"></exception>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
