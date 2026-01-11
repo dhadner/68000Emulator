@@ -21,7 +21,7 @@
         /// <param name="_">Dummy parameter only needed to resolve call to correct constructor overload.</param>
         private Result(T? value, bool _)
         {
-            _value = IsNullOrDefault(value) ? GetDefaultValue() : value;
+            _value = IsNull(value) ? GetDefaultValue() : value;
             _error = default;
             _isSuccess = true;
         }
@@ -42,10 +42,10 @@
         /// </summary>
         /// <param name="value">The value to check.</param>
         /// <returns>True if the value is null or equals default(T).</returns>
-        private static bool IsNullOrDefault(T? value)
+        private static bool IsNull(T? value)
         {
             if (value == null) return true;
-            return EqualityComparer<T>.Default.Equals(value, default!);
+            return false;
         }
 
         /// <summary>
@@ -93,6 +93,22 @@
         public static Result<T, TError> Err(TError error) => new(error);
 
         /// <summary>
+        /// Throw exception if the type is not string or collection type.
+        /// </summary>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException"></exception>
+        private static T GetDefaultValueOrThrow()
+        {
+            T value = GetDefaultValue();
+            if (EqualityComparer<T>.Default.Equals(value, default))
+            {
+                // For all other types, throw an error since this may otherwise cause a subtle application malfunction.
+                throw new InvalidOperationException("Cannot cast Ok() to Result<T, TError>");
+            }
+            return value;
+        }
+
+        /// <summary>
         /// Gets the default value for type T.
         /// Returns an empty collection for array types and common collection types
         /// (List, Dictionary, HashSet, Queue, Stack, etc.), or default(T) for other types.
@@ -138,8 +154,7 @@
                 }
             }
 
-            // For all other types, throw an error since this may otherwise cause a subtle application malfunction.
-            throw new InvalidOperationException("Cannot cast Ok() to Result<T, TError>");
+            return default;
         }
 
         /// <summary>
@@ -150,7 +165,7 @@
         /// <param name="result">Source Result&lt;TError&gt; to convert.</param>
         /// <returns>Converted Result&lt;T, TError&gt;.</returns>
         public static implicit operator Result<T, TError>(Result<TError> result) => 
-            result.IsSuccess ? new Result<T, TError>(default, true) : Err(result.Error);
+            result.IsSuccess ? new Result<T, TError>(GetDefaultValueOrThrow(), true) : Err(result.Error);
         
 
         /// <summary>

@@ -200,7 +200,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Fact]
-        public void Result_StringError_ImplicitConversion_To_ResultType()
+        public void Result_StringError_ImplicitConversionOfInt_To_ResultType()
         {
             // Implicit operator Result<T, TError>(Result<TError> result)
             var voidResult = Err("Implicit error");
@@ -212,6 +212,22 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             var voidSuccess = Ok();
             Result<int, string> valSuccess;
             Assert.Throws<InvalidOperationException>(() => valSuccess = voidSuccess);
+        }
+
+        [Fact]
+        public void Result_StringError_ImplicitConversionOfNull_To_ResultType()
+        {
+            // Implicit operator Result<T, TError>(Result<TError> result)
+            var voidResult = Err("Implicit error");
+            Result<string, string> valResult = voidResult;
+
+            Assert.True(valResult.IsFailure);
+            Assert.Equal("Implicit error", valResult.Error);
+
+            var voidSuccess = Ok();
+            Result<string, string> valSuccess = voidSuccess;
+            Assert.True(valSuccess.IsSuccess);
+            Assert.Equal("", valSuccess.Value);
         }
 
         [Fact]

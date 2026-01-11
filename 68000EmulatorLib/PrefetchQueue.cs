@@ -10,12 +10,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     [Serializable]
     public sealed class PrefetchQueue : Queue<ushort>
     {
-        private int _capacity;
+        private const int CAPACITY = 2;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PrefetchQueue"/> class with a default capacity of 2.
         /// </summary>
-        public PrefetchQueue() : this(2)
+        public PrefetchQueue() : this(CAPACITY)
         {
         }
 
@@ -25,7 +25,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="capacity">Maximum number of words the queue can hold (must be at least 1).</param>
         private PrefetchQueue(int capacity) : base(capacity)
         {
-            _capacity = capacity;
         }
 
         /// <summary>
@@ -76,6 +75,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Helper property to expose expected capacity since Queue&lt;T&gt; does not expose it publicly.
         /// </summary>
-        public int Capacity { get => _capacity; private set => _capacity = value; }
+        public new int Capacity 
+        { 
+            get => base.Capacity; 
+            set 
+            { 
+                if (value != CAPACITY) { throw new ArgumentException("Capacity must be 2"); } 
+            } 
+        }
     }
 }
