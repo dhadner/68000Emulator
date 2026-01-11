@@ -2,8 +2,8 @@
 {
     /// <summary>
     /// Represents the result of an operation that can succeed with a value or fail with an error.
-    /// Use this for operations that may fail in expected ways (validation, I/O, bounds checks, etc.)
-    /// rather than throwing exceptions.
+    /// Use this for operations that may fail in expected ways (validation, bounds checks, etc.)
+    /// rather than being truly unexpected exceptional cases where throwing exceptions is appropriate.
     /// </summary>
     /// <typeparam name="T">The type of the success value.</typeparam>
     /// <typeparam name="TError">The type of the error value.</typeparam>
@@ -90,7 +90,7 @@
         /// To create an error result, use Result&lt;TError&gt;.Err(error) and 
         /// cast the Result&lt;TError&gt; to Result&lt;T, TError&gt;
         /// </summary>
-        public static Result<T, TError> ErrResult(TError error) => new(error);
+        public static Result<T, TError> Err(TError error) => new(error);
 
         /// <summary>
         /// Gets the default value for type T.
@@ -138,8 +138,8 @@
                 }
             }
 
-            // For all other types, use default
-            return default!;
+            // For all other types, throw an error since this may otherwise cause a subtle application malfunction.
+            throw new InvalidOperationException("Cannot cast Ok() to Result<T, TError>");
         }
 
         /// <summary>
@@ -149,8 +149,9 @@
         /// </summary>
         /// <param name="result">Source Result&lt;TError&gt; to convert.</param>
         /// <returns>Converted Result&lt;T, TError&gt;.</returns>
-        public static implicit operator Result<T, TError>(Result<TError> result) =>
-            result.IsSuccess ? Ok() : ErrResult(result.Error);
+        public static implicit operator Result<T, TError>(Result<TError> result) => 
+            result.IsSuccess ? new Result<T, TError>(default, true) : Err(result.Error);
+        
 
         /// <summary>
         /// Deconstructs the result for pattern matching.
@@ -202,7 +203,7 @@
         /// result.Then(x => x.ToString())  // Transform int to string
         /// </example>
         public Result<TNew, TError> Then<TNew>(Func<T, TNew> transform) =>
-            _isSuccess ? Result<TNew, TError>.Ok(transform(_value!)) : Result<TNew, TError>.ErrResult(_error!);
+            _isSuccess ? Result<TNew, TError>.Ok(transform(_value!)) : Result<TNew, TError>.Err(_error!);
 
         /// <summary>
         /// Chains an operation that can fail.
@@ -212,7 +213,7 @@
         /// result.Then(x => Validate(x))  // Validate returns Result
         /// </example>
         public Result<TNew, TError> Then<TNew>(Func<T, Result<TNew, TError>> nextStep) =>
-            _isSuccess ? nextStep(_value!) : Result<TNew, TError>.ErrResult(_error!);
+            _isSuccess ? nextStep(_value!) : Result<TNew, TError>.Err(_error!);
 
         /// <summary>
         /// Chains an operation that can fail.
@@ -220,7 +221,7 @@
         /// Warning: The nextResult argument is evaluated eagerly!
         /// </summary>
         public Result<TNew, TError> Then<TNew>(Result<TNew, TError> nextResult) =>
-            _isSuccess ? nextResult : Result<TNew, TError>.ErrResult(_error!);
+            _isSuccess ? nextResult : Result<TNew, TError>.Err(_error!);
 
         /// <summary>
         /// Chains an operation that can fail.
@@ -237,7 +238,7 @@
         ///  - Translating technical errors to user-friendly messages
         /// </summary>
         public Result<T, TNewError> MapError<TNewError>(Func<TError, TNewError> transform) =>
-            _isSuccess ? Result<T, TNewError>.Ok(_value!) : Result<T, TNewError>.ErrResult(transform(_error!));
+            _isSuccess ? Result<T, TNewError>.Ok(_value!) : Result<T, TNewError>.Err(transform(_error!));
 
         /// <summary>
         /// Executes an action if successful, returns self for chaining.
@@ -321,6 +322,12 @@
         /// Creates a successful result.
         /// </summary>
         public static Result<TError> Ok() => new(true);
+
+        /// <summary>
+        /// Creates a successful Result&lt;T, TError&gt; with the specified value.
+        /// Allows Ok(value) syntax when 'using static Result&lt;TError&gt;' is present.
+        /// </summary>
+        public static Result<T, TError> Ok<T>(T value) => Result<T, TError>.Ok(value);
 
         /// <summary>
         /// Creates a failed result with the specified error.
@@ -425,7 +432,7 @@
         /// </summary>
         public static Result<T, TError> ToResult<T, TError>(this (TError? error, T? value) tuple)
             where TError : class =>
-            tuple.error == null ? Result<T, TError>.Ok(tuple.value!) : Result<T, TError>.ErrResult(tuple.error);
+            tuple.error == null ? Result<T, TError>.Ok(tuple.value!) : Result<T, TError>.Err(tuple.error);
 
         /// <summary>
         /// Converts a nullable error to Result&lt;TError&gt; (null = success).
@@ -476,7 +483,7 @@
             var result = await resultTask;
             return result.IsSuccess
                 ? await nextStep(result.Value)
-                : Result<TNew, TError>.ErrResult(result.Error);
+                : Result<TNew, TError>.Err(result.Error);
         }
 
         /// <summary>

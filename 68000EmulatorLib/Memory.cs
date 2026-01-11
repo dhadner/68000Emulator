@@ -253,7 +253,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             address &= CPU.LEGAL_ADDRESS_MASK;
             if (address >= Data.Length)
             {
-                return Err($"Address ${address:X8} out of range (max ${Data.Length - 1:X8})");
+                return Result<string>.Err($"Address ${address:X8} out of range (max ${Data.Length - 1:X8})");
             }
             return Ok(Data[address]);
         }
@@ -272,11 +272,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0)
             {
-                return Err($"Word read at odd address ${address:X8}");
+                return Result<string>.Err($"Word read at odd address ${address:X8}");
             }
             if (address > Data.Length - 2)
             {
-                return Err($"Address ${address:X8} out of range for word read (max ${Data.Length - 2:X8})");
+                return Result<string>.Err($"Address ${address:X8} out of range for word read (max ${Data.Length - 2:X8})");
             }
             return Ok((ushort)((Data[address] << 8) + Data[address + 1]));
         }
@@ -295,11 +295,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0)
             {
-                return Err($"Long read at odd address ${address:X8}");
+                return Result<string>.Err($"Long read at odd address ${address:X8}");
             }
             if (address > Data.Length - 4)
             {
-                return Err($"Address ${address:X8} out of range for long read (max ${Data.Length - 4:X8})");
+                return Result<string>.Err($"Address ${address:X8} out of range for long read (max ${Data.Length - 4:X8})");
             }
             return Ok((uint)((Data[address] << 24) + (Data[address + 1] << 16) + (Data[address + 2] << 8) + Data[address + 3]));
         }
@@ -319,7 +319,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             address &= CPU.LEGAL_ADDRESS_MASK;
             if (address >= Data.Length)
             {
-                return Err($"Address ${address:X8} out of range (max ${Data.Length - 1:X8})");
+                return Result<string>.Err($"Address ${address:X8} out of range (max ${Data.Length - 1:X8})");
             }
             Data[address] = value;
             return Ok();
@@ -340,11 +340,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0)
             {
-                return Err($"Word write at odd address ${address:X8}");
+                return Result<string>.Err($"Word write at odd address ${address:X8}");
             }
             if (address > Data.Length - 2)
             {
-                return Err($"Address ${address:X8} out of range for word write (max ${Data.Length - 2:X8})");
+                return Result<string>.Err($"Address ${address:X8} out of range for word write (max ${Data.Length - 2:X8})");
             }
             Data[address] = (byte)((value >> 8) & 0xFF);
             Data[address + 1] = (byte)(value & 0xFF);
@@ -366,11 +366,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             address &= CPU.LEGAL_ADDRESS_MASK;
             if ((address & 1) != 0)
             {
-                return Err($"Long write at odd address ${address:X8}");
+                return Result<string>.Err($"Long write at odd address ${address:X8}");
             }
             if (address > Data.Length - 4)
             {
-                return Err($"Address ${address:X8} out of range for long write (max ${Data.Length - 4:X8})");
+                return Result<string>.Err($"Address ${address:X8} out of range for long write (max ${Data.Length - 4:X8})");
             }
             Data[address] = (byte)((value >> 24) & 0xFF);
             Data[address + 1] = (byte)((value >> 16) & 0xFF);
@@ -394,7 +394,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             address &= CPU.LEGAL_ADDRESS_MASK;
             if (address + length > Data.Length)
             {
-                return Err($"Read range ${address:X8}-${address + length - 1:X8} exceeds memory bounds (max ${Data.Length - 1:X8})");
+                return Result<string>.Err($"Read range ${address:X8}-${address + length - 1:X8} exceeds memory bounds (max ${Data.Length - 1:X8})");
             }
             byte[] result = new byte[length];
             Array.Copy(Data, address, result, 0, length);
@@ -415,12 +415,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             if (data == null)
             {
-                return Err("Data array is null");
+                return Result<string>.Err("Data array is null");
             }
             address &= CPU.LEGAL_ADDRESS_MASK;
             if (address + data.Length > Data.Length)
             {
-                return Err($"Write range ${address:X8}-${address + (uint)data.Length - 1:X8} exceeds memory bounds (max ${Data.Length - 1:X8})");
+                return Result<string>.Err($"Write range ${address:X8}-${address + (uint)data.Length - 1:X8} exceeds memory bounds (max ${Data.Length - 1:X8})");
             }
             Array.Copy(data, 0, Data, address, data.Length);
             return Ok();
