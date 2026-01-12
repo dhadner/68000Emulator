@@ -410,10 +410,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </description>
             /// <param name="startAddress">The start effectiveAddress of the block of memory being disassembled.</param>
             /// <param name="length">The length (in bytes) of the block of memory being disassembled.</param>
-            /// <param name="maxCount">Maximum number of instructions or nonexecutable sections to disassemble.</param>
+            /// <param name="maxRecords">Maximum number of instructions or nonexecutable sections to disassemble.</param>
             /// <returns>A list of <see cref="DisassemblyRecord"/>.
             /// </returns>
-            public List<DisassemblyRecord> Disassemble(uint startAddress, uint length, int maxCount = int.MaxValue)
+            public List<DisassemblyRecord> Disassemble(uint startAddress, uint length, int maxRecords = int.MaxValue)
             {
                 try
                 {
@@ -433,7 +433,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                     // When Length is exceeded, loop exits because IsEndOfData goes true.
                     int count = 0;
-                    while (!IsEndOfData && count++ < maxCount)
+                    while (!IsEndOfData && count++ < maxRecords)
                     {
                         NonExecutableSection? section = MachineNonExecutableSections.GetSectionIncluding(CurrentAddress);
                         DisassemblyRecord? record = null;

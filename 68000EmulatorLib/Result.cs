@@ -1,4 +1,6 @@
-﻿namespace PendleCodeMonkey.MC68000EmulatorLib
+﻿using System.Diagnostics.CodeAnalysis;
+
+namespace PendleCodeMonkey.MC68000EmulatorLib
 {
     /// <summary>
     /// Represents the result of an operation that can succeed with a value or fail with an error.
@@ -97,9 +99,9 @@
         /// </summary>
         /// <returns></returns>
         /// <exception cref="InvalidOperationException"></exception>
-        private static T GetDefaultValueOrThrow()
+        private static T? GetDefaultValueOrThrow()
         {
-            T value = GetDefaultValue();
+            T? value = GetDefaultValue();
             if (EqualityComparer<T>.Default.Equals(value, default))
             {
                 // For all other types, throw an error since this may otherwise cause a subtle application malfunction.
@@ -114,7 +116,8 @@
         /// (List, Dictionary, HashSet, Queue, Stack, etc.), or default(T) for other types.
         /// </summary>
         /// <returns>An appropriate default value for type T.</returns>
-        private static T GetDefaultValue()
+        [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "Type T (the array type) must appear in the application in any case.")]
+        private static T? GetDefaultValue()
         {
             var type = typeof(T);
 
