@@ -46,15 +46,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <summary>
             /// Record returned when disassembling a single instruction at an address.
             /// </summary>
-            public record DisassemblyRecord
+            public record DisassemblyResult
             {
                 /// <summary>
-                /// Create in instance of the <see cref="DisassemblyRecord"/> class.
+                /// Create in instance of the <see cref="DisassemblyResult"/> class.
                 /// </summary>
                 /// <param name="op">Directive or Operation</param>
                 /// <param name="endOfData">Set to <c>true</c> if the disassembler
                 /// ran out of bytes prior to completing disassembly of this instruction.</param>
-                public DisassemblyRecord(DirectiveOrOperation op, bool endOfData = false)
+                public DisassemblyResult(DirectiveOrOperation op, bool endOfData = false)
                 {
                     Op = op;
                     EndOfData = endOfData;
@@ -100,16 +100,20 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
             }
 
-            /// <summary>
-            /// Wrapper around the machine's memory with its own CPU.PC and
-            /// <see cref="IsEndOfData"/> and <see cref="IsEndOfExecution"/>logic to
-            /// support the Decoder.
-            /// </summary>
+            // Fix for S1699: Remove call to overridable 'SetCPUState' from constructor
             public class DisassemblerMachine : Machine
             {
                 public DisassemblerMachine(Machine machine) : base(machine.Memory)
                 {
-                    // Initialize registers from the actual machine.
+                    InitializeCPUState(machine);
+                }
+
+                /// <summary>
+                /// Initializes the CPU state from another machine instance.
+                /// </summary>
+                /// <param name="machine">The machine to copy CPU state from.</param>
+                private void InitializeCPUState(Machine machine)
+                {
                     SetCPUState(machine.GetCPUState());
                 }
 
@@ -364,7 +368,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="address"></param>
             /// <param name="code">Continguous array of bytes starting at <see cref="address"/></param>
             /// <returns></returns>
-            public List<DisassemblyRecord> DisassembleBytes(uint address, byte[] code)
+            public List<DisassemblyResult> DisassembleBytes(uint address, byte[] code)
             {
                 uint length = (uint)code.Length;
 
@@ -411,9 +415,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="startAddress">The start effectiveAddress of the block of memory being disassembled.</param>
             /// <param name="length">The length (in bytes) of the block of memory being disassembled.</param>
             /// <param name="maxRecords">Maximum number of instructions or nonexecutable sections to disassemble.</param>
-            /// <returns>A list of <see cref="DisassemblyRecord"/>.
+            /// <returns>A list of <see cref="DisassemblyResult"/>.
             /// </returns>
-            public List<DisassemblyRecord> Disassemble(uint startAddress, uint length, int maxRecords = int.MaxValue)
+            public List<DisassemblyResult> Disassemble(uint startAddress, uint length, int maxRecords = int.MaxValue)
             {
                 try
                 {
@@ -429,14 +433,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Length = length;
                     CurrentAddress = StartAddress;
 
-                    List<DisassemblyRecord> result = [];
+                    List<DisassemblyResult> result = [];
 
                     // When Length is exceeded, loop exits because IsEndOfData goes true.
                     int count = 0;
                     while (!IsEndOfData && count++ < maxRecords)
                     {
                         NonExecutableSection? section = MachineNonExecutableSections.GetSectionIncluding(CurrentAddress);
-                        DisassemblyRecord? record = null;
+                        DisassemblyResult? record = null;
                         bool oddAddress = (CurrentAddress & 1) == 1;
 
                         if (section == null)
@@ -562,7 +566,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="length">max length of disassembly record in bytes</param>
             /// <param name="section">non-executable section that contains the address.</param>
             /// <returns></returns>
-            protected DisassemblyRecord GetNonExecutableSectionRecord(uint address, uint length, NonExecutableSection section)
+            protected DisassemblyResult GetNonExecutableSectionRecord(uint address, uint length, NonExecutableSection section)
             {
                 try
                 {
@@ -608,7 +612,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
 
                     NonExecutableDataDisassembly(dir, length, address, section.DisplayRadix);
-                    var record = new DisassemblyRecord(dir);
+                    var record = new DisassemblyResult(dir);
                     return record;
                 }
                 finally
@@ -742,7 +746,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
 
                 dir.Assembly = sb.ToString();
-                dir.PostOperandAnnotation = $"    '{GetBytesAsString(_bytes, length)}'";
+                dir.BytesAsAsciiAnnotation = $"    '{GetBytesAsString(_bytes, length)}'";
 
                 return error;
             }
@@ -770,9 +774,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Leaves CurrentAddress unchanged on failure.
             /// </summary>
             /// <returns></returns>
-            protected DisassemblyRecord? DisassembleInstruction()
+            protected DisassemblyResult? DisassembleInstruction()
             {
-                DisassemblyRecord? record = null;
+                DisassemblyResult? record = null;
                 uint oldAddress = CurrentAddress;
                 try
                 {
@@ -827,7 +831,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             byte[] machineCode = [.. codeBytes];
                             op!.MachineCode = machineCode;
                             op.Assembly = sb.ToString();
-                            record = new DisassemblyRecord(op, IsEndOfData);
+                            record = new DisassemblyResult(op, IsEndOfData);
                         }
                     } while (false);
                 }
@@ -1285,7 +1289,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         operand = new ImmediateOperand((short)value);
                         break;
                     case OpSize.Long:
-                        operand = new ImmediateOperand((uint)value);
+                        operand = new ImmediateOperand(value);
                         break;
                     default:
                         return null; // "Operation size not supported"                    
@@ -2119,6 +2123,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
 #pragma warning disable S2325 // Methods and properties that don't access instance data should be static
+            [System.Diagnostics.CodeAnalysis.SuppressMessage("CodeQuality", "IDE0079:Remove unnecessary suppression", Justification = "<Pending>")]
             protected Operation NONE(Instruction inst, StringBuilder sb)
 #pragma warning restore S2325 // Methods and properties that don't access instance data should be static
             {
@@ -3285,7 +3290,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     Size = size;
                     MachineCode = [];
                     Assembly = "";
-                    PostOperandAnnotation = "";
+                    BytesAsAsciiAnnotation = "";
                 }
 
                 /// <summary>
@@ -3316,9 +3321,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 /// <summary>
                 /// Optional annotation used for displaying ASCII data for
-                /// DC directives.
+                /// DC directives.  Shows the ASCII representation of the data bytes in single
+                /// quotes.
                 /// </summary>
-                public string PostOperandAnnotation { get; set; }
+                public string BytesAsAsciiAnnotation { get; set; }
 
                 /// <summary>
                 /// Operands for this directives or operation.  Typically 0-2 operands
