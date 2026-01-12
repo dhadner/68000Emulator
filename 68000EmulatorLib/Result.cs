@@ -40,13 +40,19 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
 
         /// <summary>
-        /// Determines if a value is null or default.
+        /// Determines if a value is null.  Returns true if null, false if
+        /// not null.  Specifically designed to return false if the value
+        /// is default for value types.
         /// </summary>
         /// <param name="value">The value to check.</param>
-        /// <returns>True if the value is null or equals default(T).</returns>
+        /// <returns>True if the value is null.</returns>
+        [SuppressMessage("CodeQuality", "IDE0079:Remove unnecessary suppression", Justification = "Needed to suppress nuisance message")]
         private static bool IsNull(T? value)
         {
+            // Do not check for default for value types.
+#pragma warning disable S2955 // Generic type parameter should be constrained to a class or use 'EqualityComparer<T>.Default' or 'object.Equals'
             if (value == null) return true;
+#pragma warning restore S2955
             return false;
         }
 
@@ -116,7 +122,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// (List, Dictionary, HashSet, Queue, Stack, etc.), or default(T) for other types.
         /// </summary>
         /// <returns>An appropriate default value for type T.</returns>
+        [SuppressMessage("CodeQuality", "IDE0079:Remove unnecessary suppression", Justification = "Needed to suppress nuisance message")]
         [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "Type T (the array type) must appear in the application in any case.")]
+        [SuppressMessage("Trimming", "IL2090:'this' argument does not satisfy 'DynamicallyAccessedMembersAttribute' in call to target method. The generic parameter of the source method or type does not have matching annotations.", Justification = "<Pending>")]
         private static T? GetDefaultValue()
         {
             var type = typeof(T);

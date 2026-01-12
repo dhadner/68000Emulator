@@ -203,13 +203,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     }
 
 
-    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
-    public class ThreadSafeAttribute : Attribute { }
+    /// <summary>
+    /// Attribute to indicate that the target can be accessed on the UI thread (i.e., does not require the machine thread).
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class | AttributeTargets.Field | AttributeTargets.Property)]
+    public class UIThreadSafeAttribute : Attribute { }
 
     /// <summary>
-    /// Attribute to indicate that a method or class requires execution on the machine (execution) thread.
+    /// Attribute to indicate that the target can be accessed on the UI thread.
     /// </summary>
-    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class)]
+    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class | AttributeTargets.Field | AttributeTargets.Property)]
+    public class RequiresUIThreadAttribute : Attribute { }
+
+    /// <summary>
+    /// Attribute to indicate that the target can be accessed on the machine (execution) thread.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class | AttributeTargets.Field | AttributeTargets.Property)]
     public class RequiresMachineThreadAttribute : Attribute { }
 
 }
