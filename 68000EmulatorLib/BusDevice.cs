@@ -1,10 +1,6 @@
-﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -55,10 +51,35 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
     }
 
+    /// <summary>
+    /// Represents a device connected to the bus.
+    /// </summary>
     [TypeConverter(typeof(ExpandableObjectConverter))]
     [RequiresMachineThread]
     public abstract class BusDevice
     {
+        /// <summary>
+        /// Set by disassembler to allow thread and access checks to be overridden.
+        /// </summary>
+        public virtual bool Disassembling { get; set; }
+
+        /// <summary>
+        /// In debug mode, asserts that the current thread is the machine thread
+        /// unless <see cref="Disassembling"/> is in progress.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [RequiresMachineThread]
+        public void AssertIsMachineThread()
+        {
+#if DEBUG
+            if (Disassembling)
+            {
+                return;
+            }
+            Machine.AssertIsMachineThread();
+#endif
+        }
+
         /// <summary>
         /// Initialize this bus device.
         /// </summary>
@@ -79,14 +100,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
 
         /// <summary>
-        /// View of the address space as an array of bytes.
-        /// </summary>
-        public virtual byte[] Data { get; set; } = [];
-
-        /// <summary>
         /// Read a byte and return the value and bus status.
         /// </summary>
-        /// <param name="address">Address (upper 8 bits ignored)</param>
+        /// <param name="address">Address</param>
         /// <returns>Value</returns>
         [RequiresMachineThread]
         public abstract BusResult<byte> ReadByte(uint address);
@@ -94,7 +110,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Read a 16-bit value (unsigned) and return the value and bus status.
         /// </summary>
-        /// <param name="address">Address (upper 8 bits ignored)</param>
+        /// <param name="address">Address</param>
         /// <returns>Value</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [RequiresMachineThread]
@@ -123,7 +139,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Read a 32-bit value (unsigned) and return the value and bus status.
         /// </summary>
-        /// <param name="address">Address (upper 8 bits ignored)</param>
+        /// <param name="address">Address</param>
         /// <returns>Value</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [RequiresMachineThread]
@@ -147,7 +163,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Write a byte and return the bus status.
         /// </summary>
-        /// <param name="address">Address (upper 8 bits ignored)</param>
+        /// <param name="address">Address</param>
         /// <param name="value">Value to write</param>
         [RequiresMachineThread]
         public abstract BusResult<byte> WriteByte(uint address, byte value);
@@ -155,7 +171,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Write a 16-bit value (unsigned) and return the bus status.
         /// </summary>
-        /// <param name="address">Address (upper 8 bits ignored)</param>
+        /// <param name="address">Address</param>
         /// <param name="value">Value to write</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [RequiresMachineThread]
@@ -183,7 +199,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Write a 32-bit value (unsigned) and return the bus status.
         /// </summary>
-        /// <param name="address">Address (upper 8 bits ignored)</param>
+        /// <param name="address">Address</param>
         /// <param name="value">Value to write</param>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         [RequiresMachineThread]
@@ -202,5 +218,4 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             return new(value, BusStatus.Success);
         }
     }
-
 }

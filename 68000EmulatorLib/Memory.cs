@@ -1,5 +1,4 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
-using System.Runtime.CompilerServices;
 
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
@@ -21,25 +20,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Gets or sets the byte array that holds the memory contents.
         /// </summary>
-        public override byte[] Data { get; set; }
-
-        /// <summary>
-        /// Set by disassembler to allow thread and access checks to be overridden.
-        /// </summary>
-        public bool Disassembling { get; set; }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        [RequiresMachineThread]
-        protected void AssertIsMachineThread()
-        {
-#if DEBUG
-            if (Disassembling)
-            {
-                return;
-            }
-            Machine.AssertIsMachineThread();
-#endif
-        }
+        public byte[] Data { get; set; }
 
         /// <summary>
         /// Load data into the specified address, optionally clearing all memory before doing so.
@@ -187,5 +168,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
 
         #endregion
+    
+    
     }
 }
