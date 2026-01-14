@@ -533,7 +533,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     if ((regMask & _bit[n]) != 0)
                     {
-                        uint value = size == OpSize.Long ? Machine.Memory.ReadLong(address) : (uint)Helpers.SignExtendValue(Machine.Memory.ReadWord(address));
+                        uint value = size == OpSize.Long ? Machine.Memory.ReadLong(address).Value : (uint)Helpers.SignExtendValue(Machine.Memory.ReadWord(address).Value);
                         if (n < 8)
                         {
                             Machine.CPU.WriteDataRegister(n, value, OpSize.Long);
@@ -678,28 +678,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Read effective address and return exceptions rather than throw them.
-            /// </summary>
-            /// <param name="instruction"></param>
-            /// <param name="eaType"></param>
-            /// <param name="suppressIncDec"></param>
-            /// <returns>value and exception, if any (Address Error or Bus Error are the only two possible exceptions here)</returns>
-            private (uint? value, TrapException? exception) ReadEAValueChecked(Instruction instruction, EAType eaType, bool suppressIncDec = false)
-            {
-                uint? value = null;
-                TrapException? exception = null;
-                try
-                {
-                    value = ReadEAValue(instruction, eaType, suppressIncDec);
-                }
-                catch (TrapException e)
-                {
-                    exception = e;
-                }
-                return (value, exception);
-            }
-
-            /// <summary>
             /// Read the specified effective address value for the supplied instruction.
             /// </summary>
             /// <param name="instruction">The <see cref="Instruction"/> instance.</param>
@@ -740,9 +718,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     // Access memory - may throw an Address Error or Bus Error trap exception
                     value = size switch
                     {
-                        OpSize.Byte => Machine.Memory.ReadByte(address.Value),
-                        OpSize.Long => Machine.Memory.ReadLong(address.Value),
-                        _ => Machine.Memory.ReadWord(address.Value),
+                        OpSize.Byte => Machine.Memory.ReadByte(address.Value).Value,
+                        OpSize.Long => Machine.Memory.ReadLong(address.Value).Value,
+                        _ => Machine.Memory.ReadWord(address.Value).Value,
                     };
                     if (!suppressIncDec)
                     {
@@ -1909,19 +1887,19 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 switch (size)
                 {
                     case OpSize.Byte:
-                        rYSourceVal = Helpers.SignExtendValue(Machine.Memory.ReadByte(rYSourceAddr), size);
+                        rYSourceVal = Helpers.SignExtendValue(Machine.Memory.ReadByte(rYSourceAddr).Value, size);
                         rXDestAddr = Machine.CPU.ReadAddressRegister(rXDest);
-                        rXDestVal = Helpers.SignExtendValue(Machine.Memory.ReadByte(rXDestAddr), size);
+                        rXDestVal = Helpers.SignExtendValue(Machine.Memory.ReadByte(rXDestAddr).Value, size);
                         break;
                     case OpSize.Long:
-                        rYSourceVal = Helpers.SignExtendValue(Machine.Memory.ReadLong(rYSourceAddr), size);
+                        rYSourceVal = Helpers.SignExtendValue(Machine.Memory.ReadLong(rYSourceAddr).Value, size);
                         rXDestAddr = Machine.CPU.ReadAddressRegister(rXDest);
-                        rXDestVal = Helpers.SignExtendValue(Machine.Memory.ReadLong(rXDestAddr), size);
+                        rXDestVal = Helpers.SignExtendValue(Machine.Memory.ReadLong(rXDestAddr).Value, size);
                         break;
                     default:
-                        rYSourceVal = Helpers.SignExtendValue(Machine.Memory.ReadWord(rYSourceAddr), size);
+                        rYSourceVal = Helpers.SignExtendValue(Machine.Memory.ReadWord(rYSourceAddr).Value, size);
                         rXDestAddr = Machine.CPU.ReadAddressRegister(rXDest);
-                        rXDestVal = Helpers.SignExtendValue(Machine.Memory.ReadWord(rXDestAddr), size);
+                        rXDestVal = Helpers.SignExtendValue(Machine.Memory.ReadWord(rXDestAddr).Value, size);
                         break;
                 }
 
@@ -2104,9 +2082,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 return Helpers.CreateTRAPException(TrapVector.AddressError);
                             }
                             address = Machine.CPU.DecrementAddressRegister(rSource, OpSize.Word);
-                            source = Machine.Memory.ReadWord(address);
+                            source = Machine.Memory.ReadWord(address).Value;
                             address = Machine.CPU.DecrementAddressRegister(rSource, OpSize.Word);
-                            source |= Machine.Memory.ReadWord(address) << 16;
+                            source |= Machine.Memory.ReadWord(address).Value << 16;
 
                             if ((Machine.CPU.ReadAddressRegister(rDest) & 1) != 0)
                             {
@@ -2114,25 +2092,25 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 return Helpers.CreateTRAPException(TrapVector.AddressError);
                             }
                             address = Machine.CPU.DecrementAddressRegister(rDest, OpSize.Word);
-                            dest = Machine.Memory.ReadWord(address);
+                            dest = Machine.Memory.ReadWord(address).Value;
                             address = Machine.CPU.DecrementAddressRegister(rDest, OpSize.Word);
-                            dest |= Machine.Memory.ReadWord(address) << 16;
+                            dest |= Machine.Memory.ReadWord(address).Value << 16;
                             destAddress = address;
                             break;
                         case OpSize.Byte:
                             address = Machine.CPU.DecrementAddressRegister(rSource, size);
-                            source = Helpers.SignExtendValue(Machine.Memory.ReadByte(address), size);
+                            source = Helpers.SignExtendValue(Machine.Memory.ReadByte(address).Value, size);
 
                             address = Machine.CPU.DecrementAddressRegister(rDest, size);
-                            dest = Helpers.SignExtendValue(Machine.Memory.ReadByte(address), size);
+                            dest = Helpers.SignExtendValue(Machine.Memory.ReadByte(address).Value, size);
                             destAddress = address;
                             break;
                         default: // Word
                             address = Machine.CPU.DecrementAddressRegister(rSource, size);
-                            source = Helpers.SignExtendValue(Machine.Memory.ReadWord(address), size);
+                            source = Helpers.SignExtendValue(Machine.Memory.ReadWord(address).Value, size);
 
                             address = Machine.CPU.DecrementAddressRegister(rDest, size);
-                            dest = Helpers.SignExtendValue(Machine.Memory.ReadWord(address), size);
+                            dest = Helpers.SignExtendValue(Machine.Memory.ReadWord(address).Value, size);
                             destAddress = address;
                             break;
                     }
@@ -2734,7 +2712,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? LINK(Instruction inst)
             {
-                TrapException? e = null;
+                TrapException? e;
                 byte regNum = (byte)(inst.Opcode & 0x0007);
                 uint regValue = Machine.CPU.ReadAddressRegister(regNum);
                 e = Machine.PushLongCheck(regValue);
@@ -2828,8 +2806,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     // Working with memory addresses, so pre-decrement both address registers by 1 byte.
                     var srcAddr = Machine.CPU.DecrementAddressRegister(rSrc, OpSize.Byte);
                     var destAddr = Machine.CPU.DecrementAddressRegister(rDest, OpSize.Byte);
-                    uint srcVal = Machine.Memory.ReadByte(srcAddr);
-                    uint destVal = Machine.Memory.ReadByte(destAddr);
+                    uint srcVal = Machine.Memory.ReadByte(srcAddr).Value;
+                    uint destVal = Machine.Memory.ReadByte(destAddr).Value;
                     var result = BCDCalculation(opType, srcVal, destVal);
                     Machine.Memory.WriteByte(destAddr, (byte)(result & 0x000000FF));
                 }
@@ -2869,16 +2847,16 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     if (size == OpSize.Word)
                     {
-                        int val = Machine.Memory.ReadByte(address) << 8;
-                        val |= Machine.Memory.ReadByte(address + 2);
+                        int val = Machine.Memory.ReadByte(address).Value << 8;
+                        val |= Machine.Memory.ReadByte(address + 2).Value;
                         Machine.CPU.WriteDataRegister(dRegNum, (uint)val, size);
                     }
                     else
                     {
-                        var val = Machine.Memory.ReadByte(address) << 24;
-                        val |= Machine.Memory.ReadByte(address + 2) << 16;
-                        val |= Machine.Memory.ReadByte(address + 4) << 8;
-                        val |= Machine.Memory.ReadByte(address + 6);
+                        var val = Machine.Memory.ReadByte(address).Value << 24;
+                        val |= Machine.Memory.ReadByte(address + 2).Value << 16;
+                        val |= Machine.Memory.ReadByte(address + 4).Value << 8;
+                        val |= Machine.Memory.ReadByte(address + 6).Value;
                         Machine.CPU.WriteDataRegister(dRegNum, (uint)val, size);
                     }
                 }

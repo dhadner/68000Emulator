@@ -82,7 +82,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 foreach (var opcodeData in list)
                 {
                     machine.Memory.WriteWord(START_ADDRESS, opcodeData.Opcode);
-                    Assert.Equal(opcodeData.Opcode, machine.Memory.ReadWord(START_ADDRESS));
+                    Assert.Equal(opcodeData.Opcode, machine.Memory.ReadWord(START_ADDRESS).Value);
 
                     machine.SetPC(START_ADDRESS);
 

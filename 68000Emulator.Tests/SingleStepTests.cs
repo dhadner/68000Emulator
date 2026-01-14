@@ -262,7 +262,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             SortedDictionary<Address, byte> memory = [];
             foreach (var ramEntry in testcaseState.Ram)
             {
-                memory[ramEntry.Address] = machine.Memory.ReadByte(ramEntry.Address);
+                memory[ramEntry.Address] = machine.Memory.ReadByte(ramEntry.Address).Value;
             }
 
             // Get all other memory if it is non-zero.
@@ -270,7 +270,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             {
                 if (!memory.ContainsKey(addr))
                 {
-                    byte value = machine.Memory.ReadByte(addr);
+                    byte value = machine.Memory.ReadByte(addr).Value;
                     if (value != 0)
                     {
                         memory[addr] = value;
@@ -656,7 +656,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                     continue;
                 }
                 var actualValue = machine.Memory.ReadByte(address);
-                if (expectedValue != actualValue)
+                if (expectedValue != actualValue.Value)
                 {
                     errors.Add($"RAM mismatch at 0x{address:x8}. Expected: ${expectedValue:x2} ({expectedValue}), Actual: ${actualValue:x2} ({actualValue})");
                 }

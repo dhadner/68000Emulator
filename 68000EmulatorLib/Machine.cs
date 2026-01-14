@@ -331,9 +331,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns></returns>
             ushort ReadNextWord()
             {
-                ushort value = Memory.ReadWord(CPU.PC);
+                var value = Memory.ReadWord(CPU.PC);
                 CPU.PC += 2;
-                return value;
+                return value.Value;
             }
 
             ushort value;
@@ -375,8 +375,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         {
             while (CPU.Prefetch.Count < CPU.Prefetch.Capacity && (CPU.PC & CPU.LEGAL_ADDRESS_MASK) < _loadedAddress + _dataLength)
             {
-                ushort word = Memory.ReadWord(CPU.PC);
-                CPU.Prefetch.Enqueue(word);
+                var word = Memory.ReadWord(CPU.PC);
+                CPU.Prefetch.Enqueue(word.Value);
                 CPU.PC += 2;
             }
         }
@@ -616,10 +616,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         protected uint PopLong()
         {
             uint stack = CPU.ReadAddressRegister(7);
-            uint value = Memory.ReadLong(stack);
+            var value = Memory.ReadLong(stack);
             stack += 4;
             CPU.WriteAddressRegister(7, stack);
-            return value;
+            return value.Value;
         }
 
         /// <summary>
@@ -647,8 +647,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             uint stack = CPU.ReadAddressRegister(7);
             CPU.WriteAddressRegister(7, stack + 2);
 
-            ushort value = Memory.ReadWord(stack);
-            return value;
+            var value = Memory.ReadWord(stack);
+            return value.Value;
         }
 
         /// <summary>
@@ -937,9 +937,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return false;
             }
             evEntry = te.TrapDetails;
-            uint trapVectorPC = Memory.ReadLong((uint)te.Vector * 4);
+            var trapVectorPC = Memory.ReadLong((uint)te.Vector * 4);
 
-            CPU.PC = trapVectorPC;
+            CPU.PC = trapVectorPC.Value;
             CPU.Prefetch.Clear();
             FillPrefetch();
             CurrentInstructionAddress = CPU.CurrentPC;
@@ -1022,8 +1022,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 throw new ArgumentException("Trap exception is not Group 1 or Group 2", nameof(te));
             }
 
-            uint trapVectorContents = Memory.ReadLong((uint)te.Vector * 4);
-            CPU.PC = trapVectorContents;
+            var trapVectorContents = Memory.ReadLong((uint)te.Vector * 4);
+            CPU.PC = trapVectorContents.Value;
             CPU.Prefetch.Clear();
             FillPrefetch();
 
@@ -1070,7 +1070,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
             SetFCOutputs(evEntry.Fc);
 
-            if (trapVectorContents == 0)
+            if (trapVectorContents.Value == 0)
             {
                 Logger.Log(LogLevel.Critical, "CPU", () => $"Trap Exception  -> address = 0: {te}");
             }

@@ -397,7 +397,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal((uint)0x00129234, machine.CPU.ReadDataRegister(1));
-            Assert.Equal((uint)0x9275, machine.Memory.ReadWord(0x00002000));
+            Assert.Equal((uint)0x9275, machine.Memory.ReadWord(0x00002000).Value);
         }
 
         [Theory]
@@ -494,7 +494,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal((uint)0x00120505, machine.CPU.ReadDataRegister(2));
-            Assert.Equal((uint)0x7050, machine.Memory.ReadWord(0x00002000));
+            Assert.Equal((uint)0x7050, machine.Memory.ReadWord(0x00002000).Value);
         }
 
         [Theory]
@@ -554,7 +554,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             // Assert
             Assert.Equal((uint)0x00125545, machine.CPU.ReadDataRegister(2));
             Assert.Equal((uint)0x00123525, machine.CPU.ReadDataRegister(3));
-            Assert.Equal(0xCE9C6A38, machine.Memory.ReadLong(0x00002000));
+            Assert.Equal((uint)0xCE9C6A38, machine.Memory.ReadLong(0x00002000).Value);
         }
 
         [Theory]
@@ -603,7 +603,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             // Assert
             Assert.Equal((uint)0x00125565, machine.CPU.ReadDataRegister(2));
             Assert.Equal((uint)0x00127585, machine.CPU.ReadDataRegister(3));
-            Assert.Equal((uint)0x2F1D0AF8, machine.Memory.ReadLong(0x00002000));
+            Assert.Equal((uint)0x2F1D0AF8, machine.Memory.ReadLong(0x00002000).Value);
         }
 
         [Theory]
@@ -692,7 +692,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal((uint)0x0012A5A5, machine.CPU.ReadDataRegister(7));
-            Assert.Equal((uint)0x70A5, machine.Memory.ReadWord(0x00002000));
+            Assert.Equal((uint)0x70A5, machine.Memory.ReadWord(0x00002000).Value);
         }
 
         [Theory]
@@ -785,7 +785,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal((uint)0x000000BC, machine.CPU.ReadDataRegister(3));
-            Assert.Equal((uint)0x5678, machine.Memory.ReadWord(0x00002000));
+            Assert.Equal((uint)0x5678, machine.Memory.ReadWord(0x00002000).Value);
             Assert.Equal(0x805540AA, machine.CPU.ReadDataRegister(4));
             Assert.Equal((uint)0x00003004, machine.CPU.ReadAddressRegister(2));
         }
@@ -985,8 +985,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal((uint)0x12345600, machine.CPU.ReadDataRegister(7));
-            Assert.Equal((ushort)0x0000, machine.Memory.ReadWord(0x00003000));
-            Assert.Equal((uint)0x00000000, machine.Memory.ReadLong(0x00002000));
+            Assert.Equal((ushort)0x0000, machine.Memory.ReadWord(0x00003000).Value);
+            Assert.Equal((uint)0x00000000, machine.Memory.ReadLong(0x00002000).Value);
         }
 
         [Theory]
@@ -1128,7 +1128,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal((uint)0x00002FFC, machine.CPU.ReadAddressRegister(7));
-            Assert.Equal((uint)0x00654321, machine.Memory.ReadLong(0x00002FFC));
+            Assert.Equal((uint)0x00654321, machine.Memory.ReadLong(0x00002FFC).Value);
         }
 
         [Fact]
@@ -1391,7 +1391,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             // Assert
             Assert.Equal((uint)0x00002FFC, machine.CPU.USP);
             Assert.Equal((uint)0x00024680, machine.CPU.CurrentPC);
-            Assert.Equal((uint)0x00000202, machine.Memory.ReadLong(0x00002FFC));
+            Assert.Equal((uint)0x00000202, machine.Memory.ReadLong(0x00002FFC).Value);
         }
 
         [Fact]
@@ -1714,7 +1714,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             // Assert
             Assert.Equal(expectedPC, machine.CPU.CurrentPC);
             Assert.Equal((uint)0x00002FFC, machine.CPU.USP);
-            Assert.Equal(expectedStackedPC, machine.Memory.ReadLong(0x00002FFC));
+            Assert.Equal((uint)expectedStackedPC, machine.Memory.ReadLong(0x00002FFC).Value);
 
         }
 
@@ -1986,7 +1986,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedResult, machine.Memory.ReadLong(0x0003000));
+            Assert.Equal(expectedResult, machine.Memory.ReadLong(0x0003000).Value);
             Assert.Equal(expectedFlags, machine.CPU.SR);
             Assert.Equal((uint)(0x00002004 - numBytes), machine.CPU.ReadAddressRegister(1));
             Assert.Equal((uint)(0x00003004 - numBytes), machine.CPU.ReadAddressRegister(2));
@@ -2332,7 +2332,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedResult, machine.Memory.ReadLong(0x0003000));
+            Assert.Equal(expectedResult, machine.Memory.ReadLong(0x0003000).Value);
             Assert.Equal(expectedFlags, machine.CPU.SR);
             Assert.Equal((uint)(0x00002004 - numBytes), machine.CPU.ReadAddressRegister(1));
             Assert.Equal((uint)(0x00003004 - numBytes), machine.CPU.ReadAddressRegister(2));
@@ -2430,7 +2430,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
+            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
             Assert.Equal(expectedFlags, machine.CPU.SR);
         }
 
@@ -2498,7 +2498,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
+            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
             Assert.Equal(expectedFlags, machine.CPU.SR);
         }
 
@@ -2563,7 +2563,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
+            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
             Assert.Equal(expectedFlags, machine.CPU.SR);
         }
 
@@ -2631,7 +2631,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
+            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
             Assert.Equal(expectedFlags, machine.CPU.SR);
         }
 
@@ -2698,7 +2698,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
+            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
             Assert.Equal(expectedFlags, machine.CPU.SR);
         }
 
@@ -2765,7 +2765,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
+            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
             Assert.Equal(expectedFlags, machine.CPU.SR);
         }
 
@@ -2835,7 +2835,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
+            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
             Assert.Equal(expectedFlags, machine.CPU.SR);
         }
 
@@ -2906,7 +2906,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
+            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
             Assert.Equal(expectedFlags, machine.CPU.SR);
         }
 
@@ -3011,7 +3011,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
-            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
+            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
         }
 
         [Theory]
@@ -3064,7 +3064,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
-            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
+            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
         }
 
         [Theory]
@@ -3117,7 +3117,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
-            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000));
+            Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
         }
 
         [Theory]
@@ -3140,7 +3140,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             // Assert
             Assert.Equal(expectedSP, machine.CPU.USP);
             Assert.Equal((uint)0x00002FFC, machine.CPU.ReadAddressRegister(0));
-            Assert.Equal((uint)0x12345678, machine.Memory.ReadLong(0x00002FFC));
+            Assert.Equal((uint)0x12345678, machine.Memory.ReadLong(0x00002FFC).Value);
         }
 
         [Fact]
@@ -3237,7 +3237,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
-            Assert.Equal((byte)(memVal | 0x80), machine.Memory.ReadByte(0x00002000));
+            Assert.Equal((byte)(memVal | 0x80), machine.Memory.ReadByte(0x00002000).Value);
         }
 
         [Theory]
@@ -3295,7 +3295,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
-            Assert.Equal(expectedResult, machine.Memory.ReadByte(0x00002002));
+            Assert.Equal(expectedResult, machine.Memory.ReadByte(0x00002002).Value);
             Assert.Equal((uint)0x00002000, machine.CPU.ReadAddressRegister(3));
             Assert.Equal((uint)0x00002002, machine.CPU.ReadAddressRegister(4));
         }
@@ -3355,7 +3355,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedFlags, machine.CPU.SR);
-            Assert.Equal(expectedResult, machine.Memory.ReadByte(0x00002002));
+            Assert.Equal(expectedResult, machine.Memory.ReadByte(0x00002002).Value);
             Assert.Equal((uint)0x00002000, machine.CPU.ReadAddressRegister(3));
             Assert.Equal((uint)0x00002002, machine.CPU.ReadAddressRegister(4));
         }
@@ -3402,8 +3402,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(0x56, machine.Memory.ReadByte(0x00003100));
-            Assert.Equal(0x78, machine.Memory.ReadByte(0x00003102));
+            Assert.Equal(0x56, machine.Memory.ReadByte(0x00003100).Value);
+            Assert.Equal(0x78, machine.Memory.ReadByte(0x00003102).Value);
         }
 
         [Fact]
@@ -3422,10 +3422,10 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(0x12, machine.Memory.ReadByte(0x00003100));
-            Assert.Equal(0x34, machine.Memory.ReadByte(0x00003102));
-            Assert.Equal(0x56, machine.Memory.ReadByte(0x00003104));
-            Assert.Equal(0x78, machine.Memory.ReadByte(0x00003106));
+            Assert.Equal(0x12, machine.Memory.ReadByte(0x00003100).Value);
+            Assert.Equal(0x34, machine.Memory.ReadByte(0x00003102).Value);
+            Assert.Equal(0x56, machine.Memory.ReadByte(0x00003104).Value);
+            Assert.Equal(0x78, machine.Memory.ReadByte(0x00003106).Value);
         }
 
         [Fact]
@@ -3492,12 +3492,12 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal((uint)0x00002FF4, machine.CPU.USP);
-            Assert.Equal(0x5678, machine.Memory.ReadWord(0x00002FF4));
-            Assert.Equal(0xAAAA, machine.Memory.ReadWord(0x00002FF6));
-            Assert.Equal(0x5555, machine.Memory.ReadWord(0x00002FF8));
-            Assert.Equal(0x4321, machine.Memory.ReadWord(0x00002FFA));
-            Assert.Equal(0x3847, machine.Memory.ReadWord(0x00002FFC));
-            Assert.Equal(0x3829, machine.Memory.ReadWord(0x00002FFE));
+            Assert.Equal(0x5678, machine.Memory.ReadWord(0x00002FF4).Value);
+            Assert.Equal(0xAAAA, machine.Memory.ReadWord(0x00002FF6).Value);
+            Assert.Equal(0x5555, machine.Memory.ReadWord(0x00002FF8).Value);
+            Assert.Equal(0x4321, machine.Memory.ReadWord(0x00002FFA).Value);
+            Assert.Equal(0x3847, machine.Memory.ReadWord(0x00002FFC).Value);
+            Assert.Equal(0x3829, machine.Memory.ReadWord(0x00002FFE).Value);
         }
 
         [Fact]
@@ -3522,12 +3522,12 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal((uint)0x00002FE8, machine.CPU.USP);
-            Assert.Equal((uint)0x12345678, machine.Memory.ReadLong(0x00002FE8));
-            Assert.Equal(0xAAAAAAAA, machine.Memory.ReadLong(0x00002FEC));
-            Assert.Equal((uint)0x55555555, machine.Memory.ReadLong(0x00002FF0));
-            Assert.Equal(0x87654321, machine.Memory.ReadLong(0x00002FF4));
-            Assert.Equal((uint)0x10293847, machine.Memory.ReadLong(0x00002FF8));
-            Assert.Equal((uint)0x56473829, machine.Memory.ReadLong(0x00002FFC));
+            Assert.Equal((uint)0x12345678, machine.Memory.ReadLong(0x00002FE8).Value);
+            Assert.Equal(0xAAAAAAAA, machine.Memory.ReadLong(0x00002FEC).Value);
+            Assert.Equal((uint)0x55555555, machine.Memory.ReadLong(0x00002FF0).Value);
+            Assert.Equal(0x87654321, machine.Memory.ReadLong(0x00002FF4).Value);
+            Assert.Equal((uint)0x10293847, machine.Memory.ReadLong(0x00002FF8).Value);
+            Assert.Equal((uint)0x56473829, machine.Memory.ReadLong(0x00002FFC).Value);
         }
 
         [Fact]

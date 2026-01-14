@@ -376,7 +376,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 byte[] oldCode = new byte[length];
                 for (uint codeOffset = 0; codeOffset < length; codeOffset++)
                 {
-                    oldCode[codeOffset] = Machine.Memory.ReadByte(address + codeOffset);
+                    oldCode[codeOffset] = Machine.Memory.ReadByte(address + codeOffset).Value;
                 }
 
                 // Load the code into memory at the specified address.
@@ -608,7 +608,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         // overridden in derived classes to access memory-mapped I/O as well
                         // (also applies to ReadNextByte() since it calls Machine.Memory.ReadByte(...),
                         // - so I/O could be read twice).
-                        dir.MachineCode[i] = Machine.Memory.ReadByte(address + i);
+                        dir.MachineCode[i] = Machine.Memory.ReadByte(address + i).Value;
                     }
 
                     NonExecutableDataDisassembly(dir, length, address, section.DisplayRadix);
@@ -631,7 +631,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     throw new EndOfDataException("Disassembly has run past the end of the loaded data.");
                 }
-                byte value = Machine.Memory.ReadByte(CurrentAddress);
+                byte value = Machine.Memory.ReadByte(CurrentAddress).Value;
                 CurrentAddress++;
                 return value;
             }

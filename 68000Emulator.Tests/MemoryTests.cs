@@ -77,7 +77,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Memory memory = new Memory(_memorySize);
             var _ = memory.LoadData(new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x00 }, 0x2000);
 
-            byte value = memory.ReadByte(0x2002);
+            byte value = memory.ReadByte(0x2002).Value;
 
             Assert.Equal(0x03, value);
         }
@@ -97,7 +97,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Memory memory = new Memory(_memorySize);
             var _ = memory.LoadData(new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x00 }, 0x2000);
 
-            ushort value = memory.ReadWord(0x2002);
+            ushort value = memory.ReadWord(0x2002).Value;
 
             Assert.Equal(0x0304, value);
         }
@@ -126,7 +126,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Memory memory = new Memory(_memorySize);
             var _ = memory.LoadData(new byte[] { 0x01, 0x02, 0x03, 0x04, 0x05, 0x00 }, 0x2000);
 
-            uint value = memory.ReadLong(0x2002);
+            uint value = memory.ReadLong(0x2002).Value;
 
             Assert.Equal((uint)0x03040500, value);
         }
