@@ -1350,7 +1350,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? RTE(Instruction inst)
             {
-                Machine.CheckUnalignedStackAccess(EAType.Source);
+                TrapException? exception = Machine.CheckUnalignedStackAccess(EAType.Source);
+                if (exception != null) return exception;
 
                 if (Machine.CPU.SupervisorMode)
                 {
@@ -1370,7 +1371,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? RTS(Instruction inst)
             {
-                Machine.CheckUnalignedStackAccess(EAType.Source);
+                TrapException? exception = Machine.CheckUnalignedStackAccess(EAType.Source);
+                if (exception != null) return exception;
 
                 // if no JSR/BSR instruction has been executed then this RTS marks the termination of the code execution.
                 if (CallDepth == 0)
@@ -1403,7 +1405,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             private TrapException? RTR(Instruction inst)
             {
-                Machine.CheckUnalignedStackAccess(EAType.Source);
+                TrapException? exception = Machine.CheckUnalignedStackAccess(EAType.Source);
+                if (exception != null) return exception;
 
                 ushort ccr = Machine.PopWord();
                 ushort srValue = (ushort)Machine.CPU.SR;

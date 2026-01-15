@@ -57,6 +57,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
 
         /// <summary>
+        /// Number of clock cycles executed since reset.
+        /// </summary>
+        public ulong ClockCycles { get; protected set; } = 0;
+
+        /// <summary>
         /// Return true if the MachineThreadId has not been set or if the current thread is the machine thread.
         /// </summary>
         /// <returns></returns>
@@ -139,9 +144,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Check for unaligned stack access.
         /// </summary>
-        public void CheckUnalignedStackAccess(EAType eaType)
+        public TrapException? CheckUnalignedStackAccess(EAType eaType)
         {
-            CheckUnalignedAccess(eaType, OpSize.Word, CPU.ReadAddressRegister(7));
+            return CheckUnalignedAccess(eaType, OpSize.Word, CPU.ReadAddressRegister(7));
         }
 
         /// <summary>
@@ -151,14 +156,16 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="eaType"></param>
         /// <param name="size"></param>
         /// <param name="address"></param>
-        public void CheckUnalignedAccess(EAType eaType, OpSize size, uint address)
+        public TrapException? CheckUnalignedAccess(EAType eaType, OpSize size, uint address)
         {
+            TrapException? exception = null;
             if ((address & 1) != 0)
             {
                 CurrentInstruction.AccessAddress = address;
                 CurrentInstruction.AccessAddressType = eaType;
-                Helpers.RaiseTRAPException(TrapVector.AddressError);
+                exception = Helpers.CreateTRAPException(TrapVector.AddressError);
             }
+            return exception;
         }
 
         /// <summary>
@@ -199,6 +206,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         {
             Memory.Clear();
             CPU.Reset(initializing);
+            ClockCycles = 0;
             CurrentInstructionAddress = CPU.PC - CPU.Prefetch.Size;
             IsEndOfExecution = false;
             ExecutionStopped = false;
