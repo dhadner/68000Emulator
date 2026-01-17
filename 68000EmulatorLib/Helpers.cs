@@ -218,7 +218,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     /// <summary>
     /// Attribute to indicate that the target can be accessed on the machine (execution) thread.
     /// </summary>
-    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Class | AttributeTargets.Field | AttributeTargets.Property)]
+    [AttributeUsage(AttributeTargets.Method | AttributeTargets.Delegate | AttributeTargets.Class | AttributeTargets.Field | AttributeTargets.Property)]
     public class RequiresMachineThreadAttribute : Attribute { }
 
 }

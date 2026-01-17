@@ -103,7 +103,30 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             // Fix for S1699: Remove call to overridable 'SetCPUState' from constructor
             public class DisassemblerMachine : Machine
             {
-                public DisassemblerMachine(Machine machine) : base(machine.Memory)
+                /// <summary>
+                /// Create a new machine that has the same DataBus as the passed-in machine.
+                /// The disassembler will use the new machine to access the existing memory
+                /// and devices on the bus without disturbing them.
+                /// </summary>
+                /// <remarks>
+                /// BusDevices must protect their states when being accessed by the disassembler.
+                /// The Disassembling flag will be true then the disassembler is accessing
+                /// the bus.
+                /// </remarks>
+                /// <param name="machine"></param>
+                /// <param name="bus"></param>
+                /// <param name="memSize"></param>
+                /// <returns></returns>
+                private static DataBus MakeBus(Machine machine, DataBus? bus, uint? memSize)
+                {
+                    if (bus != null)
+                    {
+                        return bus;
+                    }
+                    return machine.Bus;
+                }
+
+                public DisassemblerMachine(Machine machine) : base(null, machine.Bus, MakeBus)
                 {
                     InitializeCPUState(machine);
                 }
@@ -376,13 +399,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 byte[] oldCode = new byte[length];
                 for (uint codeOffset = 0; codeOffset < length; codeOffset++)
                 {
-                    oldCode[codeOffset] = Machine.Memory.ReadByte(address + codeOffset).Value;
+                    oldCode[codeOffset] = Machine.Bus.ReadByte(address + codeOffset).Value;
                 }
 
                 // Load the code into memory at the specified address.
                 for (uint codeOffset = 0; codeOffset < length; codeOffset++)
                 {
-                    Machine.Memory.WriteByte(address + codeOffset, code[codeOffset]);
+                    Machine.Bus.WriteByte(address + codeOffset, code[codeOffset]);
                 }
 
                 // Disassemble
@@ -391,7 +414,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 // Restore original memory contents
                 for (uint codeOffset = 0; codeOffset < length; codeOffset++)
                 {
-                    Machine.Memory.WriteByte(address + codeOffset, oldCode[codeOffset]);
+                    Machine.Bus.WriteByte(address + codeOffset, oldCode[codeOffset]);
                 }
 
                 return list;    
@@ -425,7 +448,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     length += startAddress - legalAddress;
 
                     // Set machine parameters for this disassembler machine
-                    Disassembling = true;
+                    PassiveAccess = true;
                     Machine.SetPC(startAddress);
                     Machine.SetExecutionLimits(startAddress, length);
 
@@ -499,7 +522,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 finally
                 {
-                    Disassembling = false;
+                    PassiveAccess = false;
                 }
             }
 
@@ -570,7 +593,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 try
                 {
-                    Machine.Memory.Disassembling = true;
+                    Machine.Bus.PassiveAccess = true;
                     address = GetClosestLowerLegalAddress(address, section);
 
                     uint itemOpSize = OpSizeToLength(section.ItemOpSize);
@@ -608,7 +631,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         // overridden in derived classes to access memory-mapped I/O as well
                         // (also applies to ReadNextByte() since it calls Machine.Memory.ReadByte(...),
                         // - so I/O could be read twice).
-                        dir.MachineCode[i] = Machine.Memory.ReadByte(address + i).Value;
+                        dir.MachineCode[i] = Machine.Bus.ReadByte(address + i).Value;
                     }
 
                     NonExecutableDataDisassembly(dir, length, address, section.DisplayRadix);
@@ -617,7 +640,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 finally
                 {
-                    Machine.Memory.Disassembling = false;
+                    Machine.Bus.PassiveAccess = false;
                 }
             }
 
@@ -631,7 +654,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     throw new EndOfDataException("Disassembly has run past the end of the loaded data.");
                 }
-                byte value = Machine.Memory.ReadByte(CurrentAddress).Value;
+                byte value = Machine.Bus.ReadByte(CurrentAddress).Value;
                 CurrentAddress++;
                 return value;
             }
@@ -755,15 +778,15 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Flag used to indicate that the disassembler is currently disassembling
             /// for the purpose of disabling memory alignment checks and I/O operations.
             /// </summary>
-            protected bool Disassembling
+            protected bool PassiveAccess
             {
                 get
                 {
-                    return Machine.Memory.Disassembling;
+                    return Machine.Bus.PassiveAccess;
                 }
                 set
                 {
-                    Machine.Memory.Disassembling = value;
+                    Machine.Bus.PassiveAccess = value;
                 }
             }
 
@@ -782,7 +805,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     do
                     {
-                        Disassembling = true;
+                        PassiveAccess = true;
                         Operation? op;
 
                         // Decoder fetches the instruction at the current PC, so set it to
@@ -852,7 +875,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     }
                     Machine.SetPC(CurrentAddress);
 
-                    Disassembling = false;
+                    PassiveAccess = false;
                 }
                 return record;
             }

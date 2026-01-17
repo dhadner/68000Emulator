@@ -6,6 +6,18 @@ using System.Text;
 namespace PendleCodeMonkey.MC68000EmulatorLib
 {
     /// <summary>
+    /// Represents a method that creates and returns a <see cref="DataBus"/> instance for the specified machine.
+    /// </summary>
+    /// <param name="machine">The <see cref="Machine"/> instance for which the <see cref="DataBus"/> will be provided.
+    /// This instance will not have completed the constuctor initialization and will not have a Bus property set yet.</param>
+    /// <param name="bus">Optional <see cref="DataBus"/> instance to use. If provided, the returned data bus may or may not respect the 
+    /// passed-in memory size depending on the <see cref=""/> implementation.</param>
+    /// <param name="memorySize">The size of the memory, in bytes, to be associated with the DataBus. Must be greater than zero.</param>
+    /// <returns>A DataBus instance configured for the specified machine.</returns>
+    [RequiresMachineThread]
+    public delegate DataBus BusProvider(Machine machine, DataBus? bus, uint? memorySize);
+
+    /// <summary>
     /// Implementation of the <see cref="Machine"/> class.
     /// Includes <see cref="OpcodeExecutionHandler"/>, <see cref="InstructionDecoder"/>, and <see cref="SRecordLoader"/> classes so they
     /// can access protected members that used to be internal but now need to be available to subclasses in other assemblies.
@@ -38,28 +50,41 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Initializes a new instance of the <see cref="Machine"/> class.  Allows subclasses to
         /// use their own Memory implementation.
         /// </summary>
-        /// <param name="memory"></param>
-        public Machine(Memory memory)
+        /// <param name="ramSize">Optional memory size (not applicable if <paramref name="bus"/> is provided).</param>
+        /// <param name="bus">Optional DataBus instance to use.</param>
+        /// <param name="provideBus">Optional function to create a custom DataBus.</param>
+        public Machine(uint? ramSize = null, DataBus? bus = null, BusProvider? provideBus = null)
         {
             CPU = new CPU();
-            Memory = memory;
+            ramSize ??= MAX_MEMORY_SIZE;
+            if (provideBus == null)
+            {
+                Bus = bus ?? new RamBus(ramSize.Value);
+            }
+            else
+            {
+                Bus = provideBus(this, bus, ramSize.Value);
+            }
             CurrentInstruction = new Instruction(0, new InstructionInfo(0, 0, "NONE", Enumerations.OpHandlerID.NONE));
             ExecutionHandler = new OpcodeExecutionHandler(this);
             Decoder = new InstructionDecoder(this);
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Machine"/> class.
-        /// </summary>
-        /// <param name="memorySize">The size (in bytes) of memory to be allocated for the emulator [optional].</param>
-        public Machine(uint? memorySize = null) : this(new Memory(memorySize ?? MAX_MEMORY_SIZE))
-        {
-        }
-
-        /// <summary>
         /// Number of clock cycles executed since reset.
         /// </summary>
-        public ulong ClockCycles { get; protected set; } = 0;
+        public ulong Clocks { get; protected set; } = 0;
+
+        /// <summary>
+        /// Adds the specified number of clock cycles to the current total and returns the updated value.
+        /// </summary>
+        /// <param name="clocks">The number of clock cycles to add. Must be a non-negative value.</param>
+        /// <returns>The total number of clock cycles after the addition.</returns>
+        public ulong IncrementClock(ulong clocks)
+        {
+            Clocks += clocks;
+            return Clocks;
+        }
 
         /// <summary>
         /// Return true if the MachineThreadId has not been set or if the current thread is the machine thread.
@@ -94,9 +119,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         protected CPU CPU { get; private set; }
 
         /// <summary>
-        /// Gets the <see cref="Memory"/> instance used by this machine.
+        /// Gets the <see cref="Bus"/> instance used by this machine.
         /// </summary>
-        protected Memory Memory { get; private set; }
+        public DataBus Bus { get; set; }
 
         /// <summary>
         /// Gets the <see cref="InstructionDecoder"/> instance used by this machine.
@@ -202,11 +227,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Reset the machine to its default state.
         /// </summary>
-        public virtual void Reset(bool initializing = false)
+        public virtual Result<string> Reset(bool initializing = false)
         {
-            Memory.Clear();
+            Bus.Reset(initializing);
             CPU.Reset(initializing);
-            ClockCycles = 0;
+            Clocks = 0;
             CurrentInstructionAddress = CPU.PC - CPU.Prefetch.Size;
             IsEndOfExecution = false;
             ExecutionStopped = false;
@@ -214,6 +239,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             InstructionCount = 0;
             _loadedAddress = 0;
             _dataLength = 0xffffffff;
+            return Ok();
         }
 
         /// <summary>
@@ -339,7 +365,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns></returns>
             ushort ReadNextWord()
             {
-                var value = Memory.ReadWord(CPU.PC);
+                var value = Bus.ReadWord(CPU.PC);
                 CPU.PC += 2;
                 return value.Value;
             }
@@ -383,7 +409,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         {
             while (CPU.Prefetch.Count < CPU.Prefetch.Capacity && (CPU.PC & CPU.LEGAL_ADDRESS_MASK) < _loadedAddress + _dataLength)
             {
-                var word = Memory.ReadWord(CPU.PC);
+                var word = Bus.ReadWord(CPU.PC);
                 CPU.Prefetch.Enqueue(word.Value);
                 CPU.PC += 2;
             }
@@ -437,7 +463,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns><c>true</c> if the executable data was successfully loaded, otherwise <c>false</c>.</returns>
         public bool LoadExecutableData(byte[] data, uint loadAddress, bool clearBeforeLoad = true)
         {
-            if (Memory.LoadData(data, loadAddress, clearBeforeLoad))
+            var device = Bus.GetDevice(loadAddress) as Memory;
+            if (device?.LoadData(data, loadAddress, clearBeforeLoad) == true)
             {
                 _loadedAddress = loadAddress;
                 _dataLength = (uint)data.Length;
@@ -461,7 +488,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public bool LoadExecutableData(ushort[] data, uint loadAddress, bool clearBeforeLoad = true)
         {
             var bData = ToByteArray(data);
-            if (Memory.LoadData(bData, loadAddress, clearBeforeLoad))
+            var device = Bus.GetDevice(loadAddress) as Memory;
+            if (device?.LoadData(bData, loadAddress, clearBeforeLoad) == true)
             {
                 _loadedAddress = loadAddress;
                 _dataLength = (uint)bData.Length;
@@ -480,7 +508,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns><c>true</c> if the data was successfully loaded, otherwise <c>false</c>.</returns>
         public bool LoadData(byte[] data, uint loadAddress, bool clearBeforeLoad = true)
         {
-            return Memory.LoadData(data, loadAddress, clearBeforeLoad);
+            var device = Bus.GetDevice(loadAddress) as Memory;
+            return device?.LoadData(data, loadAddress, clearBeforeLoad) == true;
         }
 
         /// <summary>
@@ -492,7 +521,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns><c>true</c> if the data was successfully loaded, otherwise <c>false</c>.</returns>
         public bool LoadData(ushort[] data, uint loadAddress, bool clearBeforeLoad = true)
         {
-            return Memory.LoadData(ToByteArray(data), loadAddress, clearBeforeLoad);
+            var device = Bus.GetDevice(loadAddress) as Memory;
+            return device?.LoadData(ToByteArray(data), loadAddress, clearBeforeLoad) == true;
         }
 
         /// <summary>
@@ -506,7 +536,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         {
             if (!patch)
             {
-                Memory.Clear();
+                Bus.Reset();
             }
             SRecordLoader loader = new(this);
             LoadingProgram = true;
@@ -550,7 +580,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns>Read-only copy of the requested memory.</returns>
         public ReadOnlySpan<byte> DumpMemory(uint address, uint length)
         {
-            return Memory.DumpMemory(address, length);
+            if (Bus.GetDevice(address) is not Memory device)
+            {
+                return [];
+            }
+            return device.DumpMemory(address, length);
         }
 
         /// <summary>
@@ -561,7 +595,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         {
             uint stack = CPU.ReadAddressRegister(7);
             stack -= 4;
-            Memory.WriteLong(stack, value);
+            Bus.WriteLong(stack, value);
             CPU.WriteAddressRegister(7, stack);
         }
 
@@ -593,7 +627,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         {
             uint stack = CPU.ReadAddressRegister(7);
             stack -= 2;
-            Memory.WriteWord(stack, value);
+            Bus.WriteWord(stack, value);
             CPU.WriteAddressRegister(7, stack);
         }
 
@@ -624,7 +658,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         protected uint PopLong()
         {
             uint stack = CPU.ReadAddressRegister(7);
-            var value = Memory.ReadLong(stack);
+            var value = Bus.ReadLong(stack);
             stack += 4;
             CPU.WriteAddressRegister(7, stack);
             return value.Value;
@@ -655,7 +689,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             uint stack = CPU.ReadAddressRegister(7);
             CPU.WriteAddressRegister(7, stack + 2);
 
-            var value = Memory.ReadWord(stack);
+            var value = Bus.ReadWord(stack);
             return value.Value;
         }
 
@@ -924,7 +958,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 // Acknowledge interrupt to devices.
                 SetFCOutputs(interruptException.TrapDetails.Fc);
-                Memory.ReadByte(0x000f0000);
+                Bus.ReadByte(0x000f0000);
                 return interruptException;
             }
             return null;
@@ -945,7 +979,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 return false;
             }
             evEntry = te.TrapDetails;
-            var trapVectorPC = Memory.ReadLong((uint)te.Vector * 4);
+            var trapVectorPC = Bus.ReadLong((uint)te.Vector * 4);
 
             CPU.PC = trapVectorPC.Value;
             CPU.Prefetch.Clear();
@@ -1030,7 +1064,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 throw new ArgumentException("Trap exception is not Group 1 or Group 2", nameof(te));
             }
 
-            var trapVectorContents = Memory.ReadLong((uint)te.Vector * 4);
+            var trapVectorContents = Bus.ReadLong((uint)te.Vector * 4);
             CPU.PC = trapVectorContents.Value;
             CPU.Prefetch.Clear();
             FillPrefetch();

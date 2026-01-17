@@ -69,6 +69,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 Address = 0;
                 AccessAddress = null;
                 AccessAddressType = null;
+                Clocks = 0;
                 return this;
             }
 
@@ -81,6 +82,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Address of this instruction in memory.
             /// </summary>
             public uint Address { get; internal set; }
+
+            /// <summary>
+            /// Number of clocks for this instruction.
+            /// </summary>
+            public ulong Clocks { get; internal set; }
 
             private uint? _length;
 

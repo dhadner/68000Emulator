@@ -183,7 +183,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 index += 2;
                                 try
                                 {
-                                    Machine.Memory.WriteByte(loc, b);
+                                    Machine.Bus.WriteByte(loc, b);
                                 }
                                 catch (TrapException te)
                                 {

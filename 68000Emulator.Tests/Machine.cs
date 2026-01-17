@@ -6,24 +6,20 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 {
     internal class Machine : MC68000EmulatorLib.Machine
     {
-        public Machine(Memory memory) : base(memory)
-        {
-        }
-
         /// <summary>
         /// Initializes a new instance of the <see cref="Machine"/> class.
         /// </summary>
         /// <param name="memorySize">The size (in bytes) of memory to be allocated for the emulator [optional].</param>
-        public Machine(uint? memorySize = null) : this(new Memory(memorySize ?? MAX_MEMORY_SIZE))
+        public Machine(uint? memorySize = null) : base(memorySize)
         {
         }
 
         /// <summary>
         /// Expose the test helper version of memory that allows internal access of the Data property.
         /// </summary>
-        internal new Memory Memory
+        internal Memory Memory
         {
-            get { return (Memory)base.Memory; }
+            get { return (Memory)Bus.GetDevice(0); }
         }
 
         internal new MC68000EmulatorLib.CPU CPU

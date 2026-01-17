@@ -15,7 +15,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
         public CPU()
         {
-            Initialize();
         }
 
         /// <summary>
@@ -197,17 +196,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         }
 
         /// <summary>
-        /// Set the CPU settings to their default state.
-        /// </summary>
-        public void Initialize()
-        {
-            Reset(true);
-        }
-
-        /// <summary>
         /// Reset the CPU settings to their default state.
         /// </summary>
-        public virtual void Reset(bool initializing = false)
+        public virtual Result<string> Reset(bool initializing = false)
         {
             for (int i = 0; i < DataRegisters.Length; i++)
             {
@@ -222,6 +213,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             PC = 0;
             SR = 0;
             Prefetch.Clear();
+            return Ok();
         }
 
         /// <summary>

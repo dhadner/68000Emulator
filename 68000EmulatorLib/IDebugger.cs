@@ -19,7 +19,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// True if disassembling. Can be used to override access checks,
         /// even address limitations, etc.
         /// </summary>
-        bool Disassembling { get; set; }
+        bool PassiveAccess { get; set; }
 
         /// <summary>
         /// Callback to debugger on read access when Debugging.  Used for implementing

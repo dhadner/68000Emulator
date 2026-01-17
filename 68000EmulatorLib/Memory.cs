@@ -12,7 +12,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Initializes a new instance of the <see cref="Memory"/> class.
         /// </summary>
         /// <param name="memSize">The number of bytes of memory to be allocated.</param>
-        public Memory(uint memSize)
+        public Memory(uint memSize) : base()
         {
             Data = new byte[memSize];
         }
@@ -57,11 +57,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Clear all of the <see cref="Memory"/> instance's data.
         /// </summary>
         [RequiresMachineThread]
-        public virtual void Clear()
+        public override Result<string> Reset(bool initialize = true)
         {
             AssertIsMachineThread();
 
             Data.AsSpan().Clear();
+            return Ok();
         }
 
         /// <summary>

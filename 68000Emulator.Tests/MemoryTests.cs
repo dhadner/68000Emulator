@@ -51,7 +51,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Span<byte> machineMemorySpan = memory.Data;
             machineMemorySpan.Fill(0xAA);
 
-            memory.Clear();
+            memory.Reset();
 
             Assert.False(memory.Data.Where(x => x > 0).Any());
         }
