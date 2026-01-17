@@ -534,12 +534,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <returns><c>null</c> if memory loaded successfully, error message if load error occurred</returns>
         public string? LoadProgram(string sFile, bool patch = false)
         {
-            if (!patch)
-            {
-                Bus.Reset();
-            }
             SRecordLoader loader = new(this);
             LoadingProgram = true;
+      
             string? errMsg = loader.Load(sFile, out uint? startingAddress, out uint lowestAddress, out uint highestAddress);
             LoadingProgram = false;
             if (!patch && errMsg == null)

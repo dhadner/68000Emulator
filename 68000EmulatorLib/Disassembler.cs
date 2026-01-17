@@ -128,15 +128,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 public DisassemblerMachine(Machine machine) : base(null, machine.Bus, MakeBus)
                 {
-                    InitializeCPUState(machine);
-                }
-
-                /// <summary>
-                /// Initializes the CPU state from another machine instance.
-                /// </summary>
-                /// <param name="machine">The machine to copy CPU state from.</param>
-                private void InitializeCPUState(Machine machine)
-                {
                     SetCPUState(machine.GetCPUState());
                 }
 
