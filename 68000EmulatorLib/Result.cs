@@ -449,7 +449,40 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
     }
 
     /// <summary>
-    /// Extension methods for async Result operations.
+    /// Extension methods for async Result operations and type conversions.
+    /// <para>
+    /// These methods are implemented as extensions rather than instance methods on
+    /// <see cref="Result{T, TError}"/> and <see cref="Result{TError}"/> for several reasons:
+    /// </para>
+    /// <list type="number">
+    ///   <item>
+    ///     <description>
+    ///       <b>Async chaining on Task&lt;Result&gt;</b>: Methods like <c>Then</c> that operate on
+    ///       <c>Task&lt;Result&lt;T, TError&gt;&gt;</c> cannot be instance methods because the task
+    ///       wrapper is a different type from the Result struct itself.
+    ///     </description>
+    ///   </item>
+    ///   <item>
+    ///     <description>
+    ///       <b>Type conversions</b>: Methods like <see cref="ToResult{T, TError}"/> convert from
+    ///       external types (tuples, nullable references) into Results. These naturally belong as
+    ///       extensions on the source types rather than static factory methods.
+    ///     </description>
+    ///   </item>
+    ///   <item>
+    ///     <description>
+    ///       <b>Additional type constraints</b>: Some conversions require constraints like
+    ///       <c>where TError : class</c> that would be inappropriate for the general-purpose
+    ///       Result structs.
+    ///     </description>
+    ///   </item>
+    ///   <item>
+    ///     <description>
+    ///       <b>Separation of concerns</b>: Keeps the core Result types focused on synchronous,
+    ///       allocation-free operations while async support remains opt-in via this extensions class.
+    ///     </description>
+    ///   </item>
+    /// </list>
     /// </summary>
     public static class ResultExtensions
     {
