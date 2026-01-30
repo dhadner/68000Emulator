@@ -17,4 +17,8 @@
 	  <NativeLib>Shared</NativeLib>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\..\Stardust.Utilities\Stardust.Utilities.csproj" />
+  </ItemGroup>
+
 </Project>
