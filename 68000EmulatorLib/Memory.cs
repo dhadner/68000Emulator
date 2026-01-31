@@ -57,7 +57,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Clear all of the <see cref="Memory"/> instance's data.
         /// </summary>
         [RequiresMachineThread]
-        public override Result<string> Reset(bool initialize = true)
+        public override Result<string> Reset(bool initialize = false)
         {
             AssertIsMachineThread();
 
