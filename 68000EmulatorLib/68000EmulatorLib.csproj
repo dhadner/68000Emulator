@@ -18,7 +18,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\Stardust.Utilities\Stardust.Utilities.csproj" />
+    <PackageReference Include="Stardust.Utilities" Version="0.8.1" />
   </ItemGroup>
 
 </Project>
