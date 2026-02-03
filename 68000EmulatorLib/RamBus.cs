@@ -39,7 +39,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Reset this bus device.
         /// </summary>
         [RequiresMachineThread]
-        public override Result<string> Reset(bool initialize = true)
+        public override Result<string> Reset(bool initialize = false)
         {
             return _memory.Reset(initialize);
         }

@@ -227,10 +227,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Reset the machine to its default state.
         /// </summary>
-        public virtual Result<string> Reset(bool initializing = false)
+        public virtual Result<string> Reset(bool initialize = false)
         {
-            Bus.Reset(initializing);
-            CPU.Reset(initializing);
+            Bus.Reset(initialize);
+            CPU.Reset(initialize);
             Clocks = 0;
             CurrentInstructionAddress = CPU.PC - CPU.Prefetch.Size;
             IsEndOfExecution = false;

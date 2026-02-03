@@ -45,7 +45,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// Derived classes must implement this to reset all connected devices.
         /// </summary>
         /// <param name="initialize"></param>
-        public abstract Result<string> Reset(bool initialize = true);
+        public abstract Result<string> Reset(bool initialize = false);
 
         /// <summary>
         /// Reset external devices when CPU RESET instruction is executed.

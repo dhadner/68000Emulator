@@ -17,4 +17,8 @@
 	  <NativeLib>Shared</NativeLib>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="Stardust.Utilities" Version="0.8.3" />
+  </ItemGroup>
+
 </Project>
