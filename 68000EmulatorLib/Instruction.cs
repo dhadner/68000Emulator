@@ -42,38 +42,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             }
 
             /// <summary>
-            /// Initializes an existing instance of the <see cref="Instruction"/> class.
-            /// </summary>
-            /// <param name="opcode">The 16-bit opcode value for the instruction.</param>
-            /// <param name="info">An <see cref="InstructionInfo"/> instance giving info about the instruction.</param>
-            /// <param name="size">Optional size of the instruction.</param>
-            /// <param name="srcAddrMode">Optional Address Mode for the source operand.</param>
-            /// <param name="srcExtWord1">Optional extension word 1 for the source operand.</param>
-            /// <param name="srcExtWord2">Optional extension word 2 for the source operand.</param>
-            /// <param name="destAddrMode">Optional Address Mode for the destination operand.</param>
-            /// <param name="destExtWord1">Optional extension word 1 for the destination operand.</param>
-            /// <param name="destExtWord2">Optional extension word 2 for the destination operand.</param>
-            /// <returns>This instruction (convenience)</returns>
-            internal Instruction SetInstruction(ushort opcode, InstructionInfo info, OpSize size = OpSize.Word, byte? srcAddrMode = null, ushort? srcExtWord1 = null, ushort? srcExtWord2 = null,
-                                                byte? destAddrMode = null, ushort? destExtWord1 = null, ushort? destExtWord2 = null)
-            {
-                Opcode = opcode;
-                Info = info;
-                Size = size;
-                SourceAddrMode = srcAddrMode;
-                SourceExtWord1 = srcExtWord1;
-                SourceExtWord2 = srcExtWord2;
-                DestAddrMode = destAddrMode;
-                DestExtWord1 = destExtWord1;
-                DestExtWord2 = destExtWord2;
-                Address = 0;
-                AccessAddress = null;
-                AccessAddressType = null;
-                Clocks = 0;
-                return this;
-            }
-
-            /// <summary>
             /// The 16-bit opcode value for this instruction.
             /// </summary>
             public ushort Opcode { get; internal set; }
