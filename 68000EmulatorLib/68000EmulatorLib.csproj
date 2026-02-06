@@ -18,7 +18,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Stardust.Utilities" Version="0.9.3" />
+    <PackageReference Include="Stardust.Utilities" Version="0.9.4" />
   </ItemGroup>
 
 </Project>
