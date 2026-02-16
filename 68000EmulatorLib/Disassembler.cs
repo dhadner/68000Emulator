@@ -2694,11 +2694,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                     if (Op.Name != "LINEA" && Op.Name != "LINEF" && Op.Name != "DC")
                     {
+                        // Immediate operands normally prefaced with '#'.  Expression editor
+                        // needs to know where the actual value starts -- bumped by 1 for the '#' char.
                         Expression = new Expression(this, 1, disp!);
                         opStr = $"#{disp}";
                     }
                     else
                     {
+                        // LINEA, LINEF, DC operands not prefaced with '#'.
                         Expression = new Expression(this, 0, disp!);
                         opStr = disp;
                     }
@@ -2769,45 +2772,6 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         disp = $"({disp}).W";
                         Expression.StartCol = 1;
                     }
-                    return disp;
-                }
-            }
-
-            /// <summary>
-            /// Not used - use LabelOperand instead to allow symbolic references to be used
-            /// by subclasses.
-            /// </summary>
-            public class PCDispOperand : Operand
-            {
-                public PCDispOperand(Displacement displacement, string? format = null) : base(format)
-                {
-                    Displacement = displacement;
-                }
-
-                public PCDispOperand(uint address, string? format = null) : this(new Displacement(address), format) { }
-
-                public Displacement Displacement { get; set; }
-
-                /// <summary>
-                /// Format the operand disassembly display and for the assembler.
-                /// </summary>
-                /// <returns>Operand string suitable for an assembler.</returns>
-                public override string? ToString()
-                {
-                    string? disp = CurrentDisassembler?.GetExpression(Op.Address, Pos);
-                    if (disp == null)
-                    {
-                        if (Format != null)
-                        {
-                            disp = string.Format(Format, Displacement.Value);
-                        }
-                        else
-                        {
-                            disp = $"{Displacement}(PC)";
-                        }
-                    }
-
-                    Expression = new Expression(this, 0, disp);
                     return disp;
                 }
             }
