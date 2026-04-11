@@ -5,5 +5,5 @@
 // Global usings for the project
 global using Stardust.Utilities;
 global using static Stardust.Utilities.Result<string>;
-
+global using static Stardust.Utilities.Option;
 
