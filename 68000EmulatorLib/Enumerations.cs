@@ -4,20 +4,52 @@ using System.Numerics;
 namespace PendleCodeMonkey.MC68000EmulatorLib.Enumerations
 {
     /// <summary>
-    /// Enumeration of the processor flags.
+    /// Condition Code Register bitfield definitions.
     /// </summary>
-    [Flags]
-    public enum SRFlags : ushort
+    [BitFields]
+    public partial struct CCRValue
     {
-        Carry = 0x01,
-        Overflow = 0x02,
-        Zero = 0x04,
-        Negative = 0x08,
-        Extend = 0x10,
-        SupervisorMode = 0x2000,
-        TraceMode = 0x8000,
-        InterruptLevel = 0x0700
-    };
+        [BitFlag(0)]
+        public partial bool Carry { get; set; }
+        [BitFlag(1)]
+        public partial bool Overflow { get; set; }
+        [BitFlag(2)]
+        public partial bool Zero { get; set; }
+        [BitFlag(3)]
+        public partial bool Negative { get; set; }
+        [BitFlag(4)]
+        public partial bool Extend { get; set; }
+    }
+
+    /// <summary>
+    /// Status Register bitfield definitions.
+    /// </summary>
+    [BitFields(StorageType.UInt16, UndefinedBitsMustBe.Zeroes)]
+    public partial struct SRValue
+    {
+        /// <summary>
+        /// Allow direct access to CCR field as a whole.  This is not a separate field in the actual status register, 
+        /// but it is convenient for some operations to be able to get or set the CCR bits as a group.
+        /// </summary>
+        [BitField(0, 4)]
+        public partial CCRValue CCR { get; set; }
+        [BitFlag(0)]
+        public partial bool Carry { get; set; }
+        [BitFlag(1)]
+        public partial bool Overflow { get; set; }
+        [BitFlag(2)]
+        public partial bool Zero { get; set; }
+        [BitFlag(3)]
+        public partial bool Negative { get; set; }
+        [BitFlag(4)]
+        public partial bool Extend { get; set; }
+        [BitField(8, 10)]
+        public partial byte InterruptLevel { get; set; }
+        [BitFlag(13)]
+        public partial bool SupervisorMode { get; set; }
+        [BitFlag(15)]
+        public partial bool TraceMode { get; set; }
+    }
 
     /// <summary>
     /// Enumeration of the possible operation sizes (byte, word, or long)

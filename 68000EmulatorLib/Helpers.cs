@@ -148,7 +148,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void AssertHasSourceExtWord1(Instruction inst)
         {
-            if (inst.SourceExtWord1 == null)
+            if (inst.SourceExtWord1.IsNone)
             {
                 throw new IllegalInstruction("Missing SourceExtWord1");
             }

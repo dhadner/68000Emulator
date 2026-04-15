@@ -1,5 +1,7 @@
 ﻿using PendleCodeMonkey.MC68000EmulatorLib;
 using PendleCodeMonkey.MC68000EmulatorLib.Enumerations;
+using System.Collections;
+using System.Collections.Generic;
 using Xunit;
 
 namespace PendleCodeMonkey.MC68000Emulator.Tests
@@ -17,14 +19,14 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         [Fact]
         public void Reset_ShouldResetState()
         {
-            CPU cpu = new CPU
+            CPU cpu = new()
             {
                 DataRegisters = new uint[] { 100, 200, 300, 400, 500, 600, 700, 800 },
                 AddressRegisters = new uint[] { 1100, 1200, 1300, 1400, 1500, 1600, 1700 },
                 PC = 0x0200,
                 USP = 0x4000,
                 SSP = 0x4000,
-                SR = SRFlags.Carry
+                SR = new SRValue { Carry = true }
             };
 
             cpu.Reset();
@@ -47,7 +49,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Assert.Equal((uint)0, cpu.PC);
             Assert.Equal((uint)0, cpu.USP);
             Assert.Equal((uint)0, cpu.SSP);
-            Assert.Equal((SRFlags)0, cpu.SR);
+            Assert.Equal((SRValue)0, cpu.SR);
         }
 
         [Fact]
@@ -112,7 +114,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             uint a5 = cpu.ReadAddressRegister(5);
             uint a6 = cpu.ReadAddressRegister(6);
             uint a7 = cpu.ReadAddressRegister(7);           // Read A7 value whilst in user mode.
-            cpu.SR = SRFlags.SupervisorMode;
+            cpu.SR = SRValue.SupervisorModeBit;
             uint a7_ssp = cpu.ReadAddressRegister(7);       // Read A7 value whilst in supervisor mode.
 
             Assert.Equal((uint)1100, a0);
@@ -199,66 +201,60 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Assert.Equal(expectedResult, a);
         }
 
+        public static IEnumerable<object[]> ConditionEvaluationTestData =>
+            [
+                [(Condition.T, (SRValue)0, true) ],
+                [(Condition.F, (SRValue)0, false) ],
+                [(Condition.HI, (SRValue)0, true) ],
+                [(Condition.HI, SRValue.ZeroBit, false) ],
+                [(Condition.HI, SRValue.CarryBit, false) ],
+                [(Condition.HI, SRValue.CarryBit | SRValue.ZeroBit, false) ],
+                [(Condition.LS, (SRValue)0, false) ],
+                [(Condition.LS, SRValue.ZeroBit, true) ],
+                [(Condition.LS, SRValue.CarryBit, true) ],
+                [(Condition.LS, SRValue.CarryBit | SRValue.ZeroBit, true) ],
+                [(Condition.CC, (SRValue)0, true) ],
+                [(Condition.CC, SRValue.CarryBit, false) ],
+                [(Condition.CS, (SRValue)0, false) ],
+                [(Condition.CS, SRValue.CarryBit, true) ],
+                [(Condition.NE, (SRValue)0, true) ],
+                [(Condition.NE, SRValue.ZeroBit, false) ],
+                [(Condition.EQ, (SRValue)0, false) ],
+                [(Condition.EQ, SRValue.ZeroBit, true) ],
+                [(Condition.VC, (SRValue)0, true) ],
+                [(Condition.VC, SRValue.OverflowBit, false) ],
+                [(Condition.VS, (SRValue)0, false) ],
+                [(Condition.VS, SRValue.OverflowBit, true) ],
+                [(Condition.PL, (SRValue)0, true) ],
+                [(Condition.PL, SRValue.NegativeBit, false) ],
+                [(Condition.MI, (SRValue)0, false) ],
+                [(Condition.MI, SRValue.NegativeBit, true) ],
+                [(Condition.GE, (SRValue)0, true) ],
+                [(Condition.GE, SRValue.NegativeBit, false) ],
+                [(Condition.GE, SRValue.OverflowBit, false) ],
+                [(Condition.GE, SRValue.NegativeBit | SRValue.OverflowBit, true) ],
+                [(Condition.LT, (SRValue)0, false) ],
+                [(Condition.LT, SRValue.NegativeBit, true) ],
+                [(Condition.LT, SRValue.OverflowBit, true) ],
+                [(Condition.LT, SRValue.NegativeBit | SRValue.OverflowBit, false) ],
+                [(Condition.LE, SRValue.ZeroBit | SRValue.NegativeBit | SRValue.OverflowBit, true) ]
+                ];
+
         [Theory]
-        [InlineData(Condition.T, (SRFlags)0, true)]
-        [InlineData(Condition.F, (SRFlags)0, false)]
-        [InlineData(Condition.HI, (SRFlags)0, true)]
-        [InlineData(Condition.HI, SRFlags.Zero, false)]
-        [InlineData(Condition.HI, SRFlags.Carry, false)]
-        [InlineData(Condition.HI, SRFlags.Carry | SRFlags.Zero, false)]
-        [InlineData(Condition.LS, (SRFlags)0, false)]
-        [InlineData(Condition.LS, SRFlags.Zero, true)]
-        [InlineData(Condition.LS, SRFlags.Carry, true)]
-        [InlineData(Condition.LS, SRFlags.Carry | SRFlags.Zero, true)]
-        [InlineData(Condition.CC, (SRFlags)0, true)]
-        [InlineData(Condition.CC, SRFlags.Carry, false)]
-        [InlineData(Condition.CS, (SRFlags)0, false)]
-        [InlineData(Condition.CS, SRFlags.Carry, true)]
-        [InlineData(Condition.NE, (SRFlags)0, true)]
-        [InlineData(Condition.NE, SRFlags.Zero, false)]
-        [InlineData(Condition.EQ, (SRFlags)0, false)]
-        [InlineData(Condition.EQ, SRFlags.Zero, true)]
-        [InlineData(Condition.VC, (SRFlags)0, true)]
-        [InlineData(Condition.VC, SRFlags.Overflow, false)]
-        [InlineData(Condition.VS, (SRFlags)0, false)]
-        [InlineData(Condition.VS, SRFlags.Overflow, true)]
-        [InlineData(Condition.PL, (SRFlags)0, true)]
-        [InlineData(Condition.PL, SRFlags.Negative, false)]
-        [InlineData(Condition.MI, (SRFlags)0, false)]
-        [InlineData(Condition.MI, SRFlags.Negative, true)]
-        [InlineData(Condition.GE, (SRFlags)0, true)]
-        [InlineData(Condition.GE, SRFlags.Negative, false)]
-        [InlineData(Condition.GE, SRFlags.Overflow, false)]
-        [InlineData(Condition.GE, SRFlags.Negative | SRFlags.Overflow, true)]
-        [InlineData(Condition.LT, (SRFlags)0, false)]
-        [InlineData(Condition.LT, SRFlags.Negative, true)]
-        [InlineData(Condition.LT, SRFlags.Overflow, true)]
-        [InlineData(Condition.LT, SRFlags.Negative | SRFlags.Overflow, false)]
-        [InlineData(Condition.GT, (SRFlags)0, true)]
-        [InlineData(Condition.GT, SRFlags.Zero, false)]
-        [InlineData(Condition.GT, SRFlags.Negative, false)]
-        [InlineData(Condition.GT, SRFlags.Overflow, false)]
-        [InlineData(Condition.GT, SRFlags.Negative | SRFlags.Overflow, true)]
-        [InlineData(Condition.GT, SRFlags.Zero | SRFlags.Negative | SRFlags.Overflow, false)]
-        [InlineData(Condition.LE, (SRFlags)0, false)]
-        [InlineData(Condition.LE, SRFlags.Zero, true)]
-        [InlineData(Condition.LE, SRFlags.Negative, true)]
-        [InlineData(Condition.LE, SRFlags.Overflow, true)]
-        [InlineData(Condition.LE, SRFlags.Negative | SRFlags.Overflow, false)]
-        [InlineData(Condition.LE, SRFlags.Zero | SRFlags.Negative | SRFlags.Overflow, true)]
-        public void EvaluateCondition(Condition condition, SRFlags flags, bool expectedResult)
+        [MemberData(nameof(ConditionEvaluationTestData))]
+        public void EvaluateCondition((Condition condition, SRValue flags, bool expectedResult) data)
         {
             // Arrange
-            CPU cpu = new CPU
+            CPU cpu = new()
             {
-                SR = flags
+                SR = new SRValue((ushort)data.flags)
             };
 
             // Act
-            bool result = cpu.EvaluateCondition(condition);
+            bool result = cpu.EvaluateCondition(data.condition);
 
             // Assert
-            Assert.Equal(expectedResult, result);
+            Assert.Equal(data.expectedResult, result);
         }
 
 

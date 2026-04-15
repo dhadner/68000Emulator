@@ -91,7 +91,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             {
                 USP = 0x00002000,
                 SSP = 0x00000000,
-                SR = SRFlags.SupervisorMode
+                SR = SRValue.SupervisorModeBit
             };
             machine.SetCPUState(initState);
 
@@ -149,7 +149,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.CPU.PC = 0x0200;
             machine.CPU.USP = 0x4000;
             machine.CPU.SSP = 0x4000;
-            machine.CPU.SR = SRFlags.Carry;
+            machine.CPU.SR = SRValue.CarryBit;
 
             CPUState state = machine.GetCPUState();
 
@@ -183,10 +183,10 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.CPU.PC = 0x0200;
             machine.CPU.USP = 0x4000;
             machine.CPU.SSP = 0x4000;
-            machine.CPU.SR = SRFlags.Carry;
+            machine.CPU.SR = SRValue.CarryBit;
 
             // Set the state of some settings (NOTE: all others should remain unchanged)
-            CPUState newState = new CPUState
+            CPUState newState = new()
             {
                 D2 = 0x2030,
                 D5 = 0x1050,
@@ -195,7 +195,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 PC = 0x8000,
                 USP = 0x432100,
                 SSP = 0x100100,
-                SR = SRFlags.Overflow
+                SR = SRValue.OverflowBit
             };
             machine.SetCPUState(newState);
 
@@ -217,7 +217,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Assert.Equal((uint)0x8000, machine.CPU.PC);
             Assert.Equal((uint)0x432100, machine.CPU.USP);
             Assert.Equal((uint)0x100100, machine.CPU.SSP);
-            Assert.Equal(SRFlags.Overflow, machine.CPU.SR);
+            Assert.Equal(SRValue.OverflowBit, machine.CPU.SR);
         }
 
         [Fact]

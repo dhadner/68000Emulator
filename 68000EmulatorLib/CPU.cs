@@ -11,7 +11,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
     public class CPU
     {
-        private SRFlags _sr = 0;
+        private SRValue _sr = 0;
 
         public CPU()
         {
@@ -50,10 +50,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Gets or sets the Status Register value.
         /// </summary>
-        public SRFlags SR
+        public SRValue SR
         {
             get { return _sr; }
-            internal set { _sr = value & (SRFlags)Machine.SR_IMPLEMENTED_BITS_68000; }
+            internal set { _sr = value; }
         }
 
         // **********************
@@ -65,17 +65,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         internal bool CarryFlag
         {
-            get => (SR & SRFlags.Carry) != 0;
+            get => SR.Carry;
             set
             {
-                if (value)
-                {
-                    SR |= SRFlags.Carry;
-                }
-                else
-                {
-                    SR &= ~SRFlags.Carry;
-                }
+                SR = SR.WithCarry(value);
             }
         }
 
@@ -85,17 +78,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         internal bool OverflowFlag
         {
-            get => (SR & SRFlags.Overflow) != 0;
+            get => SR.Overflow;
             set
             {
-                if (value)
-                {
-                    SR |= SRFlags.Overflow;
-                }
-                else
-                {
-                    SR &= ~SRFlags.Overflow;
-                }
+                SR = SR.WithOverflow(value);
             }
         }
 
@@ -104,17 +90,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         internal bool ZeroFlag
         {
-            get => (SR & SRFlags.Zero) != 0;
+            get => SR.Zero;
             set
             {
-                if (value)
-                {
-                    SR |= SRFlags.Zero;
-                }
-                else
-                {
-                    SR &= ~SRFlags.Zero;
-                }
+                SR = SR.WithZero(value);
             }
         }
 
@@ -124,17 +103,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         internal bool NegativeFlag
         {
-            get => (SR & SRFlags.Negative) != 0;
+            get => SR.Negative;
             set
             {
-                if (value)
-                {
-                    SR |= SRFlags.Negative;
-                }
-                else
-                {
-                    SR &= ~SRFlags.Negative;
-                }
+                SR = SR.WithNegative(value);
             }
         }
 
@@ -143,17 +115,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         internal bool ExtendFlag
         {
-            get => (SR & SRFlags.Extend) != 0;
+            get => SR.Extend;
             set
             {
-                if (value)
-                {
-                    SR |= SRFlags.Extend;
-                }
-                else
-                {
-                    SR &= ~SRFlags.Extend;
-                }
+                SR = SR.WithExtend(value);
             }
         }
 
@@ -162,17 +127,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         internal bool SupervisorMode
         {
-            get => (SR & SRFlags.SupervisorMode) != 0;
+            get => SR.SupervisorMode;
             set
             {
-                if (value)
-                {
-                    SR |= SRFlags.SupervisorMode;
-                }
-                else
-                {
-                    SR &= ~SRFlags.SupervisorMode;
-                }
+                SR = SR.WithSupervisorMode(value);
             }
         }
 
@@ -181,17 +139,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         internal bool TraceMode
         {
-            get => (SR & SRFlags.TraceMode) != 0;
+            get => SR.TraceMode;
             set
             {
-                if (value)
-                {
-                    SR |= SRFlags.TraceMode;
-                }
-                else
-                {
-                    SR &= ~SRFlags.TraceMode;
-                }
+                SR = SR.WithTraceMode(value);
             }
         }
 
@@ -243,12 +194,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="reg">The number of the data register (0 to 7).</param>
         /// <param name="value">The value to be written to the data register.</param>
         /// <param name="dataSize">The size of data to be written [optional] - default is Long.</param>
-        internal void WriteDataRegister(int reg, uint value, OpSize? dataSize = null)
+        internal void WriteDataRegister(int reg, uint value, Option<OpSize> dataSize)
         {
             Debug.Assert(reg >= 0 && reg < 8, "Invalid data register index.");
             if (reg >= 0 && reg < 8)
             {
-                OpSize size = dataSize ?? OpSize.Long;      // default to the full 32-bit value.
+                OpSize size = dataSize.IsSome ? dataSize.Value : OpSize.Long;      // default to the full 32-bit value.
                 DataRegisters[reg] = size switch
                 {
                     OpSize.Byte => (DataRegisters[reg] & 0xFFFFFF00) | (value & 0x000000FF),

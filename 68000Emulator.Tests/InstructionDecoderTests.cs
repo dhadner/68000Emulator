@@ -105,23 +105,23 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                                 passed = false;
                                 fails[pass] += 1;
 
-                                AddrMode? srcEA = (AddrMode?)instruction.SourceAddrMode;
-                                ushort? srcExt1 = instruction.SourceExtWord1;
-                                ushort? srcExt2 = instruction.SourceExtWord2;
+                                AddrMode? srcEA = instruction.SourceAddrMode.IsSome ? (AddrMode)instruction.SourceAddrMode.Value : null;
+                                ushort? srcExt1 = instruction.SourceExtWord1.ToNullable();
+                                ushort? srcExt2 = instruction.SourceExtWord2.ToNullable();
                                 string src = $"EA: {srcEA} {ToBinary((byte?)srcEA, 6)} Ext1: {srcExt1} Ext2: {srcExt2}";
 
-                                AddrMode? dstEA = (AddrMode?)instruction.DestAddrMode;
-                                ushort? dstExt1 = instruction.DestExtWord1;
-                                ushort? dstExt2 = instruction.DestExtWord2;
+                                AddrMode? dstEA = instruction.DestAddrMode.IsSome ? (AddrMode)instruction.DestAddrMode.Value : null;
+                                ushort? dstExt1 = instruction.DestExtWord1.ToNullable();
+                                ushort? dstExt2 = instruction.DestExtWord2.ToNullable();
                                 string dst = $"EA: {dstEA} {ToBinary((byte?)dstEA, 6)} Ext1: {dstExt1} Ext2: {dstExt2}";
 
-                                string size = instruction.Size switch
+                                string size = instruction.Size.IsSome ? instruction.Size.Value switch
                                 {
                                     OpSize.Byte => ".B",
                                     OpSize.Word => ".W",
                                     OpSize.Long => ".L",
                                     _ => ""
-                                };
+                                } : "";
                                 if (pass == 0)
                                 {
                                     _output.WriteLine($"0x{opcodeData.Opcode:x4}{size} Opcode handled but should not be ({instruction.Info.Mnemonic}, src: {src}, dst: {dst})");

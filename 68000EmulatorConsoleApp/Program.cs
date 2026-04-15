@@ -22,7 +22,7 @@ namespace PendleCodeMonkey.MC68000EmulatorConsoleApp
 
             CPUState initState = new CPUState
             {
-                SR = SRFlags.SupervisorMode
+                SR = new SRValue { SupervisorMode = true }
             };
             machine.SetCPUState(initState);
 

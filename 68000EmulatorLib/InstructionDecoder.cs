@@ -52,8 +52,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     inst.Address = instructionAddress;
 
                     // Clear Group 0 trap info
-                    inst.AccessAddress = null;
-                    inst.AccessAddressType = null;
+                    inst.AccessAddress = None;
+                    inst.AccessAddressType = None;
 
                     Machine.CurrentInstruction = inst;
                 }
@@ -61,7 +61,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 {
                     // Illegal instruction - set current instruction to dummy instruction for
                     // address trace purposes.
-                    Machine.CurrentInstruction = new(opcode, new(opcode,0xffff,"<illegal>", OpHandlerID.ILLEGAL));
+                    Machine.CurrentInstruction = new(opcode, new(opcode,0xffff,"<illegal>", OpHandlerID.ILLEGAL), None, None);
                     Machine.CurrentInstruction.Address = instructionAddress;
                 }
 
@@ -78,11 +78,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns>An <see cref="Instruction"/> object containing details of the instruction.</returns>
             private void ReadImmDataAndExtWords(ushort opcode, Instruction inst)
             {
-                OpSize? opSize = inst.Size;
-                ushort? srcExt1 = null;
-                ushort? srcExt2 = null;
-                ushort? destExt1 = null;
-                ushort? destExt2 = null;
+                Option<OpSize> opSize = inst.Size;
+                Option<ushort> srcExt1 = None;
+                Option<ushort> srcExt2 = None;
+                Option<ushort> destExt1 = None;
+                Option<ushort> destExt2 = None;
 
                 switch (inst.Info.HandlerID)
                 {
@@ -98,7 +98,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     case OpHandlerID.ADDI:
                     case OpHandlerID.EORI:
                     case OpHandlerID.CMPI:
-                        Debug.Assert(inst.SourceAddrMode == null);
+                        Debug.Assert(inst.SourceAddrMode.IsNone);
                         (srcExt1, srcExt2) = ReadImmediateOperandData(opSize!.Value);
                         break;
 
@@ -110,7 +110,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         {
                             // Static bit number
                             // Read the bit number in the extension word
-                            Debug.Assert(inst.SourceAddrMode == null);
+                            Debug.Assert(inst.SourceAddrMode.IsNone);
                             srcExt1 = Machine.ReadNextPCWord();
                         }
                         break;
@@ -120,7 +120,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     case OpHandlerID.STOP:
                     case OpHandlerID.DBcc:
                     case OpHandlerID.MOVEP:
-                        Debug.Assert(inst.SourceAddrMode == null);
+                        Debug.Assert(inst.SourceAddrMode.IsNone);
                         // Read the displacement value (which is a word).
                         srcExt1 = Machine.ReadNextPCWord();
                         break;
@@ -130,7 +130,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     case OpHandlerID.Bcc:
                         if (opSize == OpSize.Word)
                         {
-                            Debug.Assert(inst.SourceAddrMode == null);
+                            Debug.Assert(inst.SourceAddrMode.IsNone);
                             srcExt1 = Machine.ReadNextPCWord();
                         }
                         break;
@@ -140,11 +140,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         break;
                 }
 
-                if (inst.SourceAddrMode.HasValue)
+                if (inst.SourceAddrMode.IsSome)
                 {
                     (srcExt1, srcExt2) = ReadExtensionWordData(inst.SourceAddrMode.Value, opSize!.Value);
                 }
-                if (inst.DestAddrMode.HasValue)
+                if (inst.DestAddrMode.IsSome)
                 {
                     (destExt1, destExt2) = ReadExtensionWordData(inst.DestAddrMode.Value, opSize!.Value);
                 }
@@ -164,13 +164,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// A tuple containing two extension word values (both of which are optional).
             /// For Long data, both extension word values will be non-null and need to be combined to make the 32-bit operand value.
             /// </returns>
-            private (ushort? extWord1, ushort? extWord2) ReadImmediateOperandData(OpSize size)
+            private (ushort extWord1, Option<ushort> extWord2) ReadImmediateOperandData(OpSize size)
             {
                 ushort ext1 = Machine.ReadNextPCWord();
-                ushort? ext2 = null;
+                Option<ushort> ext2 = None;
                 if (size == OpSize.Long)
                 {
-                    ext2 = Machine.ReadNextPCWord();
+                    ext2 = Some(Machine.ReadNextPCWord());
                 }
                 return (ext1, ext2);
             }
@@ -184,10 +184,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// A tuple containing two extension word values (both of which are optional).
             /// For Long data, both extension word values will be non-null and need to be combined to make the 32-bit operand value.
             /// </returns>
-            private (ushort? extWord1, ushort? extWord2) ReadExtensionWordData(byte ea, OpSize size)
+            private (Option<ushort> extWord1, Option<ushort> extWord2) ReadExtensionWordData(byte ea, OpSize size)
             {
-                ushort? ext1 = null;
-                ushort? ext2 = null;
+                Option<ushort> ext1 = None;
+                Option<ushort> ext2 = None;
 
                 switch (ea & 0x38)
                 {

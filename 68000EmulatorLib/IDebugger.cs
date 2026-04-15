@@ -38,7 +38,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// </summary>
         /// <param name="prevSr"></param>
         /// <param name="currSR"></param>
-        void DebugStatusRegisterChange(SRFlags prevSr, SRFlags currSR);
+        void DebugStatusRegisterChange(SRValue prevSr, SRValue currSR);
 
         /// <summary>
         /// Callback to debugger to allow UI events during long operations

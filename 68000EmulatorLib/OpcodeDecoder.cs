@@ -254,10 +254,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// null if the opcode is illegal.</returns>
         private Instruction? ValidateOpcode(ushort opcode, InstructionInfo instInfo)
         {
-            byte? sourceEA = null;
-            byte? destEA = null;
+            Option<byte> sourceEA = None;
+            Option<byte> destEA = None;
             OpSize opSize = OpSize.Word;        // Defaults to Word sized operations.
-            byte? opMode;
+            Option<byte> opMode;
 
             switch (instInfo.HandlerID)
             {
@@ -278,11 +278,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.EORI:
                 case OpHandlerID.CMPI:
                     destEA = Helpers.GetEAMode(opcode);
-                    if (UndefinedEA(destEA)) return null;
+                    if (UndefinedEA(destEA.Value)) return null;
 
-                    if ((destEA & 0b111000) == 0b001000 || // A(n) or
-                        (destEA & 0b111111) == 0b111100 || // Immediate or
-                        (destEA & 0b111010) == 0b111010)   // PCDisp or PCIndex
+                    if ((destEA.Value & 0b111000) == 0b001000 || // A(n) or
+                        (destEA.Value & 0b111111) == 0b111100 || // Immediate or
+                        (destEA.Value & 0b111010) == 0b111010)   // PCDisp or PCIndex
                     {
                         // Address mode not allowed
                         return null;
@@ -298,10 +298,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 case OpHandlerID.BTST:
                     destEA = Helpers.GetEAMode(opcode);
-                    if (UndefinedEA(destEA)) return null;
+                    if (UndefinedEA(destEA.Value)) return null;
 
                     // When EA is D(n), size is long.  Otherwise, size it byte.
-                    if ((destEA & 0b111000) == 0b000000)
+                    if ((destEA.Value & 0b111000) == 0b000000)
                     {
                         opSize = OpSize.Long;
                     }
@@ -313,8 +313,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     {
                         // Static bit number
                         // EA cannot be address register or immediate
-                        if ((destEA & 0b111000) == 0b001000 ||
-                            (destEA & 0b111111) == 0b111100)
+                        if ((destEA.Value & 0b111000) == 0b001000 ||
+                            (destEA.Value & 0b111111) == 0b111100)
                         {
                             return null; // A(n) and immediate not allowed
                         }
@@ -322,7 +322,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     else
                     {
                         // Dynamic bit number in a data register. EA cannot be address register.
-                        if ((destEA & 0b111000) == 0b001000)
+                        if ((destEA.Value & 0b111000) == 0b001000)
                         {
                             return null; // A(n) not allowed
                         }
@@ -333,10 +333,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.BCLR:
                 case OpHandlerID.BSET:
                     destEA = Helpers.GetEAMode(opcode);
-                    if (UndefinedEA(destEA)) return null;
+                    if (UndefinedEA(destEA.Value)) return null;
 
                     // When EA is D(n), size is long.  Otherwise, size it byte.
-                    if ((destEA & 0b111000) == 0b000000)
+                    if ((destEA.Value & 0b111000) == 0b000000)
                     {
                         opSize = OpSize.Long;
                     }
@@ -345,9 +345,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         opSize = OpSize.Byte;
                     }
                     // EA cannot be address register, immediate, PCDisp, or PCIndex
-                    if ((destEA & 0b111000) == 0b001000 || // A(n)
-                        (destEA & 0b111111) == 0b111100 || // immediate
-                        (destEA & 0b111010) == 0b111010)   // PCDisp or PCIndex
+                    if ((destEA.Value & 0b111000) == 0b001000 || // A(n)
+                        (destEA.Value & 0b111111) == 0b111100 || // immediate
+                        (destEA.Value & 0b111010) == 0b111010)   // PCDisp or PCIndex
                     {
                         return null; // A(n), immediate, PCDisp, and PCIndex not allowed
                     }
@@ -357,8 +357,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.MOVE:
                     sourceEA = Helpers.GetEAMode(opcode);
                     destEA = Helpers.GetReversedEAMode(opcode);
-                    if (UndefinedEA(sourceEA)) return null;
-                    if (UndefinedEA(destEA)) return null;
+                    if (UndefinedEA(sourceEA.Value)) return null;
+                    if (UndefinedEA(destEA.Value)) return null;
 
                     // Get the operation size (which is in an alternative format and must therefore be translated
                     // to an OpSize enum value)
@@ -366,7 +366,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     switch (size)
                     {
                         case 0x01:
-                            if ((sourceEA & 0b111000) == 0b001000)
+                            if ((sourceEA.Value & 0b111000) == 0b001000)
                             {
                                 // Address register direct mode not allowed for byte move
                                 return null;
@@ -383,16 +383,16 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             // Illegal OpSize
                             return null;
                     }
-                    if ((sourceEA & 0b111111) == 0b111101 || // illegal
-                        (sourceEA & 0b111111) == 0b111110 || // illegal
-                        (sourceEA & 0b111111) == 0b111111)   // illegal
+                    if ((sourceEA.Value & 0b111111) == 0b111101 || // illegal
+                        (sourceEA.Value & 0b111111) == 0b111110 || // illegal
+                        (sourceEA.Value & 0b111111) == 0b111111)   // illegal
                     {
                         return null;
                     }
-                    if ((destEA & 0b111000) == 0b001000 || // A(n)
-                        (destEA & 0b111110) == 0b111100 || // immediate or indexed
-                        (destEA & 0b111110) == 0b111010 || // indexed
-                        (destEA & 0b111110) == 0b111110)   // illegal
+                    if ((destEA.Value & 0b111000) == 0b001000 || // A(n)
+                        (destEA.Value & 0b111110) == 0b111100 || // immediate or indexed
+                        (destEA.Value & 0b111110) == 0b111010 || // indexed
+                        (destEA.Value & 0b111110) == 0b111110)   // illegal
                     {
                         return null; // A(n), immediate, indexed not allowed
                     }
@@ -401,8 +401,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.MOVEA:
                     sourceEA = Helpers.GetEAMode(opcode);
                     destEA = Helpers.GetReversedEAMode(opcode);
-                    if (UndefinedEA(sourceEA)) return null;
-                    if (UndefinedEA(destEA)) return null;
+                    if (UndefinedEA(sourceEA.Value)) return null;
+                    if (UndefinedEA(destEA.Value)) return null;
 
                     // Get the operation size (which is in an alternative format and must therefore be translated
                     // to an OpSize enum value)
@@ -419,9 +419,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             // Illegal OpSize
                             return null;
                     }
-                    if ((sourceEA & 0b111111) == 0b111101 || // illegal
-                        (sourceEA & 0b111111) == 0b111110 || // immediate or indexed
-                        (sourceEA & 0b111111) == 0b111111)   // illegal
+                    if ((sourceEA.Value & 0b111111) == 0b111101 || // illegal
+                        (sourceEA.Value & 0b111111) == 0b111110 || // immediate or indexed
+                        (sourceEA.Value & 0b111111) == 0b111111)   // illegal
                     {
                         return null; // not allowed
                     }
@@ -429,12 +429,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 case OpHandlerID.MOVEfromSR:
                     destEA = Helpers.GetEAMode(opcode);
-                    if (UndefinedEA(destEA)) return null;
+                    if (UndefinedEA(destEA.Value)) return null;
 
                     // EA cannot be address register, immediate, PCDisp, or PCIndex
-                    if ((destEA & 0b111000) == 0b001000 || // A(n)
-                        (destEA & 0b111100) == 0b111100 || // immediate or indexed
-                        (destEA & 0b111010) == 0b111010)   // indexed or PCDisp
+                    if ((destEA.Value & 0b111000) == 0b001000 || // A(n)
+                        (destEA.Value & 0b111100) == 0b111100 || // immediate or indexed
+                        (destEA.Value & 0b111010) == 0b111010)   // indexed or PCDisp
                     {
                         return null; // A(n), immediate, PCDisp, and PCIndex not allowed
                     }
@@ -448,9 +448,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.MULU:
                 case OpHandlerID.MULS:
                     sourceEA = Helpers.GetEAMode(opcode);
-                    if (UndefinedEA(sourceEA)) return null;
+                    if (UndefinedEA(sourceEA.Value)) return null;
 
-                    if ((sourceEA & 0b111000) == 0b001000)
+                    if ((sourceEA.Value & 0b111000) == 0b001000)
                     {
                         // Address register direct mode not allowed
                         return null;
@@ -459,7 +459,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 case OpHandlerID.CMP:
                     destEA = Helpers.GetEAMode(opcode);
-                    if (UndefinedEA(destEA)) return null;
+                    if (UndefinedEA(destEA.Value)) return null;
 
                     opSize = Helpers.GetOpSize(opcode);
                     if ((int)opSize == 0x03)
@@ -468,7 +468,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         return null;
                     }
 
-                    if ((destEA & 0b111000) == 0b001000 && opSize != OpSize.Long && opSize != OpSize.Word)
+                    if ((destEA.Value & 0b111000) == 0b001000 && opSize != OpSize.Long && opSize != OpSize.Word)
                     {
                         // An not allowed unless Word or Long
                         return null;
@@ -477,7 +477,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 case OpHandlerID.TST:
                     destEA = Helpers.GetEAMode(opcode);
-                    if (UndefinedEA(destEA)) return null;
+                    if (UndefinedEA(destEA.Value)) return null;
 
                     opSize = Helpers.GetOpSize(opcode);
                     if ((int)opSize == 0x03)
@@ -486,9 +486,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         return null;
                     }
 
-                    if ((destEA & 0b111000) == 0b001000 || // An or
-                        (destEA & 0b111111) == 0b111100 || // Immediate or
-                        (destEA & 0b111010) == 0b111010)   // PCDisp or PCIndex
+                    if ((destEA.Value & 0b111000) == 0b001000 || // An or
+                        (destEA.Value & 0b111111) == 0b111100 || // Immediate or
+                        (destEA.Value & 0b111010) == 0b111010)   // PCDisp or PCIndex
                     {
                         // Address mode not allowed
                         return null;
@@ -498,7 +498,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.ADDQ:
                 case OpHandlerID.SUBQ:
                     destEA = Helpers.GetEAMode(opcode);
-                    if (UndefinedEA(destEA)) return null;
+                    if (UndefinedEA(destEA.Value)) return null;
 
                     opSize = Helpers.GetOpSize(opcode);
                     if ((int)opSize == 0x03)
@@ -506,9 +506,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         // Illegal OpSize
                         return null;
                     }
-                    if ((destEA & 0b111111) == 0b111100 || // Immediate or
-                        (destEA & 0b111010) == 0b111010 || // PCDisp or PCIndex
-                        ((destEA & 0b111000) == 0b001000) && opSize == OpSize.Byte)  // An with .B
+                    if ((destEA.Value & 0b111111) == 0b111100 || // Immediate or
+                        (destEA.Value & 0b111010) == 0b111010 || // PCDisp or PCIndex
+                        ((destEA.Value & 0b111000) == 0b001000) && opSize == OpSize.Byte)  // An with .B
                     {
                         // Address mode not allowed
                         return null;
@@ -518,7 +518,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.SUB:
                 case OpHandlerID.ADD:
                     destEA = Helpers.GetEAMode(opcode);
-                    if (UndefinedEA(destEA)) return null;
+                    if (UndefinedEA(destEA.Value)) return null;
 
                     opMode = Helpers.GetOpMode(opcode);     // 0b1xx -> EA is destination
                     opSize = Helpers.GetOpSize(opcode);
@@ -526,19 +526,19 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     {
                         return null;
                     }
-                    if ((opMode & 0b100) != 0 &&            // EA is destination
-                        ((destEA & 0b110000) == 0b000000 || // Dn or An or
-                         (destEA & 0b111111) == 0b111100 || // Immediate or
-                         (destEA & 0b111010) == 0b111010))  // PCDisp or PCIndex
+                    if ((opMode.Value & 0b100) != 0 &&            // EA is destination
+                        ((destEA.Value & 0b110000) == 0b000000 || // Dn or An or
+                         (destEA.Value & 0b111111) == 0b111100 || // Immediate or
+                         (destEA.Value & 0b111010) == 0b111010))  // PCDisp or PCIndex
                     {
                         // Address mode not allowed
                         return null;
                     }
-                    if ((opMode & 0b100) == 0 && opSize == OpSize.Byte && (destEA & 0b111000) == 0b001000) // An not allowed with .B
+                    if ((opMode.Value & 0b100) == 0 && opSize == OpSize.Byte && (destEA.Value & 0b111000) == 0b001000) // An not allowed with .B
                     {
                         return null;
                     }
-                    if ((opMode & 0b100) == 0 && opSize == OpSize.Byte && (opMode & 0b100) == 0b000 && (destEA & 0b111000) == 0b001000)
+                    if ((opMode.Value & 0b100) == 0 && opSize == OpSize.Byte && (opMode.Value & 0b100) == 0b000 && (destEA.Value & 0b111000) == 0b001000)
                     {
                         // EA is source, can't do byte read from A(n)
                         return null;
@@ -548,9 +548,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.AND:
                 case OpHandlerID.OR:
                     destEA = Helpers.GetEAMode(opcode);
-                    if (UndefinedEA(destEA)) return null;
+                    if (UndefinedEA(destEA.Value)) return null;
 
-                    if ((destEA & 0b111000) == 0b001000)
+                    if ((destEA.Value & 0b111000) == 0b001000)
                     {
                         // An not allowed
                         return null;
@@ -562,10 +562,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         return null;
                     }
                     opMode = Helpers.GetOpMode(opcode);
-                    if ((opMode & 0b100) == 0b100 &&        // EA is destination
-                        ((destEA & 0b110000) == 0b000000 || // Dn or An or
-                         (destEA & 0b111111) == 0b111100 || // Immediate or
-                         (destEA & 0b111010) == 0b111010))  // PCDisp or PCIndex
+                    if ((opMode.Value & 0b100) == 0b100 &&        // EA is destination
+                        ((destEA.Value & 0b110000) == 0b000000 || // Dn or An or
+                         (destEA.Value & 0b111111) == 0b111100 || // Immediate or
+                         (destEA.Value & 0b111010) == 0b111010))  // PCDisp or PCIndex
                     {
                         // Address mode not allowed
                         return null;
@@ -574,9 +574,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 case OpHandlerID.EOR:
                     destEA = Helpers.GetEAMode(opcode);
-                    if (UndefinedEA(destEA)) return null;
+                    if (UndefinedEA(destEA.Value)) return null;
 
-                    if ((destEA & 0b111000) == 0b001000)
+                    if ((destEA.Value & 0b111000) == 0b001000)
                     {
                         // An not allowed
                         return null;
@@ -588,10 +588,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                         return null;
                     }
                     opMode = Helpers.GetOpMode(opcode);
-                    if ((opMode & 0b100) == 0b100 &&        // EA is destination
-                        ((destEA & 0b111000) == 0b001000 || // An or
-                         (destEA & 0b111111) == 0b111100 || // Immediate or
-                         (destEA & 0b111010) == 0b111010))  // PCDisp or PCIndex
+                    if ((opMode.Value & 0b100) == 0b100 &&        // EA is destination
+                        ((destEA.Value & 0b111000) == 0b001000 || // An or
+                         (destEA.Value & 0b111111) == 0b111100 || // Immediate or
+                         (destEA.Value & 0b111010) == 0b111010))  // PCDisp or PCIndex
                     {
                         // Address mode not allowed
                         return null;
@@ -602,11 +602,11 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.TAS:
                 case OpHandlerID.Scc:
                     destEA = Helpers.GetEAMode(opcode);
-                    if (UndefinedEA(destEA)) return null;
+                    if (UndefinedEA(destEA.Value)) return null;
 
-                    if ((destEA & 0b111000) == 0b001000 || // An
-                        (destEA & 0b111100) == 0b111100 || // illegal
-                        (destEA & 0b111010) == 0b111010)   // illegal
+                    if ((destEA.Value & 0b111000) == 0b001000 || // An
+                        (destEA.Value & 0b111100) == 0b111100 || // illegal
+                        (destEA.Value & 0b111010) == 0b111010)   // illegal
                     {
                         return null;
                     }
@@ -615,14 +615,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 case OpHandlerID.PEA:
                     sourceEA = Helpers.GetEAMode(opcode);
-                    if (UndefinedEA(sourceEA)) return null;
+                    if (UndefinedEA(sourceEA.Value)) return null;
 
                     opSize = OpSize.Long;
-                    if ((sourceEA & 0b111000) == 0b000000 || // Dn
-                        (sourceEA & 0b111000) == 0b001000 || // An
-                        (sourceEA & 0b111000) == 0b011000 || // (An)+
-                        (sourceEA & 0b111000) == 0b100000 || // -(An)
-                        (sourceEA & 0b111111) == 0b111100)   // Immed
+                    if ((sourceEA.Value & 0b111000) == 0b000000 || // Dn
+                        (sourceEA.Value & 0b111000) == 0b001000 || // An
+                        (sourceEA.Value & 0b111000) == 0b011000 || // (An)+
+                        (sourceEA.Value & 0b111000) == 0b100000 || // -(An)
+                        (sourceEA.Value & 0b111111) == 0b111100)   // Immed
                     {
                         // Address mode not allowed
                         return null;
@@ -642,14 +642,14 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.JMP:
                 case OpHandlerID.LEA:
                     sourceEA = Helpers.GetEAMode(opcode);
-                    if (UndefinedEA(sourceEA)) return null;
+                    if (UndefinedEA(sourceEA.Value)) return null;
 
                     // (An)+, -(An), Dn, An, and immed not allowed
-                    if ((sourceEA & 0b111000) == 0b000000 || // Dn
-                        (sourceEA & 0b111000) == 0b001000 || // An
-                        (sourceEA & 0b111000) == 0b011000 || // (An)+
-                        (sourceEA & 0b111000) == 0b100000 || // -(An)
-                        (sourceEA & 0b111111) == 0b111100)   // Immed
+                    if ((sourceEA.Value & 0b111000) == 0b000000 || // Dn
+                        (sourceEA.Value & 0b111000) == 0b001000 || // An
+                        (sourceEA.Value & 0b111000) == 0b011000 || // (An)+
+                        (sourceEA.Value & 0b111000) == 0b100000 || // -(An)
+                        (sourceEA.Value & 0b111111) == 0b111100)   // Immed
                     {
                         return null;
                     }
@@ -658,20 +658,20 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.MOVEM:
                     opSize = (opcode & 0x0040) == 0 ? OpSize.Word : OpSize.Long;
                     destEA = Helpers.GetEAMode(opcode);
-                    if (UndefinedEA(destEA)) return null;
+                    if (UndefinedEA(destEA.Value)) return null;
 
                     bool regToMem = (opcode & 0b0000_0100_0000_0000) == 0;
-                    if ((destEA & 0b111000) == 0b000000 || // Dn
-                        (destEA & 0b111000) == 0b001000 || // An
-                        (destEA & 0b111111) == 0b111100)   // Immed
+                    if ((destEA.Value & 0b111000) == 0b000000 || // Dn
+                        (destEA.Value & 0b111000) == 0b001000 || // An
+                        (destEA.Value & 0b111111) == 0b111100)   // Immed
                     {
                         return null;
                     }
                     if (regToMem)
                     {
                         // (An)+, PCDisp and PCIndex not allowed
-                        if ((destEA & 0b111000) == 0b011000 || // (An)+
-                            (destEA & 0b111010) == 0b111010)  // PCDisp or PCIndex
+                        if ((destEA.Value & 0b111000) == 0b011000 || // (An)+
+                            (destEA.Value & 0b111010) == 0b111010)  // PCDisp or PCIndex
                         {
                             return null;
                         }
@@ -679,7 +679,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     else
                     {
                         // -(An) not allowed
-                        if ((destEA & 0b111000) == 0b100000)  // -(An)
+                        if ((destEA.Value & 0b111000) == 0b100000)  // -(An)
                         {
                             return null;
                         }
@@ -702,10 +702,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 case OpHandlerID.CMPA:
                 case OpHandlerID.ADDA:
                     sourceEA = Helpers.GetEAMode(opcode);
-                    if (UndefinedEA(sourceEA)) return null;
+                    if (UndefinedEA(sourceEA.Value)) return null;
 
                     opMode = Helpers.GetOpMode(opcode);
-                    if (opMode == 0b011)
+                    if (opMode.Value == 0b011)
                     {
                         opSize = OpSize.Word;
                     }
@@ -733,13 +733,13 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                     if ((byte)opSize == 0x03)
                     {
                         sourceEA = Helpers.GetEAMode(opcode);
-                        if (UndefinedEA(sourceEA)) return null;
+                        if (UndefinedEA(sourceEA.Value)) return null;
 
                         opSize = OpSize.Word;
-                        if ((sourceEA & 0b111000) == 0b000000 || // Dn
-                            (sourceEA & 0b111000) == 0b001000 || // An
-                            (sourceEA & 0b111100) == 0b111100 || // not (xxx).W or (xxx).L
-                            (sourceEA & 0b111010) == 0b111010)
+                        if ((sourceEA.Value & 0b111000) == 0b000000 || // Dn
+                            (sourceEA.Value & 0b111000) == 0b001000 || // An
+                            (sourceEA.Value & 0b111100) == 0b111100 || // not (xxx).W or (xxx).L
+                            (sourceEA.Value & 0b111010) == 0b111010)
                         {
                             return null;
                         }
@@ -767,7 +767,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
             // Construct an Instruction object containing all the required operand info except for extension words.
             // Those will be filled in based on the current instruction stream position when the instruction is executed.
-            Instruction inst = new(opcode, instInfo, opSize, sourceEA, null, null, destEA, null, null);
+            Instruction inst = new(opcode, instInfo, opSize, sourceEA, None, None, destEA, None, None);
 
             // Cache the legal instruction for future use.  One instruction per opcode, or a max of
             // 65536 entries if all opcodes were valid (but of course that is not the case).

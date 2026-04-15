@@ -221,25 +221,25 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             cpuState.USP = testcaseState.Usp;
             cpuState.SSP = testcaseState.Ssp;
             cpuState.PC = testcaseState.Pc; // Has already been incremented past the prefetch queue.
-            cpuState.SR = (SRFlags)testcaseState.Sr;
-            cpuState.Prefetch = new PrefetchQueue();
+            cpuState.SR = Some((SRValue)testcaseState.Sr);
+            cpuState.Prefetch = Some(new PrefetchQueue());
             foreach (var word in testcaseState.Prefetch)
             {
-                cpuState.Prefetch.Enqueue(word);
+                cpuState.Prefetch.Value.Enqueue(word);
             }
             return cpuState;
         }
 
         private static void DumpCpuState(CPUState cpuState, StringBuilder sb)
         {
-            SRFlags sr = cpuState.SR!.Value;
+            SRValue sr = cpuState.SR.Value;
             string flags = FormatStatusRegister(sr);
-            sb.Append($"{LEADING_BLANKS}SR:{(ushort)cpuState.SR!:x4}  PC:{cpuState.PC:x8} D0:{cpuState.D0:x8} D1:{cpuState.D1:x8} D2:{cpuState.D2:x8} D3:{cpuState.D3:x8} D4:{cpuState.D4:x8} D5:{cpuState.D5:x8} D6:{cpuState.D6:x8} D7:{cpuState.D7:x8}");
+            sb.Append($"{LEADING_BLANKS}SR:{(ushort)sr:x4}  PC:{cpuState.PC:x8} D0:{cpuState.D0:x8} D1:{cpuState.D1:x8} D2:{cpuState.D2:x8} D3:{cpuState.D3:x8} D4:{cpuState.D4:x8} D5:{cpuState.D5:x8} D6:{cpuState.D6:x8} D7:{cpuState.D7:x8}");
             sb.Append($"\n{LEADING_BLANKS}{flags} A0:{cpuState.A0:x8} A1:{cpuState.A1:x8} A2:{cpuState.A2:x8} A3:{cpuState.A3:x8} A4:{cpuState.A4:x8} A5:{cpuState.A5:x8} A6:{cpuState.A6:x8} SSP:{cpuState.SSP:x8} USP:{cpuState.USP:x8}");
-            if (cpuState.Prefetch != null)
+            if (cpuState.Prefetch.IsSome)
             {
                 sb.Append($"\n{LEADING_BLANKS}Prefetch queue:");
-                foreach (var word in cpuState.Prefetch)
+                foreach (var word in cpuState.Prefetch.Value)
                 {
                     sb.Append($" {word:x4}");
                 }
@@ -475,19 +475,19 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             return (uint)(mem[address + 0] << 24 | mem[address + 1] << 16 | mem[address + 2] << 8 | mem[address + 3]);
         }
 
-        private static string FormatStatusRegister(SRFlags sr)
+        private static string FormatStatusRegister(SRValue sr)
         {
             StringBuilder flags = new();
-            flags.Append(sr.HasFlag(SRFlags.TraceMode) ? 'T' : 't');
-            flags.Append(sr.HasFlag(SRFlags.SupervisorMode) ? 'S' : 's');
+            flags.Append(sr.TraceMode ? 'T' : 't');
+            flags.Append(sr.SupervisorMode ? 'S' : 's');
 
-            flags.Append(((ushort)(sr & SRFlags.InterruptLevel)) >> 8);
+            flags.Append(sr.InterruptLevel);
 
-            flags.Append(sr.HasFlag(SRFlags.Extend) ? 'X' : 'x');
-            flags.Append(sr.HasFlag(SRFlags.Negative) ? 'N' : 'n');
-            flags.Append(sr.HasFlag(SRFlags.Zero) ? 'Z' : 'z');
-            flags.Append(sr.HasFlag(SRFlags.Overflow) ? 'V' : 'v');
-            flags.Append(sr.HasFlag(SRFlags.Carry) ? 'C' : 'c');
+            flags.Append(sr.Extend ? 'X' : 'x');
+            flags.Append(sr.Negative ? 'N' : 'n');
+            flags.Append(sr.Zero ? 'Z' : 'z');
+            flags.Append(sr.Overflow ? 'V' : 'v');
+            flags.Append(sr.Carry ? 'C' : 'c');
 
             return flags.ToString();
         }
@@ -553,10 +553,8 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 }
             }
 
-            // The M68000_SR_MASK from Rust is 0xA71F. We should only compare these bits.
-            const ushort SR_MASK = 0x271F; // Ignore trace bit errors for now, then -> 0xA71F
-            var expectedSr = (SRFlags)(requiredState.Sr & SR_MASK);
-            var actualSr = (SRFlags)((ushort)cpu.SR & SR_MASK);
+            var expectedSr = (SRValue)requiredState.Sr;
+            var actualSr = cpu.SR;
             bool skipSRCheck = false;
             if (instruction == "MOVE.l" && HasTrapVector(requiredState, TrapVector.AddressError))
             {
@@ -672,14 +670,14 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         private static void SetCpuState(M68KTestCaseState requiredState, Machine machine)
         {
             CPU cpu = machine.CPU;
-            cpu.WriteDataRegister(0, requiredState.D0);
-            cpu.WriteDataRegister(1, requiredState.D1);
-            cpu.WriteDataRegister(2, requiredState.D2);
-            cpu.WriteDataRegister(3, requiredState.D3);
-            cpu.WriteDataRegister(4, requiredState.D4);
-            cpu.WriteDataRegister(5, requiredState.D5);
-            cpu.WriteDataRegister(6, requiredState.D6);
-            cpu.WriteDataRegister(7, requiredState.D7);
+            cpu.WriteDataRegister(0, requiredState.D0, None);
+            cpu.WriteDataRegister(1, requiredState.D1, None);
+            cpu.WriteDataRegister(2, requiredState.D2, None);
+            cpu.WriteDataRegister(3, requiredState.D3, None);
+            cpu.WriteDataRegister(4, requiredState.D4, None);
+            cpu.WriteDataRegister(5, requiredState.D5, None);
+            cpu.WriteDataRegister(6, requiredState.D6, None);
+            cpu.WriteDataRegister(7, requiredState.D7, None);
 
             cpu.WriteAddressRegister(0, requiredState.A0);
             cpu.WriteAddressRegister(1, requiredState.A1);
@@ -689,7 +687,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             cpu.WriteAddressRegister(5, requiredState.A5);
             cpu.WriteAddressRegister(6, requiredState.A6);
 
-            cpu.SR = (SRFlags)requiredState.Sr;
+            cpu.SR = requiredState.Sr;
             if (cpu.SupervisorMode)
             {
                 cpu.USP = requiredState.Usp;

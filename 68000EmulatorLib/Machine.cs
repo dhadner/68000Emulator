@@ -65,7 +65,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 Bus = provideBus(this, bus, ramSize.Value);
             }
-            CurrentInstruction = new Instruction(0, new InstructionInfo(0, 0, "NONE", Enumerations.OpHandlerID.NONE));
+            CurrentInstruction = new Instruction(0, new InstructionInfo(0, 0, "NONE", Enumerations.OpHandlerID.NONE), None, None);
             ExecutionHandler = new OpcodeExecutionHandler(this);
             Decoder = new InstructionDecoder(this);
         }
@@ -338,7 +338,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         public virtual void SetCPUState(CPUState state)
         {
             state.ToCPU(CPU);
-            if (state.PC.HasValue && state.Prefetch != null)
+            if (state.PC.IsSome && state.Prefetch.IsSome)
             {
                 CurrentInstructionAddress = CPU.CurrentPC;
             }
@@ -765,8 +765,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 exception = null;
             }
 
-            SRFlags oldSR = CPU.SR;
-            bool traceMode = (oldSR & SRFlags.TraceMode) != 0 && EnableTracing;
+            SRValue oldSR = CPU.SR;
+            bool traceMode = oldSR.TraceMode && EnableTracing;
             if (!traceMode)
             {
                 exception = HandleInterrupt();
@@ -983,14 +983,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             FillPrefetch();
             CurrentInstructionAddress = CPU.CurrentPC;
 
-            CPU.SR |= SRFlags.SupervisorMode;
-            CPU.SR &= ~SRFlags.TraceMode;
+            CPU.SR = CPU.SR.WithSupervisorMode(true).WithTraceMode(false);
             if (evEntry.IsInterrupt)
             {
                 // Set priority = interrupt priority
-                CPU.SR &= ~SRFlags.InterruptLevel;
-                ushort level = (ushort)(te.Vector - (byte)TrapVector.Interrupt + 1);
-                CPU.SR |= (SRFlags)(level << 8);
+                byte level = (byte)(te.Vector - (byte)TrapVector.Interrupt + 1);
+                CPU.SR = CPU.SR.WithInterruptLevel(level);
             }
 
             return true;
@@ -1005,7 +1003,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         {
             uint nextInstructionPC = CPU.CurrentPC;
             uint oldPC = CurrentInstructionAddress;
-            SRFlags oldSR = CPU.SR;
+            SRValue oldSR = CPU.SR;
 
             if (!SetupException(te, out ExceptionDetails evEntry))
             {
@@ -1025,10 +1023,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             PushLong(nextInstructionPC);
             PushWord((ushort)oldSR);
             PushWord(CurrentInstruction.Opcode);
-            if (CurrentInstruction.AccessAddress.HasValue)
+            if (CurrentInstruction.AccessAddress.IsSome)
             {
                 PushLong(CurrentInstruction.AccessAddress.Value);
-                if (CurrentInstruction.AccessAddressType.HasValue && CurrentInstruction.AccessAddressType.Value == EAType.Destination)
+                if (CurrentInstruction.AccessAddressType.IsSome && CurrentInstruction.AccessAddressType.Value == EAType.Destination)
                 {
                     fcWord &= 0xffef; // Clear the "read" bit
                 }
@@ -1049,7 +1047,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         {
             uint nextInstructionPC = CPU.CurrentPC;
             uint oldPC = CurrentInstructionAddress;
-            SRFlags oldSR = CPU.SR;
+            SRValue oldSR = CPU.SR;
 
             if (!SetupException(te, out ExceptionDetails evEntry))
             {
@@ -1066,14 +1064,12 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             CPU.Prefetch.Clear();
             FillPrefetch();
 
-            CPU.SR |= SRFlags.SupervisorMode;
-            CPU.SR &= ~SRFlags.TraceMode;
+            CPU.SR = CPU.SR.WithSupervisorMode(true).WithTraceMode(false);
             if (evEntry.IsInterrupt)
             {
                 // Set priority = interrupt priority
-                CPU.SR &= ~SRFlags.InterruptLevel;
-                ushort level = (ushort)(te.Vector - (byte)TrapVector.Interrupt + 1);
-                CPU.SR |= (SRFlags)(level << 8);
+                byte level = (byte)(te.Vector - (byte)TrapVector.Interrupt + 1);
+                CPU.SR = CPU.SR.WithInterruptLevel(level);
             }
 
             // Get name of trap if applicable

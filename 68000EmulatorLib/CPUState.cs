@@ -24,102 +24,102 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <summary>
         /// Gets or sets the value of the D0 register.
         /// </summary>
-        public uint? D0 { get; set; }
+        public Option<uint> D0 { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the D1 register.
         /// </summary>
-        public uint? D1 { get; set; }
+        public Option<uint> D1 { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the D2 register.
         /// </summary>
-        public uint? D2 { get; set; }
+        public Option<uint> D2 { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the D3 register.
         /// </summary>
-        public uint? D3 { get; set; }
+        public Option<uint> D3 { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the D4 register.
         /// </summary>
-        public uint? D4 { get; set; }
+        public Option<uint> D4 { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the D5 register.
         /// </summary>
-        public uint? D5 { get; set; }
+        public Option<uint> D5 { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the D6 register.
         /// </summary>
-        public uint? D6 { get; set; }
+        public Option<uint> D6 { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the D7 register.
         /// </summary>
-        public uint? D7 { get; set; }
+        public Option<uint> D7 { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the A0 register.
         /// </summary>
-        public uint? A0 { get; set; }
+        public Option<uint> A0 { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the A1 register.
         /// </summary>
-        public uint? A1 { get; set; }
+        public Option<uint> A1 { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the A2 register.
         /// </summary>
-        public uint? A2 { get; set; }
+        public Option<uint> A2 { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the A3 register.
         /// </summary>
-        public uint? A3 { get; set; }
+        public Option<uint> A3 { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the A4 register.
         /// </summary>
-        public uint? A4 { get; set; }
+        public Option<uint> A4 { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the A5 register.
         /// </summary>
-        public uint? A5 { get; set; }
+        public Option<uint> A5 { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the A6 register.
         /// </summary>
-        public uint? A6 { get; set; }
+        public Option<uint> A6 { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the A7 register.
         /// </summary>
-        public uint? A7 { get; set; }
+        public Option<uint> A7 { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the USP register.
         /// </summary>
-        public uint? USP { get; set; }
+        public Option<uint> USP { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the SSP register.
         /// </summary>
-        public uint? SSP { get; set; }
+        public Option<uint> SSP { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the Status Register.
         /// </summary>
-        public SRFlags? SR { get; set; }
+        public Option<SRValue> SR { get; set; }
 
         /// <summary>
         /// Gets or sets the value of the Program Counter.
         /// </summary>
-        public uint? PC { get; set; }
+        public Option<uint> PC { get; set; }
 
         /// <summary>
         /// Current PC taking into account the prefetch queue.
@@ -127,26 +127,25 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// to give the address of the next instruction to be executed or next
         /// extension word to be read.
         /// </summary>
-        public uint? CurrentPC
+        public Option<uint> CurrentPC
         {
             get
             {
-                if (PC.HasValue)
+                if (PC.IsSome)
                 {
-                    if (Prefetch != null)
+                    if (Prefetch.IsSome)
                     {
-                        return PC.Value - Prefetch.Size;
+                        return PC.Value - Prefetch.Value.Size;
                     }
-                    return PC.Value;
                 }
-                return null;
+                return PC;
             }
         }
 
         /// <summary>
         /// Prefetch queue state.
         /// </summary>
-        public PrefetchQueue? Prefetch { get; set; }
+        public Option<PrefetchQueue> Prefetch { get; set; }
 
         /// <summary>
         /// Transfer values from this <see cref="CPUState"/> instance into the settings in
@@ -158,94 +157,94 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
         /// <param name="cpu">The <see cref="CPU"/> instance into which the state values should be transferred.</param>
         public void ToCPU(CPU cpu)
         {
-            if (D0.HasValue)
+            if (D0.IsSome)
             {
-                cpu.WriteDataRegister(0, D0.Value);
+                cpu.WriteDataRegister(0, D0.Value, None);
             }
-            if (D1.HasValue)
+            if (D1.IsSome)
             {
-                cpu.WriteDataRegister(1, D1.Value);
+                cpu.WriteDataRegister(1, D1.Value, None);
             }
-            if (D2.HasValue)
+            if (D2.IsSome)
             {
-                cpu.WriteDataRegister(2, D2.Value);
+                cpu.WriteDataRegister(2, D2.Value, None);
             }
-            if (D3.HasValue)
+            if (D3.IsSome)
             {
-                cpu.WriteDataRegister(3, D3.Value);
+                cpu.WriteDataRegister(3, D3.Value, None);
             }
-            if (D4.HasValue)
+            if (D4.IsSome)
             {
-                cpu.WriteDataRegister(4, D4.Value);
+                cpu.WriteDataRegister(4, D4.Value, None);
             }
-            if (D5.HasValue)
+            if (D5.IsSome)
             {
-                cpu.WriteDataRegister(5, D5.Value);
+                cpu.WriteDataRegister(5, D5.Value, None);
             }
-            if (D6.HasValue)
+            if (D6.IsSome)
             {
-                cpu.WriteDataRegister(6, D6.Value);
+                cpu.WriteDataRegister(6, D6.Value, None);
             }
-            if (D7.HasValue)
+            if (D7.IsSome)
             {
-                cpu.WriteDataRegister(7, D7.Value);
+                cpu.WriteDataRegister(7, D7.Value, None);
             }
 
-            if (A0.HasValue)
+            if (A0.IsSome)
             {
                 cpu.WriteAddressRegister(0, A0.Value);
             }
-            if (A1.HasValue)
+            if (A1.IsSome)
             {
                 cpu.WriteAddressRegister(1, A1.Value);
             }
-            if (A2.HasValue)
+            if (A2.IsSome)
             {
                 cpu.WriteAddressRegister(2, A2.Value);
             }
-            if (A3.HasValue)
+            if (A3.IsSome)
             {
                 cpu.WriteAddressRegister(3, A3.Value);
             }
-            if (A4.HasValue)
+            if (A4.IsSome)
             {
                 cpu.WriteAddressRegister(4, A4.Value);
             }
-            if (A5.HasValue)
+            if (A5.IsSome)
             {
                 cpu.WriteAddressRegister(5, A5.Value);
             }
-            if (A6.HasValue)
+            if (A6.IsSome)
             {
                 cpu.WriteAddressRegister(6, A6.Value);
             }
-            if (A7.HasValue)
+            if (A7.IsSome)
             {
                 cpu.WriteAddressRegister(7, A7.Value);
             }
 
-            if (USP.HasValue)
+            if (USP.IsSome)
             {
                 cpu.USP = USP.Value;
             }
-            if (SSP.HasValue)
+            if (SSP.IsSome)
             {
                 cpu.SSP = SSP.Value;
             }
 
-            if (SR.HasValue)
+            if (SR.IsSome)
             {
                 cpu.SR = SR.Value;
             }
 
-            if (PC.HasValue)
+            if (PC.IsSome)
             {
                 cpu.PC = PC.Value;
             }
 
-            if (Prefetch != null)
+            if (Prefetch.IsSome)
             {
-                cpu.Prefetch.From(Prefetch!);
+                cpu.Prefetch.From(Prefetch.Value);
             }
         }
 

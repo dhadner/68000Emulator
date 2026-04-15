@@ -892,7 +892,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="sb"></param>
             protected OpSize AppendSizeAndTab(Instruction inst, StringBuilder sb)
             {
-                OpSize size = inst.Size ?? OpSize.Word;
+                OpSize size = inst.Size.IsSome ? inst.Size.Value : OpSize.Word;
                 AppendSizeAndTab(size, sb);
                 return size;
             }
@@ -1009,22 +1009,22 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns>Operand</returns>
             protected Operand EffectiveAddressOp(Instruction instruction, EAType eaType)
             {
-                ushort? ea = eaType == EAType.Source ? instruction.SourceAddrMode : instruction.DestAddrMode;
-                ushort? ext1 = eaType == EAType.Source ? instruction.SourceExtWord1 : instruction.DestExtWord1;
-                ushort? ext2 = eaType == EAType.Source ? instruction.SourceExtWord2 : instruction.DestExtWord2;
+                Option<byte> ea = eaType == EAType.Source ? instruction.SourceAddrMode : instruction.DestAddrMode;
+                Option<ushort> ext1 = eaType == EAType.Source ? instruction.SourceExtWord1 : instruction.DestExtWord1;
+                Option<ushort> ext2 = eaType == EAType.Source ? instruction.SourceExtWord2 : instruction.DestExtWord2;
 
                 uint? address;
                 uint? immVal;
                 bool isMemory = true;
                 OpSize? size = null;
                 Operand? operand = null;
-                if (ea.HasValue)
+                if (ea.IsSome)
                 {
-                    OpSize opSize = instruction.Size ?? OpSize.Word;
+                    OpSize opSize = instruction.Size.IsSome ? instruction.Size.Value : OpSize.Word;
 
                     // Get register number (for addressing modes that use a register)
-                    ushort regNum = (ushort)(ea & 0x0007);
-                    switch (ea & 0x0038)
+                    ushort regNum = (ushort)(ea.Value & 0x0007);
+                    switch (ea.Value & 0x0038)
                     {
                         case (byte)AddrMode.DataRegister:
                             operand = new DataRegisterOperand(regNum, opSize);
@@ -1056,7 +1056,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                             }
                             break;
                         case 0x0038:
-                            switch (ea)
+                            switch (ea.Value)
                             {
                                 case (byte)AddrMode.AbsShort:
                                     address = ext1!.Value | ((ext1!.Value & 0x8000) == 0 ? 0x0 : 0xFFFF0000);
@@ -1070,9 +1070,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                 case (byte)AddrMode.PCDisp:
                                     {
                                         int pcDecrement = 2; // Assume source, PC just after ext1 or dest, PC just after ext1
-                                        if (eaType == EAType.Source && instruction.DestExtWord1 != null)
+                                        if (eaType == EAType.Source && instruction.DestExtWord1.IsSome)
                                         {
-                                            pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
+                                            pcDecrement += (instruction.DestExtWord2.IsNone) ? 2 : 4;
                                         }
 
                                         address = (uint)((int)Machine.CPU.CurrentPC - pcDecrement + (short)ext1!.Value);
@@ -1089,9 +1089,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                                         // PC has been incremented past the extension word.  The definition of
                                         // PC displacement uses the value of the extension word address as the PC value.
                                         int pcDecrement = 2; // Assume source, PC just after ext1 or dest, PC just after ext1
-                                        if (eaType == EAType.Source && instruction.DestExtWord1 != null)
+                                        if (eaType == EAType.Source && instruction.DestExtWord1.IsSome)
                                         {
-                                            pcDecrement += (instruction.DestExtWord2 == null) ? 2 : 4;
+                                            pcDecrement += (instruction.DestExtWord2.IsNone) ? 2 : 4;
                                         }
                                         uint baseAddress = (uint)((int)Machine.CPU.CurrentPC - pcDecrement + (sbyte)disp);
 
@@ -1161,7 +1161,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <returns></returns>
             protected static bool HasSourceExtWord1(Instruction inst, StringBuilder sb)
             {
-                if (inst.SourceExtWord1.HasValue)
+                if (inst.SourceExtWord1.IsSome)
                 {
                     return true;
                 }
@@ -1232,7 +1232,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sb.AppendTab(EA_COLUMN);
 
                 // SourceExtWord1 holds the immediate operand value.
-                if (inst.SourceExtWord1.HasValue)
+                if (inst.SourceExtWord1.IsSome)
                 {
                     ushort value = inst.SourceExtWord1.Value;
 
@@ -1358,7 +1358,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 op.Size = AppendSizeAndTab(inst, sb);
                 int dRegNum = (inst.Opcode & 0x0E00) >> 9;
                 bool dnDest = (inst.Opcode & 0x0100) == 0;
-                EAType eaType = inst.SourceAddrMode.HasValue ? EAType.Source : EAType.Destination;
+                EAType eaType = inst.SourceAddrMode.IsSome ? EAType.Source : EAType.Destination;
                 if (dnDest)
                 {
                     op.Operands.Add(EffectiveAddressOp(inst, eaType));
@@ -1434,9 +1434,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 byte aRegNum = (byte)(inst.Opcode & 0x0007);
                 byte dRegNum = (byte)((inst.Opcode & 0x0E00) >> 9);
                 bool memToReg = (inst.Opcode & 0x0080) == 0;
-                if (inst.SourceExtWord1.HasValue)
+                if (inst.SourceExtWord1.IsSome)
                 {
-                    int disp = Helpers.SignExtendValue((uint)inst.SourceExtWord1, OpSize.Word);
+                    int disp = Helpers.SignExtendValue((uint)inst.SourceExtWord1.Value, OpSize.Word);
 
                     if (memToReg)
                     {
@@ -1461,9 +1461,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             protected Operation? MOVEM(Instruction inst, StringBuilder sb)
             {
                 Operation op = AppendMnemonic(inst, sb);
-                OpSize size = inst.Size ?? OpSize.Long;
+                OpSize size = inst.Size.IsSome ? inst.Size.Value : OpSize.Long;
                 op.Size = AppendSizeAndTab(size, sb);
-                if (inst.SourceExtWord1.HasValue)
+                if (inst.SourceExtWord1.IsSome)
                 {
                     ushort regMask = inst.SourceExtWord1.Value;
                     bool regToMem = (inst.Opcode & 0x0400) == 0;
@@ -1577,10 +1577,10 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 Operation op = AppendMnemonic(inst, sb);
                 sb.AppendTab(EA_COLUMN);
 
-                if (inst.SourceExtWord1.HasValue)
+                if (inst.SourceExtWord1.IsSome)
                 {
                     byte regNum = (byte)(inst.Opcode & 0x0007);
-                    int disp = Helpers.SignExtendValue((uint)inst.SourceExtWord1, OpSize.Word);
+                    int disp = Helpers.SignExtendValue((uint)inst.SourceExtWord1.Value, OpSize.Word);
 
                     op.Operands.Add(new AddressRegisterOperand(regNum));
                     op.Operands.Add(new ImmediateOperand(disp));
@@ -1633,7 +1633,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 if (disp == 0)
                 {
                     // 16-bit displacement, uses ExtWord1
-                    if (inst.SourceExtWord1.HasValue)
+                    if (inst.SourceExtWord1.IsSome)
                     {
                         // Byte displacement is zero so use the extension word value as a 16-bit displacement.
                         disp = Helpers.SignExtendValue(inst.SourceExtWord1.Value, OpSize.Word);
@@ -1684,7 +1684,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 if (disp == 0)
                 {
                     // Byte displacement is zero so use the extension word value as a 16-bit displacement.
-                    if (inst.SourceExtWord1.HasValue)
+                    if (inst.SourceExtWord1.IsSome)
                     {
                         disp = Helpers.SignExtendValue(inst.SourceExtWord1.Value, OpSize.Word);
 
@@ -1782,9 +1782,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
 
                 // Note: extra -2 to account for PC pointing at the next instruction, not on the extension word for the
                 // current instruction (as the displacement for DBcc instructions assumes)
-                if (inst.SourceExtWord1.HasValue)
+                if (inst.SourceExtWord1.IsSome)
                 {
-                    int disp = Helpers.SignExtendValue((uint)inst.SourceExtWord1, OpSize.Word) - 2;
+                    int disp = Helpers.SignExtendValue((uint)inst.SourceExtWord1.Value, OpSize.Word) - 2;
                     uint address = (uint)(pc + disp);
                     op.Operands.Add(new DataRegisterOperand(dRegNum));
                     op.Operands.Add(new LabelOperand(address));
@@ -1854,9 +1854,9 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 }
                 else
                 {
-                    if (inst.SourceExtWord1.HasValue)
+                    if (inst.SourceExtWord1.IsSome)
                     {
-                        bitNum = (uint)inst.SourceExtWord1;
+                        bitNum = (uint)inst.SourceExtWord1.Value;
                     }
                 }
 
@@ -2069,7 +2069,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 sb.AppendTab(EA_COLUMN);
 
                 var data = inst.SourceExtWord1;
-                if (data.HasValue)
+                if (data.IsSome)
                 {
                     op.Operands.Add(new ImmediateOperand(data.Value));
 

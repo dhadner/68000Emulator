@@ -38,7 +38,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
                 D7 = 0x0088,
                 USP = 0x2000,
                 SSP = 0x3000,
-                SR = 0,
+                SR = (SRValue)0,
                 PC = 0x4000
             };
             machine.SetCPUState(state);
@@ -241,7 +241,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.CPU.Prefetch.Clear();
 
             InstructionInfo info = new(0, 0xffff, "NONE", OpHandlerID.NONE);
-            Instruction inst = new Instruction(0, info, size, addrMode, srcExt1, srcExt2, addrMode, destExt1, destExt2);
+            Instruction inst = new Instruction(0, info, size, addrMode, FromNullable(srcExt1), FromNullable(srcExt2), addrMode, FromNullable(destExt1), FromNullable(destExt2));
             var (dataRegNum, addrRegNum, address, immValue) = machine.ExecutionHandler.EvaluateEffectiveAddress(inst, eaType);
 
             // Assert
@@ -345,7 +345,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
             {
-                SR = SRFlags.Zero
+                SR = (SRValue)0x0004
             };
             machine.SetCPUState(initState);
 
@@ -353,7 +353,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(SRFlags.Zero | SRFlags.Extend, machine.CPU.SR);
+            Assert.Equal((SRValue)0x0014, machine.CPU.SR);
         }
 
         [Fact]
@@ -365,7 +365,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
             {
-                SR = SRFlags.Zero | SRFlags.SupervisorMode
+                SR = (SRValue)0x2004
             };
             machine.SetCPUState(initState);
 
@@ -373,7 +373,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(SRFlags.Zero | SRFlags.SupervisorMode, machine.CPU.SR);
+            Assert.Equal((SRValue)0x2004, machine.CPU.SR);
         }
 
         [Fact]
@@ -401,16 +401,16 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0x00000000, OpSize.Byte, SRFlags.Zero)]
-        [InlineData(0x000000AA, OpSize.Byte, SRFlags.Negative)]
-        [InlineData(0x00000020, OpSize.Byte, (SRFlags)0)]
-        [InlineData(0x00000000, OpSize.Word, SRFlags.Zero)]
-        [InlineData(0x0000AA55, OpSize.Word, SRFlags.Negative)]
-        [InlineData(0x00002020, OpSize.Word, (SRFlags)0)]
-        [InlineData(0x00000000, OpSize.Long, SRFlags.Zero)]
-        [InlineData(0x00008000, OpSize.Long, (SRFlags)0)]
-        [InlineData(0x87654321, OpSize.Long, SRFlags.Negative)]
-        public void ORI_FlagsTest(uint orValue, OpSize size, SRFlags expectedFlags)
+        [InlineData(0x00000000, OpSize.Byte, (ushort)0x0004)]
+        [InlineData(0x000000AA, OpSize.Byte, (ushort)0x0008)]
+        [InlineData(0x00000020, OpSize.Byte, (ushort)0x0000)]
+        [InlineData(0x00000000, OpSize.Word, (ushort)0x0004)]
+        [InlineData(0x0000AA55, OpSize.Word, (ushort)0x0008)]
+        [InlineData(0x00002020, OpSize.Word, (ushort)0x0000)]
+        [InlineData(0x00000000, OpSize.Long, (ushort)0x0004)]
+        [InlineData(0x00008000, OpSize.Long, (ushort)0x0000)]
+        [InlineData(0x87654321, OpSize.Long, (ushort)0x0008)]
+        public void ORI_FlagsTest(uint orValue, OpSize size, ushort expectedFlags)
         {
             ushort[] code = size switch
             {
@@ -430,7 +430,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Fact]
@@ -442,7 +442,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
             {
-                SR = SRFlags.Negative | SRFlags.Carry | SRFlags.SupervisorMode
+                SR = (SRValue)0x2009
             };
             machine.SetCPUState(initState);
 
@@ -450,7 +450,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(SRFlags.Negative | SRFlags.SupervisorMode, machine.CPU.SR);
+            Assert.Equal((SRValue)0x2008, machine.CPU.SR);
         }
 
         [Fact]
@@ -462,7 +462,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
             {
-                SR = SRFlags.Negative | SRFlags.Carry | SRFlags.SupervisorMode
+                SR = (SRValue)0x2009
             };
             machine.SetCPUState(initState);
 
@@ -470,7 +470,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(SRFlags.Negative | SRFlags.Carry, machine.CPU.SR);
+            Assert.Equal((SRValue)0x0009, machine.CPU.SR);
         }
 
         [Fact]
@@ -498,16 +498,16 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0x00000000, OpSize.Byte, SRFlags.Zero)]
-        [InlineData(0x000000AA, OpSize.Byte, (SRFlags)0)]
-        [InlineData(0x00000020, OpSize.Byte, (SRFlags)0)]
-        [InlineData(0x00000000, OpSize.Word, SRFlags.Zero)]
-        [InlineData(0x0000AA55, OpSize.Word, SRFlags.Negative)]
-        [InlineData(0x00002020, OpSize.Word, (SRFlags)0)]
-        [InlineData(0x00000000, OpSize.Long, SRFlags.Zero)]
-        [InlineData(0x00008000, OpSize.Long, (SRFlags)0)]
-        [InlineData(0xFEDCBA98, OpSize.Long, SRFlags.Negative)]
-        public void ANDI_FlagsTest(uint andValue, OpSize size, SRFlags expectedFlags)
+        [InlineData(0x00000000, OpSize.Byte, (ushort)0x0004)]
+        [InlineData(0x000000AA, OpSize.Byte, (ushort)0x0000)]
+        [InlineData(0x00000020, OpSize.Byte, (ushort)0x0000)]
+        [InlineData(0x00000000, OpSize.Word, (ushort)0x0004)]
+        [InlineData(0x0000AA55, OpSize.Word, (ushort)0x0008)]
+        [InlineData(0x00002020, OpSize.Word, (ushort)0x0000)]
+        [InlineData(0x00000000, OpSize.Long, (ushort)0x0004)]
+        [InlineData(0x00008000, OpSize.Long, (ushort)0x0000)]
+        [InlineData(0xFEDCBA98, OpSize.Long, (ushort)0x0008)]
+        public void ANDI_FlagsTest(uint andValue, OpSize size, ushort expectedFlags)
         {
             ushort[] code = size switch
             {
@@ -527,7 +527,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
 
@@ -558,11 +558,11 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0x00000000, SRFlags.Negative)]
-        [InlineData(0x00008765, SRFlags.Zero)]
-        [InlineData(0x00004321, SRFlags.Overflow)]
-        [InlineData(0x0000F321, SRFlags.Carry | SRFlags.Extend | SRFlags.Negative)]
-        public void SUBI_FlagsTest(uint subValue, SRFlags expectedFlags)
+        [InlineData(0x00000000, (ushort)0x0008)]
+        [InlineData(0x00008765, (ushort)0x0004)]
+        [InlineData(0x00004321, (ushort)0x0002)]
+        [InlineData(0x0000F321, (ushort)0x0019)]
+        public void SUBI_FlagsTest(uint subValue, ushort expectedFlags)
         {
             ushort[] code = [0x0442, (ushort)subValue];    // subi.w #<orValue>,d2
             Machine machine = new();
@@ -577,7 +577,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Fact]
@@ -607,12 +607,12 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0x00000000, (SRFlags)0)]
-        [InlineData(0x00004000, SRFlags.Overflow | SRFlags.Negative)]
-        [InlineData(0x0000CA99, SRFlags.Carry | SRFlags.Extend)]
-        [InlineData(0x0000BA99, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]
-        [InlineData(0x00001234, (SRFlags)0)]
-        public void ADDI_FlagsTest(uint addValue, SRFlags expectedFlags)
+        [InlineData(0x00000000, (ushort)0x0000)]
+        [InlineData(0x00004000, (ushort)0x000A)]
+        [InlineData(0x0000CA99, (ushort)0x0011)]
+        [InlineData(0x0000BA99, (ushort)0x0015)]
+        [InlineData(0x00001234, (ushort)0x0000)]
+        public void ADDI_FlagsTest(uint addValue, ushort expectedFlags)
         {
             ushort[] code = new ushort[] { 0x0642, (ushort)addValue };    // addi.w #<orValue>,d2
             Machine machine = new Machine();
@@ -627,7 +627,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Fact]
@@ -639,7 +639,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
             {
-                SR = SRFlags.Zero | SRFlags.Carry
+                SR = (SRValue)0x0005
             };
             machine.SetCPUState(initState);
 
@@ -647,7 +647,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(SRFlags.Zero | SRFlags.Negative | SRFlags.Extend, machine.CPU.SR);
+            Assert.Equal((SRValue)0x001C, machine.CPU.SR);
         }
 
         [Fact]
@@ -659,7 +659,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
             {
-                SR = SRFlags.Zero | SRFlags.TraceMode | SRFlags.SupervisorMode
+                SR = (SRValue)0xA004
             };
             machine.SetCPUState(initState);
 
@@ -668,7 +668,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             Assert.NotNull(exception);
 
             // Assert
-            Assert.Equal(SRFlags.Zero, machine.CPU.SR);
+            Assert.Equal((SRValue)0x0004, machine.CPU.SR);
         }
 
         [Fact]
@@ -696,16 +696,16 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0x00000000, OpSize.Byte, (SRFlags)0)]
-        [InlineData(0x00000078, OpSize.Byte, SRFlags.Zero)]
-        [InlineData(0x00000080, OpSize.Byte, SRFlags.Negative)]
-        [InlineData(0x00000000, OpSize.Word, (SRFlags)0)]
-        [InlineData(0x00005678, OpSize.Word, SRFlags.Zero)]
-        [InlineData(0x00008765, OpSize.Word, SRFlags.Negative)]
-        [InlineData(0x00000000, OpSize.Long, (SRFlags)0)]
-        [InlineData(0x12345678, OpSize.Long, SRFlags.Zero)]
-        [InlineData(0x87654321, OpSize.Long, SRFlags.Negative)]
-        public void EORI_FlagsTest(uint eorValue, OpSize size, SRFlags expectedFlags)
+        [InlineData(0x00000000, OpSize.Byte, (ushort)0x0000)]
+        [InlineData(0x00000078, OpSize.Byte, (ushort)0x0004)]
+        [InlineData(0x00000080, OpSize.Byte, (ushort)0x0008)]
+        [InlineData(0x00000000, OpSize.Word, (ushort)0x0000)]
+        [InlineData(0x00005678, OpSize.Word, (ushort)0x0004)]
+        [InlineData(0x00008765, OpSize.Word, (ushort)0x0008)]
+        [InlineData(0x00000000, OpSize.Long, (ushort)0x0000)]
+        [InlineData(0x12345678, OpSize.Long, (ushort)0x0004)]
+        [InlineData(0x87654321, OpSize.Long, (ushort)0x0008)]
+        public void EORI_FlagsTest(uint eorValue, OpSize size, ushort expectedFlags)
         {
             ushort[] code = size switch
             {
@@ -725,21 +725,21 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0x00000000, OpSize.Byte, (SRFlags)0)]
-        [InlineData(0x00000078, OpSize.Byte, SRFlags.Zero)]
-        [InlineData(0x0000007F, OpSize.Byte, SRFlags.Carry | SRFlags.Negative)]
-        [InlineData(0x00000000, OpSize.Word, (SRFlags)0)]
-        [InlineData(0x00005678, OpSize.Word, SRFlags.Zero)]
-        [InlineData(0x0000AA55, OpSize.Word, SRFlags.Negative | SRFlags.Carry | SRFlags.Overflow)]
-        [InlineData(0x00002020, OpSize.Word, (SRFlags)0)]
-        [InlineData(0x00000000, OpSize.Long, (SRFlags)0)]
-        [InlineData(0x02345678, OpSize.Long, (SRFlags)0)]
-        [InlineData(0xFEDCBA98, OpSize.Long, SRFlags.Carry)]
-        public void CMPI(uint cmpValue, OpSize size, SRFlags expectedFlags)
+        [InlineData(0x00000000, OpSize.Byte, (ushort)0x0000)]
+        [InlineData(0x00000078, OpSize.Byte, (ushort)0x0004)]
+        [InlineData(0x0000007F, OpSize.Byte, (ushort)0x0009)]
+        [InlineData(0x00000000, OpSize.Word, (ushort)0x0000)]
+        [InlineData(0x00005678, OpSize.Word, (ushort)0x0004)]
+        [InlineData(0x0000AA55, OpSize.Word, (ushort)0x000B)]
+        [InlineData(0x00002020, OpSize.Word, (ushort)0x0000)]
+        [InlineData(0x00000000, OpSize.Long, (ushort)0x0000)]
+        [InlineData(0x02345678, OpSize.Long, (ushort)0x0000)]
+        [InlineData(0xFEDCBA98, OpSize.Long, (ushort)0x0001)]
+        public void CMPI(uint cmpValue, OpSize size, ushort expectedFlags)
         {
             ushort[] code = size switch
             {
@@ -759,7 +759,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Fact]
@@ -827,7 +827,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             CPUState initState = new CPUState
             {
                 D1 = 0x12345678,
-                SR = SRFlags.Overflow | SRFlags.Zero | SRFlags.SupervisorMode
+                SR = (SRValue)0x2006
             };
             machine.SetCPUState(initState);
 
@@ -848,7 +848,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             CPUState initState = new CPUState
             {
                 A2 = 0x00003000,
-                SR = SRFlags.Overflow | SRFlags.Zero | SRFlags.SupervisorMode
+                SR = (SRValue)0x2006
             };
             machine.SetCPUState(initState);
             ushort[] data = [0x8415];
@@ -871,7 +871,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
             {
-                SR = SRFlags.Overflow | SRFlags.Zero | SRFlags.SupervisorMode
+                SR = (SRValue)0x2006
             };
             machine.SetCPUState(initState);
             ushort[] data = [0x2012];
@@ -892,19 +892,19 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0x00000000, OpSize.Byte, (SRFlags)0, 0x00000000)]
-        [InlineData(0x00000000, OpSize.Byte, SRFlags.Extend, 0x000000FF)]
-        [InlineData(0x00000070, OpSize.Byte, (SRFlags)0, 0x00000090)]
-        [InlineData(0x00000070, OpSize.Byte, SRFlags.Extend, 0x0000008F)]
-        [InlineData(0x00000000, OpSize.Word, (SRFlags)0, 0x00000000)]
-        [InlineData(0x00000000, OpSize.Word, SRFlags.Extend, 0x0000FFFF)]
-        [InlineData(0x00007070, OpSize.Word, (SRFlags)0, 0x00008F90)]
-        [InlineData(0x00007070, OpSize.Word, SRFlags.Extend, 0x00008F8F)]
-        [InlineData(0x00000000, OpSize.Long, (SRFlags)0, 0x00000000)]
-        [InlineData(0x00000000, OpSize.Long, SRFlags.Extend, 0xFFFFFFFF)]
-        [InlineData(0x80807070, OpSize.Long, (SRFlags)0, 0x7F7F8F90)]
-        [InlineData(0x80807070, OpSize.Long, SRFlags.Extend, 0x7F7F8F8F)]
-        public void NEGX(uint value, OpSize size, SRFlags initFlags, uint expectedResult)
+        [InlineData(0x00000000, OpSize.Byte, (ushort)0x0000, 0x00000000)]
+        [InlineData(0x00000000, OpSize.Byte, (ushort)0x0010, 0x000000FF)]
+        [InlineData(0x00000070, OpSize.Byte, (ushort)0x0000, 0x00000090)]
+        [InlineData(0x00000070, OpSize.Byte, (ushort)0x0010, 0x0000008F)]
+        [InlineData(0x00000000, OpSize.Word, (ushort)0x0000, 0x00000000)]
+        [InlineData(0x00000000, OpSize.Word, (ushort)0x0010, 0x0000FFFF)]
+        [InlineData(0x00007070, OpSize.Word, (ushort)0x0000, 0x00008F90)]
+        [InlineData(0x00007070, OpSize.Word, (ushort)0x0010, 0x00008F8F)]
+        [InlineData(0x00000000, OpSize.Long, (ushort)0x0000, 0x00000000)]
+        [InlineData(0x00000000, OpSize.Long, (ushort)0x0010, 0xFFFFFFFF)]
+        [InlineData(0x80807070, OpSize.Long, (ushort)0x0000, 0x7F7F8F90)]
+        [InlineData(0x80807070, OpSize.Long, (ushort)0x0010, 0x7F7F8F8F)]
+        public void NEGX(uint value, OpSize size, ushort initFlags, uint expectedResult)
         {
             ushort[] code = size switch
             {
@@ -917,7 +917,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             CPUState initState = new CPUState
             {
                 D1 = value,
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
 
@@ -929,17 +929,17 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0x00000000, OpSize.Byte, SRFlags.Negative, (SRFlags)0)]
-        [InlineData(0x00000000, OpSize.Byte, SRFlags.Extend, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]
-        [InlineData(0x00000070, OpSize.Byte, (SRFlags)0, SRFlags.Carry | SRFlags.Negative | SRFlags.Extend)]
-        [InlineData(0x00000090, OpSize.Byte, SRFlags.Extend, SRFlags.Carry | SRFlags.Extend)]
-        [InlineData(0x00000000, OpSize.Word, SRFlags.Extend, SRFlags.Carry | SRFlags.Negative | SRFlags.Extend)]
-        [InlineData(0x00007070, OpSize.Word, (SRFlags)0, SRFlags.Carry | SRFlags.Negative | SRFlags.Extend)]
-        [InlineData(0x00008070, OpSize.Word, SRFlags.Extend, SRFlags.Carry | SRFlags.Extend)]
-        [InlineData(0x00000000, OpSize.Long, SRFlags.Extend, SRFlags.Carry | SRFlags.Negative | SRFlags.Extend)]
-        [InlineData(0x70807070, OpSize.Long, (SRFlags)0, SRFlags.Carry | SRFlags.Negative | SRFlags.Extend)]
-        [InlineData(0x80807070, OpSize.Long, SRFlags.Extend, SRFlags.Carry | SRFlags.Extend)]
-        public void NEGX_FlagsTest(uint value, OpSize size, SRFlags initFlags, SRFlags expectedFlags)
+        [InlineData(0x00000000, OpSize.Byte, (ushort)0x0008, (ushort)0x0000)]
+        [InlineData(0x00000000, OpSize.Byte, (ushort)0x0010, (ushort)0x0019)]
+        [InlineData(0x00000070, OpSize.Byte, (ushort)0x0000, (ushort)0x0019)]
+        [InlineData(0x00000090, OpSize.Byte, (ushort)0x0010, (ushort)0x0011)]
+        [InlineData(0x00000000, OpSize.Word, (ushort)0x0010, (ushort)0x0019)]
+        [InlineData(0x00007070, OpSize.Word, (ushort)0x0000, (ushort)0x0019)]
+        [InlineData(0x00008070, OpSize.Word, (ushort)0x0010, (ushort)0x0011)]
+        [InlineData(0x00000000, OpSize.Long, (ushort)0x0010, (ushort)0x0019)]
+        [InlineData(0x70807070, OpSize.Long, (ushort)0x0000, (ushort)0x0019)]
+        [InlineData(0x80807070, OpSize.Long, (ushort)0x0010, (ushort)0x0011)]
+        public void NEGX_FlagsTest(uint value, OpSize size, ushort initFlags, ushort expectedFlags)
         {
             ushort[] code = size switch
             {
@@ -952,7 +952,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             CPUState initState = new CPUState
             {
                 D1 = value,
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
 
@@ -960,7 +960,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Fact]
@@ -990,15 +990,15 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0x00000000, OpSize.Byte, 0x00000000, SRFlags.Zero)]
-        [InlineData(0x00000070, OpSize.Byte, 0x00000090, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]
-        [InlineData(0x00000000, OpSize.Word, 0x00000000, SRFlags.Zero)]
-        [InlineData(0x00007070, OpSize.Word, 0x00008F90, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]
-        [InlineData(0x00008070, OpSize.Word, 0x00007F90, SRFlags.Carry | SRFlags.Extend)]
-        [InlineData(0x00000000, OpSize.Long, 0x00000000, SRFlags.Zero)]
-        [InlineData(0x70807070, OpSize.Long, 0x8F7F8F90, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]
-        [InlineData(0x80807070, OpSize.Long, 0x7F7F8F90, SRFlags.Carry | SRFlags.Extend)]
-        public void NEG(uint value, OpSize size, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(0x00000000, OpSize.Byte, 0x00000000, (ushort)0x0004)]
+        [InlineData(0x00000070, OpSize.Byte, 0x00000090, (ushort)0x0019)]
+        [InlineData(0x00000000, OpSize.Word, 0x00000000, (ushort)0x0004)]
+        [InlineData(0x00007070, OpSize.Word, 0x00008F90, (ushort)0x0019)]
+        [InlineData(0x00008070, OpSize.Word, 0x00007F90, (ushort)0x0011)]
+        [InlineData(0x00000000, OpSize.Long, 0x00000000, (ushort)0x0004)]
+        [InlineData(0x70807070, OpSize.Long, 0x8F7F8F90, (ushort)0x0019)]
+        [InlineData(0x80807070, OpSize.Long, 0x7F7F8F90, (ushort)0x0011)]
+        public void NEG(uint value, OpSize size, uint expectedResult, ushort expectedFlags)
         {
             ushort[] code = size switch
             {
@@ -1019,20 +1019,20 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0x00000000, OpSize.Byte, 0x000000FF, SRFlags.Negative)]
-        [InlineData(0x000000FF, OpSize.Byte, 0x00000000, SRFlags.Zero)]
-        [InlineData(0x00000080, OpSize.Byte, 0x0000007F, (SRFlags)0)]
-        [InlineData(0x00000000, OpSize.Word, 0x0000FFFF, SRFlags.Negative)]
-        [InlineData(0x0000FFFF, OpSize.Word, 0x00000000, SRFlags.Zero)]
-        [InlineData(0x00008000, OpSize.Word, 0x00007FFF, (SRFlags)0)]
-        [InlineData(0x00000000, OpSize.Long, 0xFFFFFFFF, SRFlags.Negative)]
-        [InlineData(0xFFFFFFFF, OpSize.Long, 0x00000000, SRFlags.Zero)]
-        [InlineData(0x80000000, OpSize.Long, 0x7FFFFFFF, (SRFlags)0)]
-        public void NOT(uint value, OpSize size, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(0x00000000, OpSize.Byte, 0x000000FF, (ushort)0x0008)]
+        [InlineData(0x000000FF, OpSize.Byte, 0x00000000, (ushort)0x0004)]
+        [InlineData(0x00000080, OpSize.Byte, 0x0000007F, (ushort)0x0000)]
+        [InlineData(0x00000000, OpSize.Word, 0x0000FFFF, (ushort)0x0008)]
+        [InlineData(0x0000FFFF, OpSize.Word, 0x00000000, (ushort)0x0004)]
+        [InlineData(0x00008000, OpSize.Word, 0x00007FFF, (ushort)0x0000)]
+        [InlineData(0x00000000, OpSize.Long, 0xFFFFFFFF, (ushort)0x0008)]
+        [InlineData(0xFFFFFFFF, OpSize.Long, 0x00000000, (ushort)0x0004)]
+        [InlineData(0x80000000, OpSize.Long, 0x7FFFFFFF, (ushort)0x0000)]
+        public void NOT(uint value, OpSize size, uint expectedResult, ushort expectedFlags)
         {
             ushort[] code = size switch
             {
@@ -1053,18 +1053,18 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0x00000000, OpSize.Word, 0x00000000, SRFlags.Zero)]
-        [InlineData(0x00000080, OpSize.Word, 0x0000FF80, SRFlags.Negative)]
-        [InlineData(0x0000007F, OpSize.Word, 0x0000007F, (SRFlags)0)]
-        [InlineData(0x12345680, OpSize.Word, 0x1234FF80, SRFlags.Negative)]
-        [InlineData(0x00000000, OpSize.Long, 0x00000000, SRFlags.Zero)]
-        [InlineData(0x00008000, OpSize.Long, 0xFFFF8000, SRFlags.Negative)]
-        [InlineData(0x00007F00, OpSize.Long, 0x00007F00, (SRFlags)0)]
-        public void EXT(uint value, OpSize size, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(0x00000000, OpSize.Word, 0x00000000, (ushort)0x0004)]
+        [InlineData(0x00000080, OpSize.Word, 0x0000FF80, (ushort)0x0008)]
+        [InlineData(0x0000007F, OpSize.Word, 0x0000007F, (ushort)0x0000)]
+        [InlineData(0x12345680, OpSize.Word, 0x1234FF80, (ushort)0x0008)]
+        [InlineData(0x00000000, OpSize.Long, 0x00000000, (ushort)0x0004)]
+        [InlineData(0x00008000, OpSize.Long, 0xFFFF8000, (ushort)0x0008)]
+        [InlineData(0x00007F00, OpSize.Long, 0x00007F00, (ushort)0x0000)]
+        public void EXT(uint value, OpSize size, uint expectedResult, ushort expectedFlags)
         {
             ushort[] code = size switch
             {
@@ -1084,14 +1084,14 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0x00000000, 0x00000000, SRFlags.Zero)]
-        [InlineData(0x12348080, 0x80801234, SRFlags.Negative)]
-        [InlineData(0x12345678, 0x56781234, (SRFlags)0)]
-        public void SWAP(uint value, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(0x00000000, 0x00000000, (ushort)0x0004)]
+        [InlineData(0x12348080, 0x80801234, (ushort)0x0008)]
+        [InlineData(0x12345678, 0x56781234, (ushort)0x0000)]
+        public void SWAP(uint value, uint expectedResult, ushort expectedFlags)
         {
             ushort[] code = new ushort[] { 0x4846 };        // swap d6
             Machine machine = new Machine();
@@ -1107,7 +1107,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(6));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Fact]
@@ -1144,16 +1144,16 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0x12121200, OpSize.Byte, SRFlags.Zero)]
-        [InlineData(0x121212FF, OpSize.Byte, SRFlags.Negative)]
-        [InlineData(0x1212127F, OpSize.Byte, (SRFlags)0)]
-        [InlineData(0x12120000, OpSize.Word, SRFlags.Zero)]
-        [InlineData(0x1212FFFF, OpSize.Word, SRFlags.Negative)]
-        [InlineData(0x12127FFF, OpSize.Word, (SRFlags)0)]
-        [InlineData(0x00000000, OpSize.Long, SRFlags.Zero)]
-        [InlineData(0xFFFFFFFF, OpSize.Long, SRFlags.Negative)]
-        [InlineData(0x70000000, OpSize.Long, (SRFlags)0)]
-        public void TST(uint value, OpSize size, SRFlags expectedFlags)
+        [InlineData(0x12121200, OpSize.Byte, (ushort)0x0004)]
+        [InlineData(0x121212FF, OpSize.Byte, (ushort)0x0008)]
+        [InlineData(0x1212127F, OpSize.Byte, (ushort)0x0000)]
+        [InlineData(0x12120000, OpSize.Word, (ushort)0x0004)]
+        [InlineData(0x1212FFFF, OpSize.Word, (ushort)0x0008)]
+        [InlineData(0x12127FFF, OpSize.Word, (ushort)0x0000)]
+        [InlineData(0x00000000, OpSize.Long, (ushort)0x0004)]
+        [InlineData(0xFFFFFFFF, OpSize.Long, (ushort)0x0008)]
+        [InlineData(0x70000000, OpSize.Long, (ushort)0x0000)]
+        public void TST(uint value, OpSize size, ushort expectedFlags)
         {
             ushort[] code = size switch
             {
@@ -1173,7 +1173,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Fact]
@@ -1198,7 +1198,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             {
                 A1 = 0x00654321,
                 USP = 0x00003000,
-                SR = SRFlags.SupervisorMode
+                SR = (SRValue)0x2000
             };
             machine.SetCPUState(initState);
 
@@ -1237,7 +1237,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             {
                 A1 = 0x00654321,
                 USP = 0x00003000,
-                SR = SRFlags.SupervisorMode
+                SR = (SRValue)0x2000
             };
             machine.SetCPUState(initState);
 
@@ -1269,7 +1269,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             CPUState initState = new CPUState
             {
                 SSP = 0x00003000,
-                SR = SRFlags.SupervisorMode
+                SR = (SRValue)0x2000
             };
             machine.SetCPUState(initState);
             ushort[] data = new ushort[] { 0x2012, 0x0001, 0x2244 };
@@ -1280,7 +1280,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal((uint)0x00003006, machine.CPU.SSP);
-            Assert.Equal(SRFlags.SupervisorMode | SRFlags.Extend | SRFlags.Overflow, machine.CPU.SR);
+            Assert.Equal((SRValue)0x2012, machine.CPU.SR);
             Assert.Equal((uint)0x00012244, machine.CPU.CurrentPC);
         }
 
@@ -1321,16 +1321,16 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(SRFlags.Overflow, true)]
-        [InlineData((SRFlags)0, false)]
-        public void TRAPV(SRFlags initFlags, bool shouldThrow)
+        [InlineData((ushort)0x0002, true)]
+        [InlineData((ushort)0x0000, false)]
+        public void TRAPV(ushort initFlags, bool shouldThrow)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { 0x4E76 };  // trapv
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
             {
-                SR = initFlags,
+                SR = (SRValue)initFlags,
             };
             machine.SetCPUState(initState);
 
@@ -1357,7 +1357,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             CPUState initState = new CPUState
             {
                 SSP = 0x00003000,
-                SR = SRFlags.SupervisorMode | SRFlags.Carry
+                SR = (SRValue)0x2001
             };
             machine.SetCPUState(initState);
             ushort[] data = new ushort[] { 0x0012, 0x0002, 0x4568 };
@@ -1368,7 +1368,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal((uint)0x00003006, machine.CPU.SSP);
-            Assert.Equal(SRFlags.SupervisorMode | SRFlags.Extend | SRFlags.Overflow, machine.CPU.SR);
+            Assert.Equal((SRValue)0x2012, machine.CPU.SR);
             Assert.Equal((uint)0x00024568, machine.CPU.CurrentPC);
         }
 
@@ -1461,14 +1461,14 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(new ushort[] { 0x5200 }, 0x7FFF7F7E, 0x7FFF7F7F, (SRFlags)0)]     // addq.b #1,d0
-        [InlineData(new ushort[] { 0x5200 }, 0x7FFF7FFF, 0x7FFF7F00, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]     // addq.b #1,d0
-        [InlineData(new ushort[] { 0x5440 }, 0x7FFF7FFE, 0x7FFF8000, SRFlags.Negative | SRFlags.Overflow)]     // addq.w #2,d0
-        [InlineData(new ushort[] { 0x5440 }, 0x7FFFFFFE, 0x7FFF0000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]     // addq.w #2,d0
-        [InlineData(new ushort[] { 0x5080 }, 0x7FFF7FFE, 0x7FFF8006, (SRFlags)0)]     // addq.l #8,d0
-        [InlineData(new ushort[] { 0x5080 }, 0x7FFFFFF8, 0x80000000, SRFlags.Negative | SRFlags.Overflow)]     // addq.l #8,d0
-        [InlineData(new ushort[] { 0x5080 }, 0xFFFFFFF8, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]     // addq.l #8,d0
-        public void ADDQ(ushort[] code, uint initValue, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(new ushort[] { 0x5200 }, 0x7FFF7F7E, 0x7FFF7F7F, (ushort)0x0000)]     // addq.b #1,d0
+        [InlineData(new ushort[] { 0x5200 }, 0x7FFF7FFF, 0x7FFF7F00, (ushort)0x0015)]     // addq.b #1,d0
+        [InlineData(new ushort[] { 0x5440 }, 0x7FFF7FFE, 0x7FFF8000, (ushort)0x000A)]     // addq.w #2,d0
+        [InlineData(new ushort[] { 0x5440 }, 0x7FFFFFFE, 0x7FFF0000, (ushort)0x0015)]     // addq.w #2,d0
+        [InlineData(new ushort[] { 0x5080 }, 0x7FFF7FFE, 0x7FFF8006, (ushort)0x0000)]     // addq.l #8,d0
+        [InlineData(new ushort[] { 0x5080 }, 0x7FFFFFF8, 0x80000000, (ushort)0x000A)]     // addq.l #8,d0
+        [InlineData(new ushort[] { 0x5080 }, 0xFFFFFFF8, 0x00000000, (ushort)0x0015)]     // addq.l #8,d0
+        public void ADDQ(ushort[] code, uint initValue, uint expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
@@ -1483,7 +1483,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
@@ -1508,21 +1508,21 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadAddressRegister(1));
-            Assert.Equal((SRFlags)0, machine.CPU.SR);
+            Assert.Equal((SRValue)0x0000, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(new ushort[] { 0x5304 }, 0x7FFF7F7E, 0x7FFF7F7D, (SRFlags)0)]     // subq.b #1,d4
-        [InlineData(new ushort[] { 0x5304 }, 0x7FFF7F00, 0x7FFF7FFF, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]     // subq.b #1,d4
-        [InlineData(new ushort[] { 0x5304 }, 0x7FFF7F01, 0x7FFF7F00, SRFlags.Zero)]     // subq.b #1,d4
-        [InlineData(new ushort[] { 0x5744 }, 0x7FFF7FFE, 0x7FFF7FFB, (SRFlags)0)]     // subq.w #3,d4
-        [InlineData(new ushort[] { 0x5744 }, 0x7FFF0002, 0x7FFFFFFF, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]     // subq.w #3,d4
-        [InlineData(new ushort[] { 0x5744 }, 0x7FFF0003, 0x7FFF0000, SRFlags.Zero)]     // subq.w #3,d4
-        [InlineData(new ushort[] { 0x5184 }, 0x7FFF7FFE, 0x7FFF7FF6, (SRFlags)0)]     // subq.l #8,d4
-        [InlineData(new ushort[] { 0x5184 }, 0x80000006, 0x7FFFFFFE, SRFlags.Overflow)]     // subq.l #8,d4
-        [InlineData(new ushort[] { 0x5184 }, 0x00000007, 0xFFFFFFFF, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]     // subq.l #8,d4
-        [InlineData(new ushort[] { 0x5184 }, 0x00000008, 0x00000000, SRFlags.Zero)]     // subq.l #8,d4
-        public void SUBQ(ushort[] code, uint initValue, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(new ushort[] { 0x5304 }, 0x7FFF7F7E, 0x7FFF7F7D, (ushort)0x0000)]     // subq.b #1,d4
+        [InlineData(new ushort[] { 0x5304 }, 0x7FFF7F00, 0x7FFF7FFF, (ushort)0x0019)]     // subq.b #1,d4
+        [InlineData(new ushort[] { 0x5304 }, 0x7FFF7F01, 0x7FFF7F00, (ushort)0x0004)]     // subq.b #1,d4
+        [InlineData(new ushort[] { 0x5744 }, 0x7FFF7FFE, 0x7FFF7FFB, (ushort)0x0000)]     // subq.w #3,d4
+        [InlineData(new ushort[] { 0x5744 }, 0x7FFF0002, 0x7FFFFFFF, (ushort)0x0019)]     // subq.w #3,d4
+        [InlineData(new ushort[] { 0x5744 }, 0x7FFF0003, 0x7FFF0000, (ushort)0x0004)]     // subq.w #3,d4
+        [InlineData(new ushort[] { 0x5184 }, 0x7FFF7FFE, 0x7FFF7FF6, (ushort)0x0000)]     // subq.l #8,d4
+        [InlineData(new ushort[] { 0x5184 }, 0x80000006, 0x7FFFFFFE, (ushort)0x0002)]     // subq.l #8,d4
+        [InlineData(new ushort[] { 0x5184 }, 0x00000007, 0xFFFFFFFF, (ushort)0x0019)]     // subq.l #8,d4
+        [InlineData(new ushort[] { 0x5184 }, 0x00000008, 0x00000000, (ushort)0x0004)]     // subq.l #8,d4
+        public void SUBQ(ushort[] code, uint initValue, uint expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
@@ -1537,7 +1537,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(4));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
@@ -1562,55 +1562,55 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadAddressRegister(4));
-            Assert.Equal((SRFlags)0, machine.CPU.SR);
+            Assert.Equal((SRValue)0x0000, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(new ushort[] { 0x50C4 }, (SRFlags)0, 0xFF)]                                      // st d4
-        [InlineData(new ushort[] { 0x51C4 }, (SRFlags)0, 0x00)]                                      // sf d4
-        [InlineData(new ushort[] { 0x54C4 }, (SRFlags)0, 0xFF)]                                      // scc d4
-        [InlineData(new ushort[] { 0x54C4 }, SRFlags.Carry, 0x00)]                                   // scc d4
-        [InlineData(new ushort[] { 0x55C4 }, (SRFlags)0, 0x00)]                                      // scs d4
-        [InlineData(new ushort[] { 0x55C4 }, SRFlags.Carry, 0xFF)]                                   // scs d4
-        [InlineData(new ushort[] { 0x57C4 }, (SRFlags)0, 0x00)]                                      // seq d4
-        [InlineData(new ushort[] { 0x57C4 }, SRFlags.Zero, 0xFF)]                                    // seq d4
-        [InlineData(new ushort[] { 0x5CC4 }, (SRFlags)0, 0xFF)]                                      // sge d4
-        [InlineData(new ushort[] { 0x5CC4 }, SRFlags.Negative, 0x00)]                                // sge d4
-        [InlineData(new ushort[] { 0x5CC4 }, SRFlags.Negative | SRFlags.Overflow, 0xFF)]             // sge d4
-        [InlineData(new ushort[] { 0x5EC4 }, (SRFlags)0, 0xFF)]                                      // sgt d4
-        [InlineData(new ushort[] { 0x5EC4 }, SRFlags.Zero, 0x00)]                                    // sgt d4
-        [InlineData(new ushort[] { 0x5EC4 }, SRFlags.Negative, 0x00)]                                // sgt d4
-        [InlineData(new ushort[] { 0x5EC4 }, SRFlags.Negative | SRFlags.Overflow, 0xFF)]             // sgt d4
-        [InlineData(new ushort[] { 0x52C4 }, (SRFlags)0, 0xFF)]                                      // shi d4
-        [InlineData(new ushort[] { 0x52C4 }, SRFlags.Zero, 0x00)]                                    // shi d4
-        [InlineData(new ushort[] { 0x52C4 }, SRFlags.Carry, 0x00)]                                   // shi d4
-        [InlineData(new ushort[] { 0x5FC4 }, (SRFlags)0, 0x00)]                                      // sle d4
-        [InlineData(new ushort[] { 0x5FC4 }, SRFlags.Zero, 0xFF)]                                    // sle d4
-        [InlineData(new ushort[] { 0x5FC4 }, SRFlags.Negative, 0xFF)]                                // sle d4
-        [InlineData(new ushort[] { 0x53C4 }, (SRFlags)0, 0x00)]                                      // sls d4
-        [InlineData(new ushort[] { 0x53C4 }, SRFlags.Zero, 0xFF)]                                    // sls d4
-        [InlineData(new ushort[] { 0x53C4 }, SRFlags.Carry, 0xFF)]                                   // sls d4
-        [InlineData(new ushort[] { 0x5DC4 }, (SRFlags)0, 0x00)]                                      // slt d4
-        [InlineData(new ushort[] { 0x5DC4 }, SRFlags.Negative, 0xFF)]                                // slt d4
-        [InlineData(new ushort[] { 0x5DC4 }, SRFlags.Negative | SRFlags.Overflow, 0x00)]             // slt d4
-        [InlineData(new ushort[] { 0x5BC4 }, (SRFlags)0, 0x00)]                                      // smi d4
-        [InlineData(new ushort[] { 0x5BC4 }, SRFlags.Negative, 0xFF)]                                // smi d4
-        [InlineData(new ushort[] { 0x56C4 }, (SRFlags)0, 0xFF)]                                      // sne d4
-        [InlineData(new ushort[] { 0x56C4 }, SRFlags.Zero, 0x00)]                                    // sne d4
-        [InlineData(new ushort[] { 0x5AC4 }, (SRFlags)0, 0xFF)]                                      // spl d4
-        [InlineData(new ushort[] { 0x5AC4 }, SRFlags.Negative, 0x00)]                                // spl d4
-        [InlineData(new ushort[] { 0x58C4 }, (SRFlags)0, 0xFF)]                                      // svc d4
-        [InlineData(new ushort[] { 0x58C4 }, SRFlags.Overflow, 0x00)]                                // svc d4
-        [InlineData(new ushort[] { 0x59C4 }, (SRFlags)0, 0x00)]                                      // svs d4
-        [InlineData(new ushort[] { 0x59C4 }, SRFlags.Overflow, 0xFF)]                                // svs d4
-        public void Scc(ushort[] code, SRFlags initFlags, byte expectedResult)
+        [InlineData(new ushort[] { 0x50C4 }, (ushort)0x0000, 0xFF)]                                      // st d4
+        [InlineData(new ushort[] { 0x51C4 }, (ushort)0x0000, 0x00)]                                      // sf d4
+        [InlineData(new ushort[] { 0x54C4 }, (ushort)0x0000, 0xFF)]                                      // scc d4
+        [InlineData(new ushort[] { 0x54C4 }, (ushort)0x0001, 0x00)]                                   // scc d4
+        [InlineData(new ushort[] { 0x55C4 }, (ushort)0x0000, 0x00)]                                      // scs d4
+        [InlineData(new ushort[] { 0x55C4 }, (ushort)0x0001, 0xFF)]                                   // scs d4
+        [InlineData(new ushort[] { 0x57C4 }, (ushort)0x0000, 0x00)]                                      // seq d4
+        [InlineData(new ushort[] { 0x57C4 }, (ushort)0x0004, 0xFF)]                                    // seq d4
+        [InlineData(new ushort[] { 0x5CC4 }, (ushort)0x0000, 0xFF)]                                      // sge d4
+        [InlineData(new ushort[] { 0x5CC4 }, (ushort)0x0008, 0x00)]                                // sge d4
+        [InlineData(new ushort[] { 0x5CC4 }, (ushort)0x000A, 0xFF)]             // sge d4
+        [InlineData(new ushort[] { 0x5EC4 }, (ushort)0x0000, 0xFF)]                                      // sgt d4
+        [InlineData(new ushort[] { 0x5EC4 }, (ushort)0x0004, 0x00)]                                    // sgt d4
+        [InlineData(new ushort[] { 0x5EC4 }, (ushort)0x0008, 0x00)]                                // sgt d4
+        [InlineData(new ushort[] { 0x5EC4 }, (ushort)0x000A, 0xFF)]             // sgt d4
+        [InlineData(new ushort[] { 0x52C4 }, (ushort)0x0000, 0xFF)]                                      // shi d4
+        [InlineData(new ushort[] { 0x52C4 }, (ushort)0x0004, 0x00)]                                    // shi d4
+        [InlineData(new ushort[] { 0x52C4 }, (ushort)0x0001, 0x00)]                                   // shi d4
+        [InlineData(new ushort[] { 0x5FC4 }, (ushort)0x0000, 0x00)]                                      // sle d4
+        [InlineData(new ushort[] { 0x5FC4 }, (ushort)0x0004, 0xFF)]                                    // sle d4
+        [InlineData(new ushort[] { 0x5FC4 }, (ushort)0x0008, 0xFF)]                                // sle d4
+        [InlineData(new ushort[] { 0x53C4 }, (ushort)0x0000, 0x00)]                                      // sls d4
+        [InlineData(new ushort[] { 0x53C4 }, (ushort)0x0004, 0xFF)]                                    // sls d4
+        [InlineData(new ushort[] { 0x53C4 }, (ushort)0x0001, 0xFF)]                                   // sls d4
+        [InlineData(new ushort[] { 0x5DC4 }, (ushort)0x0000, 0x00)]                                      // slt d4
+        [InlineData(new ushort[] { 0x5DC4 }, (ushort)0x0008, 0xFF)]                                // slt d4
+        [InlineData(new ushort[] { 0x5DC4 }, (ushort)0x000A, 0x00)]             // slt d4
+        [InlineData(new ushort[] { 0x5BC4 }, (ushort)0x0000, 0x00)]                                      // smi d4
+        [InlineData(new ushort[] { 0x5BC4 }, (ushort)0x0008, 0xFF)]                                // smi d4
+        [InlineData(new ushort[] { 0x56C4 }, (ushort)0x0000, 0xFF)]                                      // sne d4
+        [InlineData(new ushort[] { 0x56C4 }, (ushort)0x0004, 0x00)]                                    // sne d4
+        [InlineData(new ushort[] { 0x5AC4 }, (ushort)0x0000, 0xFF)]                                      // spl d4
+        [InlineData(new ushort[] { 0x5AC4 }, (ushort)0x0008, 0x00)]                                // spl d4
+        [InlineData(new ushort[] { 0x58C4 }, (ushort)0x0000, 0xFF)]                                      // svc d4
+        [InlineData(new ushort[] { 0x58C4 }, (ushort)0x0002, 0x00)]                                // svc d4
+        [InlineData(new ushort[] { 0x59C4 }, (ushort)0x0000, 0x00)]                                      // svs d4
+        [InlineData(new ushort[] { 0x59C4 }, (ushort)0x0002, 0xFF)]                                // svs d4
+        public void Scc(ushort[] code, ushort initFlags, byte expectedResult)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
             {
                 D4 = 0x12345678,
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
 
@@ -1622,54 +1622,54 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(new ushort[] { 0x50CC, 0x000E }, 0x01, (SRFlags)0, 0x0204)]                                      // dbt d4,$0210
-        [InlineData(new ushort[] { 0x50CC, 0x000E }, 0x00, (SRFlags)0, 0x0204)]                                      // dbt d4,$0210
-        [InlineData(new ushort[] { 0x51CC, 0x000E }, 0x01, (SRFlags)0, 0x0210)]                                      // dbf d4,$0210
-        [InlineData(new ushort[] { 0x51CC, 0xFFEE }, 0x01, (SRFlags)0, 0x01F0)]                                      // dbf d4,$0210
-        [InlineData(new ushort[] { 0x54CC, 0x000E }, 0x01, (SRFlags)0, 0x0204)]                                      // dbcc d4,$0210
-        [InlineData(new ushort[] { 0x54CC, 0x000E }, 0x01, SRFlags.Carry, 0x0210)]                                   // dbcc d4,$0210
-        [InlineData(new ushort[] { 0x54CC, 0x000E }, 0x00, SRFlags.Carry, 0x0204)]                                   // dbcc d4,$0210
-        [InlineData(new ushort[] { 0x55CC, 0x000E }, 0x01, (SRFlags)0, 0x0210)]                                      // dbcs d4,$0210
-        [InlineData(new ushort[] { 0x55CC, 0x000E }, 0x01, SRFlags.Carry, 0x0204)]                                   // dbcs d4,$0210
-        [InlineData(new ushort[] { 0x57CC, 0x000E }, 0x01, (SRFlags)0, 0x0210)]                                      // dbeq d4,$0210
-        [InlineData(new ushort[] { 0x57CC, 0x000E }, 0x01, SRFlags.Zero, 0x0204)]                                    // dbeq d4,$0210
-        [InlineData(new ushort[] { 0x5CCC, 0x000E }, 0x01, (SRFlags)0, 0x0204)]                                      // dbge d4,$0210
-        [InlineData(new ushort[] { 0x5CCC, 0x000E }, 0x01, SRFlags.Negative, 0x0210)]                                // dbge d4,$0210
-        [InlineData(new ushort[] { 0x5CCC, 0x000E }, 0x01, SRFlags.Negative | SRFlags.Overflow, 0x0204)]             // dbge d4,$0210
-        [InlineData(new ushort[] { 0x5ECC, 0x000E }, 0x01, (SRFlags)0, 0x0204)]                                      // dbgt d4,$0210
-        [InlineData(new ushort[] { 0x5ECC, 0x000E }, 0x01, SRFlags.Zero, 0x0210)]                                    // dbgt d4,$0210
-        [InlineData(new ushort[] { 0x5ECC, 0x000E }, 0x01, SRFlags.Negative, 0x0210)]                                // dbgt d4,$0210
-        [InlineData(new ushort[] { 0x5ECC, 0x000E }, 0x01, SRFlags.Negative | SRFlags.Overflow, 0x0204)]             // dbgt d4,$0210
-        [InlineData(new ushort[] { 0x52CC, 0x000E }, 0x01, (SRFlags)0, 0x0204)]                                      // dbhi d4,$0210
-        [InlineData(new ushort[] { 0x52CC, 0x000E }, 0x01, SRFlags.Zero, 0x0210)]                                    // dbhi d4,$0210
-        [InlineData(new ushort[] { 0x52CC, 0x000E }, 0x01, SRFlags.Carry, 0x0210)]                                   // dbhi d4,$0210
-        [InlineData(new ushort[] { 0x5FCC, 0x000E }, 0x01, (SRFlags)0, 0x0210)]                                      // dble d4,$0210
-        [InlineData(new ushort[] { 0x5FCC, 0x000E }, 0x01, SRFlags.Zero, 0x0204)]                                    // dble d4,$0210
-        [InlineData(new ushort[] { 0x5FCC, 0x000E }, 0x01, SRFlags.Negative, 0x0204)]                                // dble d4,$0210
-        [InlineData(new ushort[] { 0x53CC, 0x000E }, 0x01, (SRFlags)0, 0x0210)]                                      // dbls d4,$0210
-        [InlineData(new ushort[] { 0x53CC, 0x000E }, 0x01, SRFlags.Zero, 0x0204)]                                    // dbls d4,$0210
-        [InlineData(new ushort[] { 0x53CC, 0x000E }, 0x01, SRFlags.Carry, 0x0204)]                                   // dbls d4,$0210
-        [InlineData(new ushort[] { 0x5DCC, 0x000E }, 0x01, (SRFlags)0, 0x0210)]                                      // dblt d4,$0210
-        [InlineData(new ushort[] { 0x5DCC, 0x000E }, 0x01, SRFlags.Negative, 0x0204)]                                // dblt d4,$0210
-        [InlineData(new ushort[] { 0x5DCC, 0x000E }, 0x01, SRFlags.Negative | SRFlags.Overflow, 0x0210)]             // dblt d4,$0210
-        [InlineData(new ushort[] { 0x5BCC, 0x000E }, 0x01, (SRFlags)0, 0x0210)]                                      // dbmi d4,$0210
-        [InlineData(new ushort[] { 0x5BCC, 0x000E }, 0x01, SRFlags.Negative, 0x0204)]                                // dbmi d4,$0210
-        [InlineData(new ushort[] { 0x56CC, 0x000E }, 0x01, (SRFlags)0, 0x0204)]                                      // dbne d4,$0210
-        [InlineData(new ushort[] { 0x56CC, 0x000E }, 0x01, SRFlags.Zero, 0x0210)]                                    // dbne d4,$0210
-        [InlineData(new ushort[] { 0x5ACC, 0x000E }, 0x01, (SRFlags)0, 0x0204)]                                      // dbpl d4,$0210
-        [InlineData(new ushort[] { 0x5ACC, 0x000E }, 0x01, SRFlags.Negative, 0x0210)]                                // dbpl d4,$0210
-        [InlineData(new ushort[] { 0x58CC, 0x000E }, 0x01, (SRFlags)0, 0x0204)]                                      // dbvc d4,$0210
-        [InlineData(new ushort[] { 0x58CC, 0x000E }, 0x01, SRFlags.Overflow, 0x0210)]                                // dbvc d4,$0210
-        [InlineData(new ushort[] { 0x59CC, 0x000E }, 0x01, (SRFlags)0, 0x0210)]                                      // dbvs d4,$0210
-        [InlineData(new ushort[] { 0x59CC, 0x000E }, 0x01, SRFlags.Overflow, 0x0204)]                                // dbvs d4,$0210
-        public void DBcc(ushort[] code, byte initD4, SRFlags initFlags, uint expectedPC)
+        [InlineData(new ushort[] { 0x50CC, 0x000E }, 0x01, (ushort)0x0000, 0x0204)]                                      // dbt d4,$0210
+        [InlineData(new ushort[] { 0x50CC, 0x000E }, 0x00, (ushort)0x0000, 0x0204)]                                      // dbt d4,$0210
+        [InlineData(new ushort[] { 0x51CC, 0x000E }, 0x01, (ushort)0x0000, 0x0210)]                                      // dbf d4,$0210
+        [InlineData(new ushort[] { 0x51CC, 0xFFEE }, 0x01, (ushort)0x0000, 0x01F0)]                                      // dbf d4,$0210
+        [InlineData(new ushort[] { 0x54CC, 0x000E }, 0x01, (ushort)0x0000, 0x0204)]                                      // dbcc d4,$0210
+        [InlineData(new ushort[] { 0x54CC, 0x000E }, 0x01, (ushort)0x0001, 0x0210)]                                   // dbcc d4,$0210
+        [InlineData(new ushort[] { 0x54CC, 0x000E }, 0x00, (ushort)0x0001, 0x0204)]                                   // dbcc d4,$0210
+        [InlineData(new ushort[] { 0x55CC, 0x000E }, 0x01, (ushort)0x0000, 0x0210)]                                      // dbcs d4,$0210
+        [InlineData(new ushort[] { 0x55CC, 0x000E }, 0x01, (ushort)0x0001, 0x0204)]                                   // dbcs d4,$0210
+        [InlineData(new ushort[] { 0x57CC, 0x000E }, 0x01, (ushort)0x0000, 0x0210)]                                      // dbeq d4,$0210
+        [InlineData(new ushort[] { 0x57CC, 0x000E }, 0x01, (ushort)0x0004, 0x0204)]                                    // dbeq d4,$0210
+        [InlineData(new ushort[] { 0x5CCC, 0x000E }, 0x01, (ushort)0x0000, 0x0204)]                                      // dbge d4,$0210
+        [InlineData(new ushort[] { 0x5CCC, 0x000E }, 0x01, (ushort)0x0008, 0x0210)]                                // dbge d4,$0210
+        [InlineData(new ushort[] { 0x5CCC, 0x000E }, 0x01, (ushort)0x000A, 0x0204)]             // dbge d4,$0210
+        [InlineData(new ushort[] { 0x5ECC, 0x000E }, 0x01, (ushort)0x0000, 0x0204)]                                      // dbgt d4,$0210
+        [InlineData(new ushort[] { 0x5ECC, 0x000E }, 0x01, (ushort)0x0004, 0x0210)]                                    // dbgt d4,$0210
+        [InlineData(new ushort[] { 0x5ECC, 0x000E }, 0x01, (ushort)0x0008, 0x0210)]                                // dbgt d4,$0210
+        [InlineData(new ushort[] { 0x5ECC, 0x000E }, 0x01, (ushort)0x000A, 0x0204)]             // dbgt d4,$0210
+        [InlineData(new ushort[] { 0x52CC, 0x000E }, 0x01, (ushort)0x0000, 0x0204)]                                      // dbhi d4,$0210
+        [InlineData(new ushort[] { 0x52CC, 0x000E }, 0x01, (ushort)0x0004, 0x0210)]                                    // dbhi d4,$0210
+        [InlineData(new ushort[] { 0x52CC, 0x000E }, 0x01, (ushort)0x0001, 0x0210)]                                   // dbhi d4,$0210
+        [InlineData(new ushort[] { 0x5FCC, 0x000E }, 0x01, (ushort)0x0000, 0x0210)]                                      // dble d4,$0210
+        [InlineData(new ushort[] { 0x5FCC, 0x000E }, 0x01, (ushort)0x0004, 0x0204)]                                    // dble d4,$0210
+        [InlineData(new ushort[] { 0x5FCC, 0x000E }, 0x01, (ushort)0x0008, 0x0204)]                                // dble d4,$0210
+        [InlineData(new ushort[] { 0x53CC, 0x000E }, 0x01, (ushort)0x0000, 0x0210)]                                      // dbls d4,$0210
+        [InlineData(new ushort[] { 0x53CC, 0x000E }, 0x01, (ushort)0x0004, 0x0204)]                                    // dbls d4,$0210
+        [InlineData(new ushort[] { 0x53CC, 0x000E }, 0x01, (ushort)0x0001, 0x0204)]                                   // dbls d4,$0210
+        [InlineData(new ushort[] { 0x5DCC, 0x000E }, 0x01, (ushort)0x0000, 0x0210)]                                      // dblt d4,$0210
+        [InlineData(new ushort[] { 0x5DCC, 0x000E }, 0x01, (ushort)0x0008, 0x0204)]                                // dblt d4,$0210
+        [InlineData(new ushort[] { 0x5DCC, 0x000E }, 0x01, (ushort)0x000A, 0x0210)]             // dblt d4,$0210
+        [InlineData(new ushort[] { 0x5BCC, 0x000E }, 0x01, (ushort)0x0000, 0x0210)]                                      // dbmi d4,$0210
+        [InlineData(new ushort[] { 0x5BCC, 0x000E }, 0x01, (ushort)0x0008, 0x0204)]                                // dbmi d4,$0210
+        [InlineData(new ushort[] { 0x56CC, 0x000E }, 0x01, (ushort)0x0000, 0x0204)]                                      // dbne d4,$0210
+        [InlineData(new ushort[] { 0x56CC, 0x000E }, 0x01, (ushort)0x0004, 0x0210)]                                    // dbne d4,$0210
+        [InlineData(new ushort[] { 0x5ACC, 0x000E }, 0x01, (ushort)0x0000, 0x0204)]                                      // dbpl d4,$0210
+        [InlineData(new ushort[] { 0x5ACC, 0x000E }, 0x01, (ushort)0x0008, 0x0210)]                                // dbpl d4,$0210
+        [InlineData(new ushort[] { 0x58CC, 0x000E }, 0x01, (ushort)0x0000, 0x0204)]                                      // dbvc d4,$0210
+        [InlineData(new ushort[] { 0x58CC, 0x000E }, 0x01, (ushort)0x0002, 0x0210)]                                // dbvc d4,$0210
+        [InlineData(new ushort[] { 0x59CC, 0x000E }, 0x01, (ushort)0x0000, 0x0210)]                                      // dbvs d4,$0210
+        [InlineData(new ushort[] { 0x59CC, 0x000E }, 0x01, (ushort)0x0002, 0x0204)]                                // dbvs d4,$0210
+        public void DBcc(ushort[] code, byte initD4, ushort initFlags, uint expectedPC)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
             {
                 D4 = initD4,
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
 
@@ -1719,52 +1719,52 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(new ushort[] { 0x640E }, (SRFlags)0, 0x0210)]                                      // bcc $0210
-        [InlineData(new ushort[] { 0x640E }, SRFlags.Carry, 0x0202)]                                   // bcc $0210
-        [InlineData(new ushort[] { 0x650E }, (SRFlags)0, 0x0202)]                                      // bcs $0210
-        [InlineData(new ushort[] { 0x650E }, SRFlags.Carry, 0x0210)]                                   // bcs $0210
-        [InlineData(new ushort[] { 0x670E }, (SRFlags)0, 0x0202)]                                      // beq $0210
-        [InlineData(new ushort[] { 0x670E }, SRFlags.Zero, 0x0210)]                                    // beq $0210
-        [InlineData(new ushort[] { 0x6C0E }, (SRFlags)0, 0x0210)]                                      // bge $0210
-        [InlineData(new ushort[] { 0x6C0E }, SRFlags.Negative, 0x0202)]                                // bge $0210
-        [InlineData(new ushort[] { 0x6C0E }, SRFlags.Negative | SRFlags.Overflow, 0x0210)]             // bge $0210
-        [InlineData(new ushort[] { 0x6E0E }, (SRFlags)0, 0x0210)]                                      // bgt $0210
-        [InlineData(new ushort[] { 0x6E0E }, SRFlags.Zero, 0x0202)]                                    // bgt $0210
-        [InlineData(new ushort[] { 0x6E0E }, SRFlags.Negative, 0x0202)]                                // bgt $0210
-        [InlineData(new ushort[] { 0x6E0E }, SRFlags.Negative | SRFlags.Overflow, 0x0210)]             // bgt $0210
-        [InlineData(new ushort[] { 0x620E }, (SRFlags)0, 0x0210)]                                      // bhi $0210
-        [InlineData(new ushort[] { 0x620E }, SRFlags.Zero, 0x0202)]                                    // bhi $0210
-        [InlineData(new ushort[] { 0x620E }, SRFlags.Carry, 0x0202)]                                   // bhi $0210
-        [InlineData(new ushort[] { 0x6F0E }, (SRFlags)0, 0x0202)]                                      // ble $0210
-        [InlineData(new ushort[] { 0x6F0E }, SRFlags.Zero, 0x0210)]                                    // ble $0210
-        [InlineData(new ushort[] { 0x6F0E }, SRFlags.Negative, 0x0210)]                                // ble $0210
-        [InlineData(new ushort[] { 0x630E }, (SRFlags)0, 0x0202)]                                      // bls $0210
-        [InlineData(new ushort[] { 0x630E }, SRFlags.Zero, 0x0210)]                                    // bls $0210
-        [InlineData(new ushort[] { 0x630E }, SRFlags.Carry, 0x0210)]                                   // bls $0210
-        [InlineData(new ushort[] { 0x6D0E }, (SRFlags)0, 0x0202)]                                      // blt $0210
-        [InlineData(new ushort[] { 0x6D0E }, SRFlags.Negative, 0x0210)]                                // blt $0210
-        [InlineData(new ushort[] { 0x6D0E }, SRFlags.Negative | SRFlags.Overflow, 0x0202)]             // blt $0210
-        [InlineData(new ushort[] { 0x6B0E }, (SRFlags)0, 0x0202)]                                      // bmi $0210
-        [InlineData(new ushort[] { 0x6B0E }, SRFlags.Negative, 0x0210)]                                // bmi $0210
-        [InlineData(new ushort[] { 0x660E }, (SRFlags)0, 0x0210)]                                      // bne $0210
-        [InlineData(new ushort[] { 0x660E }, SRFlags.Zero, 0x0202)]                                    // bne $0210
-        [InlineData(new ushort[] { 0x6A0E }, (SRFlags)0, 0x0210)]                                      // bpl $0210
-        [InlineData(new ushort[] { 0x6A0E }, SRFlags.Negative, 0x0202)]                                // bpl $0210
-        [InlineData(new ushort[] { 0x680E }, (SRFlags)0, 0x0210)]                                      // bvc $0210
-        [InlineData(new ushort[] { 0x680E }, SRFlags.Overflow, 0x0202)]                                // bvc $0210
-        [InlineData(new ushort[] { 0x690E }, (SRFlags)0, 0x0202)]                                      // bvs $0210
-        [InlineData(new ushort[] { 0x690E }, SRFlags.Overflow, 0x0210)]                                // bvs $0210
-        [InlineData(new ushort[] { 0x6400, 0x0DFE }, (SRFlags)0, 0x1000)]                              // bcc $1000
-        [InlineData(new ushort[] { 0x6400, 0x0DFE }, SRFlags.Carry, 0x0204)]                           // bcc $1000
-        [InlineData(new ushort[] { 0x6500, 0x0DFE }, (SRFlags)0, 0x0204)]                              // bcs $1000
-        [InlineData(new ushort[] { 0x6500, 0x0DFE }, SRFlags.Carry, 0x1000)]                           // bcs $1000
-        public void Bcc(ushort[] code, SRFlags initFlags, uint expectedPC)
+        [InlineData(new ushort[] { 0x640E }, (ushort)0x0000, 0x0210)]                                      // bcc $0210
+        [InlineData(new ushort[] { 0x640E }, (ushort)0x0001, 0x0202)]                                   // bcc $0210
+        [InlineData(new ushort[] { 0x650E }, (ushort)0x0000, 0x0202)]                                      // bcs $0210
+        [InlineData(new ushort[] { 0x650E }, (ushort)0x0001, 0x0210)]                                   // bcs $0210
+        [InlineData(new ushort[] { 0x670E }, (ushort)0x0000, 0x0202)]                                      // beq $0210
+        [InlineData(new ushort[] { 0x670E }, (ushort)0x0004, 0x0210)]                                    // beq $0210
+        [InlineData(new ushort[] { 0x6C0E }, (ushort)0x0000, 0x0210)]                                      // bge $0210
+        [InlineData(new ushort[] { 0x6C0E }, (ushort)0x0008, 0x0202)]                                // bge $0210
+        [InlineData(new ushort[] { 0x6C0E }, (ushort)0x000A, 0x0210)]             // bge $0210
+        [InlineData(new ushort[] { 0x6E0E }, (ushort)0x0000, 0x0210)]                                      // bgt $0210
+        [InlineData(new ushort[] { 0x6E0E }, (ushort)0x0004, 0x0202)]                                    // bgt $0210
+        [InlineData(new ushort[] { 0x6E0E }, (ushort)0x0008, 0x0202)]                                // bgt $0210
+        [InlineData(new ushort[] { 0x6E0E }, (ushort)0x000A, 0x0210)]             // bgt $0210
+        [InlineData(new ushort[] { 0x620E }, (ushort)0x0000, 0x0210)]                                      // bhi $0210
+        [InlineData(new ushort[] { 0x620E }, (ushort)0x0004, 0x0202)]                                    // bhi $0210
+        [InlineData(new ushort[] { 0x620E }, (ushort)0x0001, 0x0202)]                                   // bhi $0210
+        [InlineData(new ushort[] { 0x6F0E }, (ushort)0x0000, 0x0202)]                                      // ble $0210
+        [InlineData(new ushort[] { 0x6F0E }, (ushort)0x0004, 0x0210)]                                    // ble $0210
+        [InlineData(new ushort[] { 0x6F0E }, (ushort)0x0008, 0x0210)]                                // ble $0210
+        [InlineData(new ushort[] { 0x630E }, (ushort)0x0000, 0x0202)]                                      // bls $0210
+        [InlineData(new ushort[] { 0x630E }, (ushort)0x0004, 0x0210)]                                    // bls $0210
+        [InlineData(new ushort[] { 0x630E }, (ushort)0x0001, 0x0210)]                                   // bls $0210
+        [InlineData(new ushort[] { 0x6D0E }, (ushort)0x0000, 0x0202)]                                      // blt $0210
+        [InlineData(new ushort[] { 0x6D0E }, (ushort)0x0008, 0x0210)]                                // blt $0210
+        [InlineData(new ushort[] { 0x6D0E }, (ushort)0x000A, 0x0202)]             // blt $0210
+        [InlineData(new ushort[] { 0x6B0E }, (ushort)0x0000, 0x0202)]                                      // bmi $0210
+        [InlineData(new ushort[] { 0x6B0E }, (ushort)0x0008, 0x0210)]                                // bmi $0210
+        [InlineData(new ushort[] { 0x660E }, (ushort)0x0000, 0x0210)]                                      // bne $0210
+        [InlineData(new ushort[] { 0x660E }, (ushort)0x0004, 0x0202)]                                    // bne $0210
+        [InlineData(new ushort[] { 0x6A0E }, (ushort)0x0000, 0x0210)]                                      // bpl $0210
+        [InlineData(new ushort[] { 0x6A0E }, (ushort)0x0008, 0x0202)]                                // bpl $0210
+        [InlineData(new ushort[] { 0x680E }, (ushort)0x0000, 0x0210)]                                      // bvc $0210
+        [InlineData(new ushort[] { 0x680E }, (ushort)0x0002, 0x0202)]                                // bvc $0210
+        [InlineData(new ushort[] { 0x690E }, (ushort)0x0000, 0x0202)]                                      // bvs $0210
+        [InlineData(new ushort[] { 0x690E }, (ushort)0x0002, 0x0210)]                                // bvs $0210
+        [InlineData(new ushort[] { 0x6400, 0x0DFE }, (ushort)0x0000, 0x1000)]                              // bcc $1000
+        [InlineData(new ushort[] { 0x6400, 0x0DFE }, (ushort)0x0001, 0x0204)]                           // bcc $1000
+        [InlineData(new ushort[] { 0x6500, 0x0DFE }, (ushort)0x0000, 0x0204)]                              // bcs $1000
+        [InlineData(new ushort[] { 0x6500, 0x0DFE }, (ushort)0x0001, 0x1000)]                           // bcs $1000
+        public void Bcc(ushort[] code, ushort initFlags, uint expectedPC)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
             CPUState initState = new CPUState
             {
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
 
@@ -1776,10 +1776,10 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(new ushort[] { 0x7C50 }, (SRFlags)0, 0x00000050)]              // moveq #$50,d6
-        [InlineData(new ushort[] { 0x7CF0 }, SRFlags.Negative, 0xFFFFFFF0)]        // moveq #$F0,d6
-        [InlineData(new ushort[] { 0x7C00 }, SRFlags.Zero, 0x00000000)]            // moveq #$00,d6
-        public void MOVEQ(ushort[] code, SRFlags expectedFlags, uint expectedResult)
+        [InlineData(new ushort[] { 0x7C50 }, (ushort)0x0000, 0x00000050)]              // moveq #$50,d6
+        [InlineData(new ushort[] { 0x7CF0 }, (ushort)0x0008, 0xFFFFFFF0)]        // moveq #$F0,d6
+        [InlineData(new ushort[] { 0x7C00 }, (ushort)0x0004, 0x00000000)]            // moveq #$00,d6
+        public void MOVEQ(ushort[] code, ushort expectedFlags, uint expectedResult)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
@@ -1794,17 +1794,17 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(6));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0x00008000, 0x00000040, (SRFlags)0, 0x00000200)]
-        [InlineData(0x00008030, 0x00000040, (SRFlags)0, 0x00300200)]
-        [InlineData(0x04008000, 0x00000040, SRFlags.Overflow | SRFlags.Negative, 0x04008000)]
-        [InlineData(0x00080000, 0x00000010, SRFlags.Negative, 0x00008000)]
-        [InlineData(0x00000000, 0x00000010, SRFlags.Zero, 0x00000000)]
-        [InlineData(0x00000002, 0x00000010, SRFlags.Zero, 0x00020000)]
-        public void DIVU(uint d0Val, uint d1Val, SRFlags expectedFlags, uint expectedResult)
+        [InlineData(0x00008000, 0x00000040, (ushort)0x0000, 0x00000200)]
+        [InlineData(0x00008030, 0x00000040, (ushort)0x0000, 0x00300200)]
+        [InlineData(0x04008000, 0x00000040, (ushort)0x000A, 0x04008000)]
+        [InlineData(0x00080000, 0x00000010, (ushort)0x0008, 0x00008000)]
+        [InlineData(0x00000000, 0x00000010, (ushort)0x0004, 0x00000000)]
+        [InlineData(0x00000002, 0x00000010, (ushort)0x0004, 0x00020000)]
+        public void DIVU(uint d0Val, uint d1Val, ushort expectedFlags, uint expectedResult)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { 0x80C1 };  // divu d1,d0
@@ -1821,7 +1821,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Fact]
@@ -1843,13 +1843,13 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0x00008000, 0x00000040, (SRFlags)0, 0x00000200)]
-        [InlineData(0x00008030, 0x00000040, (SRFlags)0, 0x00300200)]
-        [InlineData(0x04008000, 0x00000040, SRFlags.Overflow | SRFlags.Negative, 0x04008000)]
-        [InlineData(0xFFFFFFF8, 0x00000002, SRFlags.Negative, 0x0000FFFC)]
-        [InlineData(0x00000000, 0x00000010, SRFlags.Zero, 0x00000000)]
-        [InlineData(0x00000002, 0x00000010, SRFlags.Zero, 0x00020000)]
-        public void DIVS(uint d0Val, uint d1Val, SRFlags expectedFlags, uint expectedResult)
+        [InlineData(0x00008000, 0x00000040, (ushort)0x0000, 0x00000200)]
+        [InlineData(0x00008030, 0x00000040, (ushort)0x0000, 0x00300200)]
+        [InlineData(0x04008000, 0x00000040, (ushort)0x000A, 0x04008000)]
+        [InlineData(0xFFFFFFF8, 0x00000002, (ushort)0x0008, 0x0000FFFC)]
+        [InlineData(0x00000000, 0x00000010, (ushort)0x0004, 0x00000000)]
+        [InlineData(0x00000002, 0x00000010, (ushort)0x0004, 0x00020000)]
+        public void DIVS(uint d0Val, uint d1Val, ushort expectedFlags, uint expectedResult)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { 0x81C1 };  // divs d1,d0
@@ -1866,7 +1866,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Fact]
@@ -1888,17 +1888,17 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0x8001, 0x00000000, 0x00000000, SRFlags.Zero, 0x00000000)]
-        [InlineData(0x8001, 0x00000010, 0x00000040, (SRFlags)0, 0x00000050)]
-        [InlineData(0x8001, 0x00000010, 0x00000081, SRFlags.Negative, 0x00000091)]
-        [InlineData(0x8041, 0x00000000, 0x00000000, SRFlags.Zero, 0x00000000)]
-        [InlineData(0x8041, 0x00002020, 0x00000202, (SRFlags)0, 0x00002222)]
-        [InlineData(0x8041, 0x00001070, 0x00008043, SRFlags.Negative, 0x00009073)]
-        [InlineData(0x8041, 0x12345678, 0x00002100, (SRFlags)0, 0x12347778)]
-        [InlineData(0x8081, 0x00000000, 0x00000000, SRFlags.Zero, 0x00000000)]
-        [InlineData(0x8081, 0x12345678, 0x65432100, (SRFlags)0, 0x77777778)]
-        [InlineData(0x8081, 0x00000000, 0xF0000000, SRFlags.Negative, 0xF0000000)]
-        public void OR(ushort opcode, uint d0Val, uint d1Val, SRFlags expectedFlags, uint expectedResult)
+        [InlineData(0x8001, 0x00000000, 0x00000000, (ushort)0x0004, 0x00000000)]
+        [InlineData(0x8001, 0x00000010, 0x00000040, (ushort)0x0000, 0x00000050)]
+        [InlineData(0x8001, 0x00000010, 0x00000081, (ushort)0x0008, 0x00000091)]
+        [InlineData(0x8041, 0x00000000, 0x00000000, (ushort)0x0004, 0x00000000)]
+        [InlineData(0x8041, 0x00002020, 0x00000202, (ushort)0x0000, 0x00002222)]
+        [InlineData(0x8041, 0x00001070, 0x00008043, (ushort)0x0008, 0x00009073)]
+        [InlineData(0x8041, 0x12345678, 0x00002100, (ushort)0x0000, 0x12347778)]
+        [InlineData(0x8081, 0x00000000, 0x00000000, (ushort)0x0004, 0x00000000)]
+        [InlineData(0x8081, 0x12345678, 0x65432100, (ushort)0x0000, 0x77777778)]
+        [InlineData(0x8081, 0x00000000, 0xF0000000, (ushort)0x0008, 0xF0000000)]
+        public void OR(ushort opcode, uint d0Val, uint d1Val, ushort expectedFlags, uint expectedResult)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -1915,21 +1915,21 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0x9011, 0x00000000, 0x00000000, SRFlags.Zero, 0x00000000)]
-        [InlineData(0x9011, 0x00000050, 0x40000000, (SRFlags)0, 0x00000010)]
-        [InlineData(0x9011, 0x00000010, 0x80000000, SRFlags.Negative | SRFlags.Carry | SRFlags.Overflow | SRFlags.Extend, 0x00000090)]
-        [InlineData(0x9051, 0x00000000, 0x00000000, SRFlags.Zero, 0x00000000)]
-        [InlineData(0x9051, 0x00002020, 0x02020000, (SRFlags)0, 0x00001E1E)]
-        [InlineData(0x9051, 0x00001070, 0x80430000, SRFlags.Negative | SRFlags.Carry | SRFlags.Overflow | SRFlags.Extend, 0x0000902D)]
-        [InlineData(0x9051, 0x12345678, 0x21000000, (SRFlags)0, 0x12343578)]
-        [InlineData(0x9091, 0x12345678, 0x12345678, SRFlags.Zero, 0x00000000)]
-        [InlineData(0x9091, 0x12345678, 0x20000000, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend, 0xF2345678)]
-        [InlineData(0x9091, 0xF0000000, 0xE0000000, (SRFlags)0, 0x10000000)]
-        public void SUB(ushort opcode, uint d0Val, uint a1MemVal, SRFlags expectedFlags, uint expectedResult)
+        [InlineData(0x9011, 0x00000000, 0x00000000, (ushort)0x0004, 0x00000000)]
+        [InlineData(0x9011, 0x00000050, 0x40000000, (ushort)0x0000, 0x00000010)]
+        [InlineData(0x9011, 0x00000010, 0x80000000, (ushort)0x001B, 0x00000090)]
+        [InlineData(0x9051, 0x00000000, 0x00000000, (ushort)0x0004, 0x00000000)]
+        [InlineData(0x9051, 0x00002020, 0x02020000, (ushort)0x0000, 0x00001E1E)]
+        [InlineData(0x9051, 0x00001070, 0x80430000, (ushort)0x001B, 0x0000902D)]
+        [InlineData(0x9051, 0x12345678, 0x21000000, (ushort)0x0000, 0x12343578)]
+        [InlineData(0x9091, 0x12345678, 0x12345678, (ushort)0x0004, 0x00000000)]
+        [InlineData(0x9091, 0x12345678, 0x20000000, (ushort)0x0019, 0xF2345678)]
+        [InlineData(0x9091, 0xF0000000, 0xE0000000, (ushort)0x0000, 0x10000000)]
+        public void SUB(ushort opcode, uint d0Val, uint a1MemVal, ushort expectedFlags, uint expectedResult)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -1948,24 +1948,24 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0x9509, 0x01, 0x00000000, 0x00000000, (SRFlags)0, (SRFlags)0, 0x00000000)]
-        [InlineData(0x9509, 0x01, 0x00000000, 0x00000001, SRFlags.Extend, (SRFlags)0, 0x00000000)]
-        [InlineData(0x9509, 0x01, 0x00000040, 0x00000050, (SRFlags)0, (SRFlags)0, 0x00000010)]
-        [InlineData(0x9509, 0x01, 0x00000080, 0x00000010, (SRFlags)0, SRFlags.Negative | SRFlags.Carry | SRFlags.Overflow | SRFlags.Extend, 0x00000090)]
-        [InlineData(0x9509, 0x01, 0x00000091, 0x00000010, SRFlags.Extend, SRFlags.Carry | SRFlags.Extend, 0x0000007E)]
-        [InlineData(0x9549, 0x02, 0x00000000, 0x00000000, (SRFlags)0, (SRFlags)0, 0x00000000)]
-        [InlineData(0x9549, 0x02, 0x00000000, 0x00000001, SRFlags.Extend, (SRFlags)0, 0x00000000)]
-        [InlineData(0x9549, 0x02, 0x00000202, 0x00002020, (SRFlags)0, (SRFlags)0, 0x00001E1E)]
-        [InlineData(0x9549, 0x02, 0x00008043, 0x00001070, SRFlags.Extend, SRFlags.Negative | SRFlags.Carry | SRFlags.Overflow | SRFlags.Extend, 0x0000902C)]
-        [InlineData(0x9549, 0x02, 0x00002100, 0x12345678, SRFlags.Extend, (SRFlags)0, 0x12343577)]
-        [InlineData(0x9589, 0x04, 0x12345678, 0x12345678, (SRFlags)0, (SRFlags)0, 0x00000000)]
-        [InlineData(0x9589, 0x04, 0x20000000, 0x12345678, (SRFlags)0, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend, 0xF2345678)]
-        [InlineData(0x9589, 0x04, 0xE0000000, 0xF0000000, SRFlags.Extend, (SRFlags)0, 0x0FFFFFFF)]
-        public void SUBX(ushort opcode, byte numBytes, uint a1MemVal, uint a2MemVal, SRFlags initFlags, SRFlags expectedFlags, uint expectedResult)
+        [InlineData(0x9509, 0x01, 0x00000000, 0x00000000, (ushort)0x0000, (ushort)0x0000, 0x00000000)]
+        [InlineData(0x9509, 0x01, 0x00000000, 0x00000001, (ushort)0x0010, (ushort)0x0000, 0x00000000)]
+        [InlineData(0x9509, 0x01, 0x00000040, 0x00000050, (ushort)0x0000, (ushort)0x0000, 0x00000010)]
+        [InlineData(0x9509, 0x01, 0x00000080, 0x00000010, (ushort)0x0000, (ushort)0x001B, 0x00000090)]
+        [InlineData(0x9509, 0x01, 0x00000091, 0x00000010, (ushort)0x0010, (ushort)0x0011, 0x0000007E)]
+        [InlineData(0x9549, 0x02, 0x00000000, 0x00000000, (ushort)0x0000, (ushort)0x0000, 0x00000000)]
+        [InlineData(0x9549, 0x02, 0x00000000, 0x00000001, (ushort)0x0010, (ushort)0x0000, 0x00000000)]
+        [InlineData(0x9549, 0x02, 0x00000202, 0x00002020, (ushort)0x0000, (ushort)0x0000, 0x00001E1E)]
+        [InlineData(0x9549, 0x02, 0x00008043, 0x00001070, (ushort)0x0010, (ushort)0x001B, 0x0000902C)]
+        [InlineData(0x9549, 0x02, 0x00002100, 0x12345678, (ushort)0x0010, (ushort)0x0000, 0x12343577)]
+        [InlineData(0x9589, 0x04, 0x12345678, 0x12345678, (ushort)0x0000, (ushort)0x0000, 0x00000000)]
+        [InlineData(0x9589, 0x04, 0x20000000, 0x12345678, (ushort)0x0000, (ushort)0x0019, 0xF2345678)]
+        [InlineData(0x9589, 0x04, 0xE0000000, 0xF0000000, (ushort)0x0010, (ushort)0x0000, 0x0FFFFFFF)]
+        public void SUBX(ushort opcode, byte numBytes, uint a1MemVal, uint a2MemVal, ushort initFlags, ushort expectedFlags, uint expectedResult)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -1974,7 +1974,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             {
                 A1 = 0x00002004,
                 A2 = 0x00003004,
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
             ushort[] data = new ushort[] { (ushort)((a1MemVal & 0xFFFF0000) >> 16), (ushort)(a1MemVal & 0xFFFF) };
@@ -1987,7 +1987,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadLong(0x0003000).Value);
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
             Assert.Equal((uint)(0x00002004 - numBytes), machine.CPU.ReadAddressRegister(1));
             Assert.Equal((uint)(0x00003004 - numBytes), machine.CPU.ReadAddressRegister(2));
         }
@@ -2020,17 +2020,17 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0xB300, 0x00000000, 0x00000000, SRFlags.Zero, 0x00000000)]
-        [InlineData(0xB300, 0x00000070, 0x00000040, (SRFlags)0, 0x00000030)]
-        [InlineData(0xB300, 0x00000017, 0x00000081, SRFlags.Negative, 0x00000096)]
-        [InlineData(0xB340, 0x00000000, 0x00000000, SRFlags.Zero, 0x00000000)]
-        [InlineData(0xB340, 0x00002020, 0x00006262, (SRFlags)0, 0x00004242)]
-        [InlineData(0xB340, 0x00001070, 0x00008043, SRFlags.Negative, 0x00009033)]
-        [InlineData(0xB340, 0x12345678, 0x0000FFFF, SRFlags.Negative, 0x1234A987)]
-        [InlineData(0xB380, 0x00000000, 0x00000000, SRFlags.Zero, 0x00000000)]
-        [InlineData(0xB380, 0x12345678, 0x65432100, (SRFlags)0, 0x77777778)]
-        [InlineData(0xB380, 0x70000000, 0xF0000000, SRFlags.Negative, 0x80000000)]
-        public void EOR(ushort opcode, uint d0Val, uint d1Val, SRFlags expectedFlags, uint expectedResult)
+        [InlineData(0xB300, 0x00000000, 0x00000000, (ushort)0x0004, 0x00000000)]
+        [InlineData(0xB300, 0x00000070, 0x00000040, (ushort)0x0000, 0x00000030)]
+        [InlineData(0xB300, 0x00000017, 0x00000081, (ushort)0x0008, 0x00000096)]
+        [InlineData(0xB340, 0x00000000, 0x00000000, (ushort)0x0004, 0x00000000)]
+        [InlineData(0xB340, 0x00002020, 0x00006262, (ushort)0x0000, 0x00004242)]
+        [InlineData(0xB340, 0x00001070, 0x00008043, (ushort)0x0008, 0x00009033)]
+        [InlineData(0xB340, 0x12345678, 0x0000FFFF, (ushort)0x0008, 0x1234A987)]
+        [InlineData(0xB380, 0x00000000, 0x00000000, (ushort)0x0004, 0x00000000)]
+        [InlineData(0xB380, 0x12345678, 0x65432100, (ushort)0x0000, 0x77777778)]
+        [InlineData(0xB380, 0x70000000, 0xF0000000, (ushort)0x0008, 0x80000000)]
+        public void EOR(ushort opcode, uint d0Val, uint d1Val, ushort expectedFlags, uint expectedResult)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2047,22 +2047,22 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xB509, 0x01, 0x00000000, 0x00000000, SRFlags.Zero)]
-        [InlineData(0xB509, 0x01, 0x40000000, 0x50000000, (SRFlags)0)]
-        [InlineData(0xB509, 0x01, 0x80000000, 0x10000000, SRFlags.Negative | SRFlags.Carry | SRFlags.Overflow)]
-        [InlineData(0xB509, 0x01, 0x91000000, 0x10000000, SRFlags.Carry)]
-        [InlineData(0xB549, 0x02, 0x00000000, 0x00000000, SRFlags.Zero)]
-        [InlineData(0xB549, 0x02, 0x02020000, 0x20200000, (SRFlags)0)]
-        [InlineData(0xB549, 0x02, 0x80430000, 0x10700000, SRFlags.Negative | SRFlags.Carry | SRFlags.Overflow)]
-        [InlineData(0xB549, 0x02, 0x00002100, 0x12345678, (SRFlags)0)]
-        [InlineData(0xB589, 0x04, 0x12345678, 0x12345678, SRFlags.Zero)]
-        [InlineData(0xB589, 0x04, 0x20000000, 0x12345678, SRFlags.Negative | SRFlags.Carry)]
-        [InlineData(0xB589, 0x04, 0xE0000000, 0xF0000000, (SRFlags)0)]
-        public void CMPM(ushort opcode, byte numBytes, uint a1MemVal, uint a2MemVal, SRFlags expectedFlags)
+        [InlineData(0xB509, 0x01, 0x00000000, 0x00000000, (ushort)0x0004)]
+        [InlineData(0xB509, 0x01, 0x40000000, 0x50000000, (ushort)0x0000)]
+        [InlineData(0xB509, 0x01, 0x80000000, 0x10000000, (ushort)0x000B)]
+        [InlineData(0xB509, 0x01, 0x91000000, 0x10000000, (ushort)0x0001)]
+        [InlineData(0xB549, 0x02, 0x00000000, 0x00000000, (ushort)0x0004)]
+        [InlineData(0xB549, 0x02, 0x02020000, 0x20200000, (ushort)0x0000)]
+        [InlineData(0xB549, 0x02, 0x80430000, 0x10700000, (ushort)0x000B)]
+        [InlineData(0xB549, 0x02, 0x00002100, 0x12345678, (ushort)0x0000)]
+        [InlineData(0xB589, 0x04, 0x12345678, 0x12345678, (ushort)0x0004)]
+        [InlineData(0xB589, 0x04, 0x20000000, 0x12345678, (ushort)0x0009)]
+        [InlineData(0xB589, 0x04, 0xE0000000, 0xF0000000, (ushort)0x0000)]
+        public void CMPM(ushort opcode, byte numBytes, uint a1MemVal, uint a2MemVal, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2082,24 +2082,24 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
             Assert.Equal((uint)(0x00002000 + numBytes), machine.CPU.ReadAddressRegister(1));
             Assert.Equal((uint)(0x00003000 + numBytes), machine.CPU.ReadAddressRegister(2));
         }
 
         [Theory]
-        [InlineData(0xB411, 0x00000000, 0x00000000, SRFlags.Zero)]
-        [InlineData(0xB411, 0x40000000, 0x00000050, (SRFlags)0)]
-        [InlineData(0xB411, 0x80000000, 0x00000010, SRFlags.Negative | SRFlags.Carry | SRFlags.Overflow)]
-        [InlineData(0xB411, 0x91000000, 0x00000010, SRFlags.Carry)]
-        [InlineData(0xB451, 0x00000000, 0x00000000, SRFlags.Zero)]
-        [InlineData(0xB451, 0x02020000, 0x00002020, (SRFlags)0)]
-        [InlineData(0xB451, 0x80430000, 0x00001070, SRFlags.Negative | SRFlags.Carry | SRFlags.Overflow)]
-        [InlineData(0xB451, 0x00002100, 0x56781234, (SRFlags)0)]
-        [InlineData(0xB491, 0x12345678, 0x12345678, SRFlags.Zero)]
-        [InlineData(0xB491, 0x20000000, 0x12345678, SRFlags.Negative | SRFlags.Carry)]
-        [InlineData(0xB491, 0xE0000000, 0xF0000000, (SRFlags)0)]
-        public void CMP(ushort opcode, uint a1MemVal, uint d2Val, SRFlags expectedFlags)
+        [InlineData(0xB411, 0x00000000, 0x00000000, (ushort)0x0004)]
+        [InlineData(0xB411, 0x40000000, 0x00000050, (ushort)0x0000)]
+        [InlineData(0xB411, 0x80000000, 0x00000010, (ushort)0x000B)]
+        [InlineData(0xB411, 0x91000000, 0x00000010, (ushort)0x0001)]
+        [InlineData(0xB451, 0x00000000, 0x00000000, (ushort)0x0004)]
+        [InlineData(0xB451, 0x02020000, 0x00002020, (ushort)0x0000)]
+        [InlineData(0xB451, 0x80430000, 0x00001070, (ushort)0x000B)]
+        [InlineData(0xB451, 0x00002100, 0x56781234, (ushort)0x0000)]
+        [InlineData(0xB491, 0x12345678, 0x12345678, (ushort)0x0004)]
+        [InlineData(0xB491, 0x20000000, 0x12345678, (ushort)0x0009)]
+        [InlineData(0xB491, 0xE0000000, 0xF0000000, (ushort)0x0000)]
+        public void CMP(ushort opcode, uint a1MemVal, uint d2Val, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2117,19 +2117,19 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteInstruction();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xB2C3, 0x00003000, 0x00003000, SRFlags.Zero)]
-        [InlineData(0xB2C3, 0x00007000, 0x00003000, (SRFlags)0)]
-        [InlineData(0xB2C3, 0x12345678, 0x00005000, (SRFlags)0)]
-        [InlineData(0xB2C3, 0x12345678, 0x00006000, (SRFlags)0)]
-        [InlineData(0xB3C3, 0x00800000, 0x00800000, SRFlags.Zero)]
-        [InlineData(0xB3C3, 0x12345678, 0x00005000, (SRFlags)0)]
-        [InlineData(0xB3C3, 0x12345678, 0x00006000, (SRFlags)0)]
-        [InlineData(0xB3C3, 0x12345678, 0x20000000, SRFlags.Negative | SRFlags.Carry)]
-        public void CMPA(ushort opcode, uint a1Val, uint d3Val, SRFlags expectedFlags)
+        [InlineData(0xB2C3, 0x00003000, 0x00003000, (ushort)0x0004)]
+        [InlineData(0xB2C3, 0x00007000, 0x00003000, (ushort)0x0000)]
+        [InlineData(0xB2C3, 0x12345678, 0x00005000, (ushort)0x0000)]
+        [InlineData(0xB2C3, 0x12345678, 0x00006000, (ushort)0x0000)]
+        [InlineData(0xB3C3, 0x00800000, 0x00800000, (ushort)0x0004)]
+        [InlineData(0xB3C3, 0x12345678, 0x00005000, (ushort)0x0000)]
+        [InlineData(0xB3C3, 0x12345678, 0x00006000, (ushort)0x0000)]
+        [InlineData(0xB3C3, 0x12345678, 0x20000000, (ushort)0x0009)]
+        public void CMPA(ushort opcode, uint a1Val, uint d3Val, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2145,16 +2145,16 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0x00008000, 0x00000000, SRFlags.Zero, 0x00000000)]
-        [InlineData(0x00000100, 0x00000040, (SRFlags)0, 0x00004000)]
-        [InlineData(0x00004000, 0x00000040, (SRFlags)0, 0x00100000)]
-        [InlineData(0x0000F000, 0x00008000, (SRFlags)0, 0x78000000)]
-        [InlineData(0x0000F000, 0x0000E000, SRFlags.Negative, 0xD2000000)]
-        public void MULU(uint d0Val, uint d1Val, SRFlags expectedFlags, uint expectedResult)
+        [InlineData(0x00008000, 0x00000000, (ushort)0x0004, 0x00000000)]
+        [InlineData(0x00000100, 0x00000040, (ushort)0x0000, 0x00004000)]
+        [InlineData(0x00004000, 0x00000040, (ushort)0x0000, 0x00100000)]
+        [InlineData(0x0000F000, 0x00008000, (ushort)0x0000, 0x78000000)]
+        [InlineData(0x0000F000, 0x0000E000, (ushort)0x0008, 0xD2000000)]
+        public void MULU(uint d0Val, uint d1Val, ushort expectedFlags, uint expectedResult)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { 0xC0C1 };  // mulu d1,d0
@@ -2171,17 +2171,17 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0x00008000, 0x00000000, SRFlags.Zero, 0x00000000)]
-        [InlineData(0x00000100, 0x00000040, (SRFlags)0, 0x00004000)]
-        [InlineData(0x00004000, 0x00000040, (SRFlags)0, 0x00100000)]
-        [InlineData(0x00008000, 0x00000100, SRFlags.Negative, 0xFF800000)]
-        [InlineData(0x0000F000, 0x00008000, (SRFlags)0, 0x08000000)]
-        [InlineData(0x0000F000, 0x0000E000, (SRFlags)0, 0x02000000)]
-        public void MULS(uint d0Val, uint d1Val, SRFlags expectedFlags, uint expectedResult)
+        [InlineData(0x00008000, 0x00000000, (ushort)0x0004, 0x00000000)]
+        [InlineData(0x00000100, 0x00000040, (ushort)0x0000, 0x00004000)]
+        [InlineData(0x00004000, 0x00000040, (ushort)0x0000, 0x00100000)]
+        [InlineData(0x00008000, 0x00000100, (ushort)0x0008, 0xFF800000)]
+        [InlineData(0x0000F000, 0x00008000, (ushort)0x0000, 0x08000000)]
+        [InlineData(0x0000F000, 0x0000E000, (ushort)0x0000, 0x02000000)]
+        public void MULS(uint d0Val, uint d1Val, ushort expectedFlags, uint expectedResult)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { 0xC1C1 };  // muls d1,d0
@@ -2198,7 +2198,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Fact]
@@ -2231,17 +2231,17 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0xC001, 0x00000000, 0x00000000, SRFlags.Zero, 0x00000000)]
-        [InlineData(0xC001, 0x0000007F, 0x00000037, (SRFlags)0, 0x00000037)]
-        [InlineData(0xC001, 0x000000FE, 0x00000081, SRFlags.Negative, 0x00000080)]
-        [InlineData(0xC041, 0x0000FFFF, 0x00000000, SRFlags.Zero, 0x00000000)]
-        [InlineData(0xC041, 0x00002020, 0x0000F000, (SRFlags)0, 0x00002000)]
-        [InlineData(0xC041, 0x0000E070, 0x00008043, SRFlags.Negative, 0x00008040)]
-        [InlineData(0xC041, 0x12345678, 0x0000F0F0, (SRFlags)0, 0x12345070)]
-        [InlineData(0xC081, 0x00000000, 0x00000000, SRFlags.Zero, 0x00000000)]
-        [InlineData(0xC081, 0x12345678, 0x07070707, (SRFlags)0, 0x02040600)]
-        [InlineData(0xC081, 0xF0000000, 0xE0000000, SRFlags.Negative, 0xE0000000)]
-        public void AND(ushort opcode, uint d0Val, uint d1Val, SRFlags expectedFlags, uint expectedResult)
+        [InlineData(0xC001, 0x00000000, 0x00000000, (ushort)0x0004, 0x00000000)]
+        [InlineData(0xC001, 0x0000007F, 0x00000037, (ushort)0x0000, 0x00000037)]
+        [InlineData(0xC001, 0x000000FE, 0x00000081, (ushort)0x0008, 0x00000080)]
+        [InlineData(0xC041, 0x0000FFFF, 0x00000000, (ushort)0x0004, 0x00000000)]
+        [InlineData(0xC041, 0x00002020, 0x0000F000, (ushort)0x0000, 0x00002000)]
+        [InlineData(0xC041, 0x0000E070, 0x00008043, (ushort)0x0008, 0x00008040)]
+        [InlineData(0xC041, 0x12345678, 0x0000F0F0, (ushort)0x0000, 0x12345070)]
+        [InlineData(0xC081, 0x00000000, 0x00000000, (ushort)0x0004, 0x00000000)]
+        [InlineData(0xC081, 0x12345678, 0x07070707, (ushort)0x0000, 0x02040600)]
+        [InlineData(0xC081, 0xF0000000, 0xE0000000, (ushort)0x0008, 0xE0000000)]
+        public void AND(ushort opcode, uint d0Val, uint d1Val, ushort expectedFlags, uint expectedResult)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2258,22 +2258,22 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xD011, 0x00000000, 0x00000000, SRFlags.Zero, 0x00000000)]
-        [InlineData(0xD011, 0x00000050, 0x10000000, (SRFlags)0, 0x00000060)]
-        [InlineData(0xD011, 0x00000050, 0x40000000, SRFlags.Negative | SRFlags.Overflow, 0x00000090)]
-        [InlineData(0xD011, 0x00000020, 0x80000000, SRFlags.Negative, 0x000000A0)]
-        [InlineData(0xD051, 0x00000000, 0x00000000, SRFlags.Zero, 0x00000000)]
-        [InlineData(0xD051, 0x00002020, 0x02020000, (SRFlags)0, 0x00002222)]
-        [InlineData(0xD051, 0x00001070, 0x70430000, SRFlags.Negative | SRFlags.Overflow, 0x000080B3)]
-        [InlineData(0xD051, 0x12345678, 0x21000000, (SRFlags)0, 0x12347778)]
-        [InlineData(0xD091, 0x00000000, 0x00000000, SRFlags.Zero, 0x00000000)]
-        [InlineData(0xD091, 0x12345678, 0x70000000, SRFlags.Negative | SRFlags.Overflow, 0x82345678)]
-        [InlineData(0xD091, 0xF0000000, 0x10000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend, 0x00000000)]
-        public void ADD(ushort opcode, uint d0Val, uint a1MemVal, SRFlags expectedFlags, uint expectedResult)
+        [InlineData(0xD011, 0x00000000, 0x00000000, (ushort)0x0004, 0x00000000)]
+        [InlineData(0xD011, 0x00000050, 0x10000000, (ushort)0x0000, 0x00000060)]
+        [InlineData(0xD011, 0x00000050, 0x40000000, (ushort)0x000A, 0x00000090)]
+        [InlineData(0xD011, 0x00000020, 0x80000000, (ushort)0x0008, 0x000000A0)]
+        [InlineData(0xD051, 0x00000000, 0x00000000, (ushort)0x0004, 0x00000000)]
+        [InlineData(0xD051, 0x00002020, 0x02020000, (ushort)0x0000, 0x00002222)]
+        [InlineData(0xD051, 0x00001070, 0x70430000, (ushort)0x000A, 0x000080B3)]
+        [InlineData(0xD051, 0x12345678, 0x21000000, (ushort)0x0000, 0x12347778)]
+        [InlineData(0xD091, 0x00000000, 0x00000000, (ushort)0x0004, 0x00000000)]
+        [InlineData(0xD091, 0x12345678, 0x70000000, (ushort)0x000A, 0x82345678)]
+        [InlineData(0xD091, 0xF0000000, 0x10000000, (ushort)0x0015, 0x00000000)]
+        public void ADD(ushort opcode, uint d0Val, uint a1MemVal, ushort expectedFlags, uint expectedResult)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2292,26 +2292,26 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xD509, 0x01, 0x00000000, 0x00000000, (SRFlags)0, (SRFlags)0, 0x00000000)]
-        [InlineData(0xD509, 0x01, 0x00000000, 0x00000001, SRFlags.Extend, (SRFlags)0, 0x00000002)]
-        [InlineData(0xD509, 0x01, 0x00000040, 0x00000050, (SRFlags)0, SRFlags.Negative | SRFlags.Overflow, 0x00000090)]
-        [InlineData(0xD509, 0x01, 0x00000080, 0x0000007F, (SRFlags)0, SRFlags.Negative, 0x000000FF)]
-        [InlineData(0xD509, 0x01, 0x00000080, 0x0000007F, SRFlags.Extend, SRFlags.Carry | SRFlags.Extend, 0x00000000)]
-        [InlineData(0xD549, 0x02, 0x00000000, 0x00000000, (SRFlags)0, (SRFlags)0, 0x00000000)]
-        [InlineData(0xD549, 0x02, 0x00000000, 0x00000001, SRFlags.Extend, (SRFlags)0, 0x00000002)]
-        [InlineData(0xD549, 0x02, 0x00000202, 0x00002020, (SRFlags)0, (SRFlags)0, 0x00002222)]
-        [InlineData(0xD549, 0x02, 0x00008043, 0x00001070, SRFlags.Extend, SRFlags.Negative, 0x000090B4)]
-        [InlineData(0xD549, 0x02, 0x00002100, 0x12345678, SRFlags.Extend, (SRFlags)0, 0x12347779)]
-        [InlineData(0xD589, 0x04, 0x00000000, 0x00000000, (SRFlags)0, (SRFlags)0, 0x00000000)]
-        [InlineData(0xD589, 0x04, 0x12345678, 0x12345678, SRFlags.Extend, (SRFlags)0, 0x2468ACF1)]
-        [InlineData(0xD589, 0x04, 0x70000000, 0x12345678, (SRFlags)0, SRFlags.Negative | SRFlags.Overflow, 0x82345678)]
-        [InlineData(0xD589, 0x04, 0xE0000000, 0xF0000000, SRFlags.Extend, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend, 0xD0000001)]
-        [InlineData(0xD589, 0x04, 0xE0000000, 0x1FFFFFFF, SRFlags.Extend, SRFlags.Carry | SRFlags.Extend, 0x00000000)]
-        public void ADDX(ushort opcode, byte numBytes, uint a1MemVal, uint a2MemVal, SRFlags initFlags, SRFlags expectedFlags, uint expectedResult)
+        [InlineData(0xD509, 0x01, 0x00000000, 0x00000000, (ushort)0x0000, (ushort)0x0000, 0x00000000)]
+        [InlineData(0xD509, 0x01, 0x00000000, 0x00000001, (ushort)0x0010, (ushort)0x0000, 0x00000002)]
+        [InlineData(0xD509, 0x01, 0x00000040, 0x00000050, (ushort)0x0000, (ushort)0x000A, 0x00000090)]
+        [InlineData(0xD509, 0x01, 0x00000080, 0x0000007F, (ushort)0x0000, (ushort)0x0008, 0x000000FF)]
+        [InlineData(0xD509, 0x01, 0x00000080, 0x0000007F, (ushort)0x0010, (ushort)0x0011, 0x00000000)]
+        [InlineData(0xD549, 0x02, 0x00000000, 0x00000000, (ushort)0x0000, (ushort)0x0000, 0x00000000)]
+        [InlineData(0xD549, 0x02, 0x00000000, 0x00000001, (ushort)0x0010, (ushort)0x0000, 0x00000002)]
+        [InlineData(0xD549, 0x02, 0x00000202, 0x00002020, (ushort)0x0000, (ushort)0x0000, 0x00002222)]
+        [InlineData(0xD549, 0x02, 0x00008043, 0x00001070, (ushort)0x0010, (ushort)0x0008, 0x000090B4)]
+        [InlineData(0xD549, 0x02, 0x00002100, 0x12345678, (ushort)0x0010, (ushort)0x0000, 0x12347779)]
+        [InlineData(0xD589, 0x04, 0x00000000, 0x00000000, (ushort)0x0000, (ushort)0x0000, 0x00000000)]
+        [InlineData(0xD589, 0x04, 0x12345678, 0x12345678, (ushort)0x0010, (ushort)0x0000, 0x2468ACF1)]
+        [InlineData(0xD589, 0x04, 0x70000000, 0x12345678, (ushort)0x0000, (ushort)0x000A, 0x82345678)]
+        [InlineData(0xD589, 0x04, 0xE0000000, 0xF0000000, (ushort)0x0010, (ushort)0x0019, 0xD0000001)]
+        [InlineData(0xD589, 0x04, 0xE0000000, 0x1FFFFFFF, (ushort)0x0010, (ushort)0x0011, 0x00000000)]
+        public void ADDX(ushort opcode, byte numBytes, uint a1MemVal, uint a2MemVal, ushort initFlags, ushort expectedFlags, uint expectedResult)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2320,7 +2320,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             {
                 A1 = 0x00002004,
                 A2 = 0x00003004,
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
             ushort[] data = new ushort[] { (ushort)((a1MemVal & 0xFFFF0000) >> 16), (ushort)(a1MemVal & 0xFFFF) };
@@ -2333,7 +2333,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadLong(0x0003000).Value);
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
             Assert.Equal((uint)(0x00002004 - numBytes), machine.CPU.ReadAddressRegister(1));
             Assert.Equal((uint)(0x00003004 - numBytes), machine.CPU.ReadAddressRegister(2));
         }
@@ -2370,25 +2370,25 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0xE901, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // asl.b #4,d1
-        [InlineData(0xE901, 0x00000000, 0x00000001, 0x00000010, (SRFlags)0)]    // asl.b #4,d1
-        [InlineData(0xE901, 0x00000000, 0x00000010, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Overflow | SRFlags.Extend)]    // asl.b #4,d1
-        [InlineData(0xE121, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // asl.b d0,d1
-        [InlineData(0xE121, 0x00000005, 0x00000001, 0x00000020, (SRFlags)0)]    // asl.b d0,d1
-        [InlineData(0xE121, 0x00000005, 0x00000008, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Overflow | SRFlags.Extend)]    // asl.b d0,d1
-        [InlineData(0xE941, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // asl.w #4,d1
-        [InlineData(0xE941, 0x00000000, 0x00000201, 0x00002010, (SRFlags)0)]    // asl.w #4,d1
-        [InlineData(0xE941, 0x00000000, 0x00001000, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Overflow | SRFlags.Extend)]    // asl.w #4,d1
-        [InlineData(0xE161, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // asl.w d0,d1
-        [InlineData(0xE161, 0x0000000B, 0x00000010, 0x00008000, SRFlags.Negative | SRFlags.Overflow)]    // asl.w d0,d1
-        [InlineData(0xE161, 0x00000005, 0x00000800, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Overflow | SRFlags.Extend)]    // asl.w d0,d1
-        [InlineData(0xE981, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // asl.l #4,d1
-        [InlineData(0xE981, 0x00000000, 0x01020408, 0x10204080, (SRFlags)0)]    // asl.l #4,d1
-        [InlineData(0xE981, 0x00000000, 0x00001000, 0x00010000, (SRFlags)0)]    // asl.l #4,d1
-        [InlineData(0xE1A1, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // asl.l d0,d1
-        [InlineData(0xE1A1, 0x00000010, 0x00000010, 0x00100000, (SRFlags)0)]    // asl.l d0,d1
-        [InlineData(0xE1A1, 0x00000005, 0x08000000, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Overflow | SRFlags.Extend)]    // asl.l d0,d1
-        public void ASL_Register(ushort opcode, uint d0Val, uint d1Val, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(0xE901, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // asl.b #4,d1
+        [InlineData(0xE901, 0x00000000, 0x00000001, 0x00000010, (ushort)0x0000)]    // asl.b #4,d1
+        [InlineData(0xE901, 0x00000000, 0x00000010, 0x00000000, (ushort)0x0017)]    // asl.b #4,d1
+        [InlineData(0xE121, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // asl.b d0,d1
+        [InlineData(0xE121, 0x00000005, 0x00000001, 0x00000020, (ushort)0x0000)]    // asl.b d0,d1
+        [InlineData(0xE121, 0x00000005, 0x00000008, 0x00000000, (ushort)0x0017)]    // asl.b d0,d1
+        [InlineData(0xE941, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // asl.w #4,d1
+        [InlineData(0xE941, 0x00000000, 0x00000201, 0x00002010, (ushort)0x0000)]    // asl.w #4,d1
+        [InlineData(0xE941, 0x00000000, 0x00001000, 0x00000000, (ushort)0x0017)]    // asl.w #4,d1
+        [InlineData(0xE161, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // asl.w d0,d1
+        [InlineData(0xE161, 0x0000000B, 0x00000010, 0x00008000, (ushort)0x000A)]    // asl.w d0,d1
+        [InlineData(0xE161, 0x00000005, 0x00000800, 0x00000000, (ushort)0x0017)]    // asl.w d0,d1
+        [InlineData(0xE981, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // asl.l #4,d1
+        [InlineData(0xE981, 0x00000000, 0x01020408, 0x10204080, (ushort)0x0000)]    // asl.l #4,d1
+        [InlineData(0xE981, 0x00000000, 0x00001000, 0x00010000, (ushort)0x0000)]    // asl.l #4,d1
+        [InlineData(0xE1A1, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // asl.l d0,d1
+        [InlineData(0xE1A1, 0x00000010, 0x00000010, 0x00100000, (ushort)0x0000)]    // asl.l d0,d1
+        [InlineData(0xE1A1, 0x00000005, 0x08000000, 0x00000000, (ushort)0x0017)]    // asl.l d0,d1
+        public void ASL_Register(ushort opcode, uint d0Val, uint d1Val, uint expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2405,15 +2405,15 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xE1D1, 0x0000, 0x0000, SRFlags.Zero)]    // asl (a1)
-        [InlineData(0xE1D1, 0x0100, 0x0200, (SRFlags)0)]    // asl (a1)
-        [InlineData(0xE1D1, 0x8000, 0x0000, SRFlags.Zero | SRFlags.Carry | SRFlags.Overflow | SRFlags.Extend)]    // asl (a1)
-        [InlineData(0xE1D1, 0x4000, 0x8000, SRFlags.Negative | SRFlags.Overflow)]    // asl (a1)
-        public void ASL_Memory(ushort opcode, ushort a1Val, ushort expectedResult, SRFlags expectedFlags)
+        [InlineData(0xE1D1, 0x0000, 0x0000, (ushort)0x0004)]    // asl (a1)
+        [InlineData(0xE1D1, 0x0100, 0x0200, (ushort)0x0000)]    // asl (a1)
+        [InlineData(0xE1D1, 0x8000, 0x0000, (ushort)0x0017)]    // asl (a1)
+        [InlineData(0xE1D1, 0x4000, 0x8000, (ushort)0x000A)]    // asl (a1)
+        public void ASL_Memory(ushort opcode, ushort a1Val, ushort expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2431,32 +2431,32 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xE801, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // asr.b #4,d1
-        [InlineData(0xE801, 0x00000000, 0x00000010, 0x00000001, (SRFlags)0)]    // asr.b #4,d1
-        [InlineData(0xE801, 0x00000000, 0x00000008, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // asr.b #4,d1
-        [InlineData(0xE801, 0x00000000, 0x00000080, 0x000000F8, SRFlags.Negative)]    // asr.b #4,d1
-        [InlineData(0xE021, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // asr.b d0,d1
-        [InlineData(0xE021, 0x00000005, 0x00000020, 0x00000001, (SRFlags)0)]    // asr.b d0,d1
-        [InlineData(0xE021, 0x00000005, 0x00000010, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // asr.b d0,d1
-        [InlineData(0xE841, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // asr.w #4,d1
-        [InlineData(0xE841, 0x00000000, 0x00002010, 0x00000201, (SRFlags)0)]    // asr.w #4,d1
-        [InlineData(0xE841, 0x00000000, 0x00000008, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // asr.w #4,d1
-        [InlineData(0xE061, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // asr.w d0,d1
-        [InlineData(0xE061, 0x0000000B, 0x00008000, 0x0000FFF0, SRFlags.Negative)]    // asr.w d0,d1
-        [InlineData(0xE061, 0x0000000C, 0x00000800, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // asr.w d0,d1
-        [InlineData(0xE881, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // asr.l #4,d1
-        [InlineData(0xE881, 0x00000000, 0x10204080, 0x01020408, (SRFlags)0)]    // asr.l #4,d1
-        [InlineData(0xE881, 0x00000000, 0x00000002, 0x00000000, SRFlags.Zero)]    // asr.l #4,d1
-        [InlineData(0xE881, 0x00000000, 0x00000008, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // asr.l #4,d1
-        [InlineData(0xE0A1, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // asr.l d0,d1
-        [InlineData(0xE0A1, 0x00000010, 0x00100000, 0x00000010, (SRFlags)0)]    // asr.l d0,d1
-        [InlineData(0xE0A1, 0x00000008, 0x80100000, 0xFF801000, SRFlags.Negative)]    // asr.l d0,d1
-        [InlineData(0xE0A1, 0x00000005, 0x00000010, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // asr.l d0,d1
-        public void ASR_Register(ushort opcode, uint d0Val, uint d1Val, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(0xE801, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // asr.b #4,d1
+        [InlineData(0xE801, 0x00000000, 0x00000010, 0x00000001, (ushort)0x0000)]    // asr.b #4,d1
+        [InlineData(0xE801, 0x00000000, 0x00000008, 0x00000000, (ushort)0x0015)]    // asr.b #4,d1
+        [InlineData(0xE801, 0x00000000, 0x00000080, 0x000000F8, (ushort)0x0008)]    // asr.b #4,d1
+        [InlineData(0xE021, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // asr.b d0,d1
+        [InlineData(0xE021, 0x00000005, 0x00000020, 0x00000001, (ushort)0x0000)]    // asr.b d0,d1
+        [InlineData(0xE021, 0x00000005, 0x00000010, 0x00000000, (ushort)0x0015)]    // asr.b d0,d1
+        [InlineData(0xE841, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // asr.w #4,d1
+        [InlineData(0xE841, 0x00000000, 0x00002010, 0x00000201, (ushort)0x0000)]    // asr.w #4,d1
+        [InlineData(0xE841, 0x00000000, 0x00000008, 0x00000000, (ushort)0x0015)]    // asr.w #4,d1
+        [InlineData(0xE061, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // asr.w d0,d1
+        [InlineData(0xE061, 0x0000000B, 0x00008000, 0x0000FFF0, (ushort)0x0008)]    // asr.w d0,d1
+        [InlineData(0xE061, 0x0000000C, 0x00000800, 0x00000000, (ushort)0x0015)]    // asr.w d0,d1
+        [InlineData(0xE881, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // asr.l #4,d1
+        [InlineData(0xE881, 0x00000000, 0x10204080, 0x01020408, (ushort)0x0000)]    // asr.l #4,d1
+        [InlineData(0xE881, 0x00000000, 0x00000002, 0x00000000, (ushort)0x0004)]    // asr.l #4,d1
+        [InlineData(0xE881, 0x00000000, 0x00000008, 0x00000000, (ushort)0x0015)]    // asr.l #4,d1
+        [InlineData(0xE0A1, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // asr.l d0,d1
+        [InlineData(0xE0A1, 0x00000010, 0x00100000, 0x00000010, (ushort)0x0000)]    // asr.l d0,d1
+        [InlineData(0xE0A1, 0x00000008, 0x80100000, 0xFF801000, (ushort)0x0008)]    // asr.l d0,d1
+        [InlineData(0xE0A1, 0x00000005, 0x00000010, 0x00000000, (ushort)0x0015)]    // asr.l d0,d1
+        public void ASR_Register(ushort opcode, uint d0Val, uint d1Val, uint expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2473,15 +2473,15 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xE0D1, 0x0000, 0x0000, SRFlags.Zero)]    // asr (a1)
-        [InlineData(0xE0D1, 0x0200, 0x0100, (SRFlags)0)]    // asr (a1)
-        [InlineData(0xE0D1, 0x0001, 0x0000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // asr (a1)
-        [InlineData(0xE0D1, 0x8000, 0xC000, SRFlags.Negative)]    // asr (a1)
-        public void ASR_Memory(ushort opcode, ushort a1Val, ushort expectedResult, SRFlags expectedFlags)
+        [InlineData(0xE0D1, 0x0000, 0x0000, (ushort)0x0004)]    // asr (a1)
+        [InlineData(0xE0D1, 0x0200, 0x0100, (ushort)0x0000)]    // asr (a1)
+        [InlineData(0xE0D1, 0x0001, 0x0000, (ushort)0x0015)]    // asr (a1)
+        [InlineData(0xE0D1, 0x8000, 0xC000, (ushort)0x0008)]    // asr (a1)
+        public void ASR_Memory(ushort opcode, ushort a1Val, ushort expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2499,29 +2499,29 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xE909, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // lsl.b #4,d1
-        [InlineData(0xE909, 0x00000000, 0x00000001, 0x00000010, (SRFlags)0)]    // lsl.b #4,d1
-        [InlineData(0xE909, 0x00000000, 0x00000010, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // lsl.b #4,d1
-        [InlineData(0xE129, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // lsl.b d0,d1
-        [InlineData(0xE129, 0x00000005, 0x00000001, 0x00000020, (SRFlags)0)]    // lsl.b d0,d1
-        [InlineData(0xE129, 0x00000005, 0x00000008, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // lsl.b d0,d1
-        [InlineData(0xE949, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // lsl.w #4,d1
-        [InlineData(0xE949, 0x00000000, 0x00000201, 0x00002010, (SRFlags)0)]    // lsl.w #4,d1
-        [InlineData(0xE949, 0x00000000, 0x00001000, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // lsl.w #4,d1
-        [InlineData(0xE169, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // lsl.w d0,d1
-        [InlineData(0xE169, 0x0000000B, 0x00000010, 0x00008000, SRFlags.Negative)]    // lsl.w d0,d1
-        [InlineData(0xE169, 0x00000005, 0x00000800, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // lsl.w d0,d1
-        [InlineData(0xE989, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // lsl.l #4,d1
-        [InlineData(0xE989, 0x00000000, 0x01020408, 0x10204080, (SRFlags)0)]    // lsl.l #4,d1
-        [InlineData(0xE989, 0x00000000, 0x00001000, 0x00010000, (SRFlags)0)]    // lsl.l #4,d1
-        [InlineData(0xE1A9, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // lsl.l d0,d1
-        [InlineData(0xE1A9, 0x00000010, 0x00000010, 0x00100000, (SRFlags)0)]    // lsl.l d0,d1
-        [InlineData(0xE1A9, 0x00000005, 0x08000000, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // lsl.l d0,d1
-        public void LSL_Register(ushort opcode, uint d0Val, uint d1Val, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(0xE909, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // lsl.b #4,d1
+        [InlineData(0xE909, 0x00000000, 0x00000001, 0x00000010, (ushort)0x0000)]    // lsl.b #4,d1
+        [InlineData(0xE909, 0x00000000, 0x00000010, 0x00000000, (ushort)0x0015)]    // lsl.b #4,d1
+        [InlineData(0xE129, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // lsl.b d0,d1
+        [InlineData(0xE129, 0x00000005, 0x00000001, 0x00000020, (ushort)0x0000)]    // lsl.b d0,d1
+        [InlineData(0xE129, 0x00000005, 0x00000008, 0x00000000, (ushort)0x0015)]    // lsl.b d0,d1
+        [InlineData(0xE949, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // lsl.w #4,d1
+        [InlineData(0xE949, 0x00000000, 0x00000201, 0x00002010, (ushort)0x0000)]    // lsl.w #4,d1
+        [InlineData(0xE949, 0x00000000, 0x00001000, 0x00000000, (ushort)0x0015)]    // lsl.w #4,d1
+        [InlineData(0xE169, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // lsl.w d0,d1
+        [InlineData(0xE169, 0x0000000B, 0x00000010, 0x00008000, (ushort)0x0008)]    // lsl.w d0,d1
+        [InlineData(0xE169, 0x00000005, 0x00000800, 0x00000000, (ushort)0x0015)]    // lsl.w d0,d1
+        [InlineData(0xE989, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // lsl.l #4,d1
+        [InlineData(0xE989, 0x00000000, 0x01020408, 0x10204080, (ushort)0x0000)]    // lsl.l #4,d1
+        [InlineData(0xE989, 0x00000000, 0x00001000, 0x00010000, (ushort)0x0000)]    // lsl.l #4,d1
+        [InlineData(0xE1A9, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // lsl.l d0,d1
+        [InlineData(0xE1A9, 0x00000010, 0x00000010, 0x00100000, (ushort)0x0000)]    // lsl.l d0,d1
+        [InlineData(0xE1A9, 0x00000005, 0x08000000, 0x00000000, (ushort)0x0015)]    // lsl.l d0,d1
+        public void LSL_Register(ushort opcode, uint d0Val, uint d1Val, uint expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2538,15 +2538,15 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xE3D1, 0x0000, 0x0000, SRFlags.Zero)]    // lsl (a1)
-        [InlineData(0xE3D1, 0x0100, 0x0200, (SRFlags)0)]    // lsl (a1)
-        [InlineData(0xE3D1, 0x8000, 0x0000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // lsl (a1)
-        [InlineData(0xE3D1, 0x4000, 0x8000, SRFlags.Negative)]    // lsl (a1)
-        public void LSL_Memory(ushort opcode, ushort a1Val, ushort expectedResult, SRFlags expectedFlags)
+        [InlineData(0xE3D1, 0x0000, 0x0000, (ushort)0x0004)]    // lsl (a1)
+        [InlineData(0xE3D1, 0x0100, 0x0200, (ushort)0x0000)]    // lsl (a1)
+        [InlineData(0xE3D1, 0x8000, 0x0000, (ushort)0x0015)]    // lsl (a1)
+        [InlineData(0xE3D1, 0x4000, 0x8000, (ushort)0x0008)]    // lsl (a1)
+        public void LSL_Memory(ushort opcode, ushort a1Val, ushort expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2564,32 +2564,32 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xE809, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // lsr.b #4,d1
-        [InlineData(0xE809, 0x00000000, 0x00000010, 0x00000001, (SRFlags)0)]    // lsr.b #4,d1
-        [InlineData(0xE809, 0x00000000, 0x00000008, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // lsr.b #4,d1
-        [InlineData(0xE809, 0x00000000, 0x00000080, 0x00000008, (SRFlags)0)]    // lsr.b #4,d1
-        [InlineData(0xE029, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // lsr.b d0,d1
-        [InlineData(0xE029, 0x00000005, 0x00000020, 0x00000001, (SRFlags)0)]    // lsr.b d0,d1
-        [InlineData(0xE029, 0x00000005, 0x00000010, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // lsr.b d0,d1
-        [InlineData(0xE849, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // lsr.w #4,d1
-        [InlineData(0xE849, 0x00000000, 0x00002010, 0x00000201, (SRFlags)0)]    // lsr.w #4,d1
-        [InlineData(0xE849, 0x00000000, 0x00000008, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // lsr.w #4,d1
-        [InlineData(0xE069, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // lsr.w d0,d1
-        [InlineData(0xE069, 0x0000000B, 0x00008000, 0x00000010, (SRFlags)0)]    // lsr.w d0,d1
-        [InlineData(0xE069, 0x0000000C, 0x00000800, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // lsr.w d0,d1
-        [InlineData(0xE889, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // lsr.l #4,d1
-        [InlineData(0xE889, 0x00000000, 0x10204080, 0x01020408, (SRFlags)0)]    // lsr.l #4,d1
-        [InlineData(0xE889, 0x00000000, 0x00000002, 0x00000000, SRFlags.Zero)]    // lsr.l #4,d1
-        [InlineData(0xE889, 0x00000000, 0x00000008, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // lsr.l #4,d1
-        [InlineData(0xE0A9, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // lsr.l d0,d1
-        [InlineData(0xE0A9, 0x00000010, 0x00100000, 0x00000010, (SRFlags)0)]    // lsr.l d0,d1
-        [InlineData(0xE0A9, 0x00000008, 0x80100000, 0x00801000, (SRFlags)0)]    // lsr.l d0,d1
-        [InlineData(0xE0A9, 0x00000005, 0x00000010, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // lsr.l d0,d1
-        public void LSR_Register(ushort opcode, uint d0Val, uint d1Val, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(0xE809, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // lsr.b #4,d1
+        [InlineData(0xE809, 0x00000000, 0x00000010, 0x00000001, (ushort)0x0000)]    // lsr.b #4,d1
+        [InlineData(0xE809, 0x00000000, 0x00000008, 0x00000000, (ushort)0x0015)]    // lsr.b #4,d1
+        [InlineData(0xE809, 0x00000000, 0x00000080, 0x00000008, (ushort)0x0000)]    // lsr.b #4,d1
+        [InlineData(0xE029, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // lsr.b d0,d1
+        [InlineData(0xE029, 0x00000005, 0x00000020, 0x00000001, (ushort)0x0000)]    // lsr.b d0,d1
+        [InlineData(0xE029, 0x00000005, 0x00000010, 0x00000000, (ushort)0x0015)]    // lsr.b d0,d1
+        [InlineData(0xE849, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // lsr.w #4,d1
+        [InlineData(0xE849, 0x00000000, 0x00002010, 0x00000201, (ushort)0x0000)]    // lsr.w #4,d1
+        [InlineData(0xE849, 0x00000000, 0x00000008, 0x00000000, (ushort)0x0015)]    // lsr.w #4,d1
+        [InlineData(0xE069, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // lsr.w d0,d1
+        [InlineData(0xE069, 0x0000000B, 0x00008000, 0x00000010, (ushort)0x0000)]    // lsr.w d0,d1
+        [InlineData(0xE069, 0x0000000C, 0x00000800, 0x00000000, (ushort)0x0015)]    // lsr.w d0,d1
+        [InlineData(0xE889, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // lsr.l #4,d1
+        [InlineData(0xE889, 0x00000000, 0x10204080, 0x01020408, (ushort)0x0000)]    // lsr.l #4,d1
+        [InlineData(0xE889, 0x00000000, 0x00000002, 0x00000000, (ushort)0x0004)]    // lsr.l #4,d1
+        [InlineData(0xE889, 0x00000000, 0x00000008, 0x00000000, (ushort)0x0015)]    // lsr.l #4,d1
+        [InlineData(0xE0A9, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // lsr.l d0,d1
+        [InlineData(0xE0A9, 0x00000010, 0x00100000, 0x00000010, (ushort)0x0000)]    // lsr.l d0,d1
+        [InlineData(0xE0A9, 0x00000008, 0x80100000, 0x00801000, (ushort)0x0000)]    // lsr.l d0,d1
+        [InlineData(0xE0A9, 0x00000005, 0x00000010, 0x00000000, (ushort)0x0015)]    // lsr.l d0,d1
+        public void LSR_Register(ushort opcode, uint d0Val, uint d1Val, uint expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2606,15 +2606,15 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xE2D1, 0x0000, 0x0000, SRFlags.Zero)]    // lsr (a1)
-        [InlineData(0xE2D1, 0x0200, 0x0100, (SRFlags)0)]    // lsr (a1)
-        [InlineData(0xE2D1, 0x0001, 0x0000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // lsr (a1)
-        [InlineData(0xE2D1, 0x8000, 0x4000, (SRFlags)0)]    // lsr (a1)
-        public void LSR_Memory(ushort opcode, ushort a1Val, ushort expectedResult, SRFlags expectedFlags)
+        [InlineData(0xE2D1, 0x0000, 0x0000, (ushort)0x0004)]    // lsr (a1)
+        [InlineData(0xE2D1, 0x0200, 0x0100, (ushort)0x0000)]    // lsr (a1)
+        [InlineData(0xE2D1, 0x0001, 0x0000, (ushort)0x0015)]    // lsr (a1)
+        [InlineData(0xE2D1, 0x8000, 0x4000, (ushort)0x0000)]    // lsr (a1)
+        public void LSR_Memory(ushort opcode, ushort a1Val, ushort expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2632,31 +2632,31 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xE919, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // rol.b #4,d1
-        [InlineData(0xE919, 0x00000000, 0x00000001, 0x00000010, (SRFlags)0)]    // rol.b #4,d1
-        [InlineData(0xE919, 0x00000000, 0x00000010, 0x00000001, SRFlags.Carry)]    // rol.b #4,d1
-        [InlineData(0xE139, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // rol.b d0,d1
-        [InlineData(0xE139, 0x00000005, 0x00000001, 0x00000020, (SRFlags)0)]    // rol.b d0,d1
-        [InlineData(0xE139, 0x00000005, 0x00000008, 0x00000001, SRFlags.Carry)]    // rol.b d0,d1
-        [InlineData(0xE139, 0x00000005, 0x00000004, 0x00000080, SRFlags.Negative)]    // rol.b d0,d1
-        [InlineData(0xE959, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // rol.w #4,d1
-        [InlineData(0xE959, 0x00000000, 0x00000201, 0x00002010, (SRFlags)0)]    // rol.w #4,d1
-        [InlineData(0xE959, 0x00000000, 0x00001000, 0x00000001, SRFlags.Carry)]    // rol.w #4,d1
-        [InlineData(0xE959, 0x00000000, 0x00000800, 0x00008000, SRFlags.Negative)]    // rol.w #4,d1
-        [InlineData(0xE179, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // rol.w d0,d1
-        [InlineData(0xE179, 0x0000000B, 0x00000010, 0x00008000, SRFlags.Negative)]    // rol.w d0,d1
-        [InlineData(0xE179, 0x00000005, 0x00000800, 0x00000001, SRFlags.Carry)]    // rol.w d0,d1
-        [InlineData(0xE999, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // rol.l #4,d1
-        [InlineData(0xE999, 0x00000000, 0x01020408, 0x10204080, (SRFlags)0)]    // rol.l #4,d1
-        [InlineData(0xE999, 0x00000000, 0x12345678, 0x23456781, SRFlags.Carry)]    // rol.l #4,d1
-        [InlineData(0xE1B9, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // rol.l d0,d1
-        [InlineData(0xE1B9, 0x00000010, 0x00000010, 0x00100000, (SRFlags)0)]    // rol.l d0,d1
-        [InlineData(0xE1B9, 0x00000005, 0x08000000, 0x00000001, SRFlags.Carry)]    // rol.l d0,d1
-        public void ROL_Register(ushort opcode, uint d0Val, uint d1Val, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(0xE919, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // rol.b #4,d1
+        [InlineData(0xE919, 0x00000000, 0x00000001, 0x00000010, (ushort)0x0000)]    // rol.b #4,d1
+        [InlineData(0xE919, 0x00000000, 0x00000010, 0x00000001, (ushort)0x0001)]    // rol.b #4,d1
+        [InlineData(0xE139, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // rol.b d0,d1
+        [InlineData(0xE139, 0x00000005, 0x00000001, 0x00000020, (ushort)0x0000)]    // rol.b d0,d1
+        [InlineData(0xE139, 0x00000005, 0x00000008, 0x00000001, (ushort)0x0001)]    // rol.b d0,d1
+        [InlineData(0xE139, 0x00000005, 0x00000004, 0x00000080, (ushort)0x0008)]    // rol.b d0,d1
+        [InlineData(0xE959, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // rol.w #4,d1
+        [InlineData(0xE959, 0x00000000, 0x00000201, 0x00002010, (ushort)0x0000)]    // rol.w #4,d1
+        [InlineData(0xE959, 0x00000000, 0x00001000, 0x00000001, (ushort)0x0001)]    // rol.w #4,d1
+        [InlineData(0xE959, 0x00000000, 0x00000800, 0x00008000, (ushort)0x0008)]    // rol.w #4,d1
+        [InlineData(0xE179, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // rol.w d0,d1
+        [InlineData(0xE179, 0x0000000B, 0x00000010, 0x00008000, (ushort)0x0008)]    // rol.w d0,d1
+        [InlineData(0xE179, 0x00000005, 0x00000800, 0x00000001, (ushort)0x0001)]    // rol.w d0,d1
+        [InlineData(0xE999, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // rol.l #4,d1
+        [InlineData(0xE999, 0x00000000, 0x01020408, 0x10204080, (ushort)0x0000)]    // rol.l #4,d1
+        [InlineData(0xE999, 0x00000000, 0x12345678, 0x23456781, (ushort)0x0001)]    // rol.l #4,d1
+        [InlineData(0xE1B9, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // rol.l d0,d1
+        [InlineData(0xE1B9, 0x00000010, 0x00000010, 0x00100000, (ushort)0x0000)]    // rol.l d0,d1
+        [InlineData(0xE1B9, 0x00000005, 0x08000000, 0x00000001, (ushort)0x0001)]    // rol.l d0,d1
+        public void ROL_Register(ushort opcode, uint d0Val, uint d1Val, uint expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2673,15 +2673,15 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xE7D1, 0x0000, 0x0000, SRFlags.Zero)]    // rol (a1)
-        [InlineData(0xE7D1, 0x0100, 0x0200, (SRFlags)0)]    // rol (a1)
-        [InlineData(0xE7D1, 0x8000, 0x0001, SRFlags.Carry)]    // rol (a1)
-        [InlineData(0xE7D1, 0xC000, 0x8001, SRFlags.Negative | SRFlags.Carry)]    // rol (a1)
-        public void ROL_Memory(ushort opcode, ushort a1Val, ushort expectedResult, SRFlags expectedFlags)
+        [InlineData(0xE7D1, 0x0000, 0x0000, (ushort)0x0004)]    // rol (a1)
+        [InlineData(0xE7D1, 0x0100, 0x0200, (ushort)0x0000)]    // rol (a1)
+        [InlineData(0xE7D1, 0x8000, 0x0001, (ushort)0x0001)]    // rol (a1)
+        [InlineData(0xE7D1, 0xC000, 0x8001, (ushort)0x0009)]    // rol (a1)
+        public void ROL_Memory(ushort opcode, ushort a1Val, ushort expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2699,31 +2699,31 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xE819, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // ror.b #4,d1
-        [InlineData(0xE819, 0x00000000, 0x00000010, 0x00000001, (SRFlags)0)]    // ror.b #4,d1
-        [InlineData(0xE819, 0x00000000, 0x00000008, 0x00000080, SRFlags.Carry | SRFlags.Negative)]    // ror.b #4,d1
-        [InlineData(0xE039, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // ror.b d0,d1
-        [InlineData(0xE039, 0x00000005, 0x00000020, 0x00000001, (SRFlags)0)]    // ror.b d0,d1
-        [InlineData(0xE039, 0x00000005, 0x00000008, 0x00000040, (SRFlags)0)]    // ror.b d0,d1
-        [InlineData(0xE039, 0x00000005, 0x00000010, 0x00000080, SRFlags.Negative | SRFlags.Carry)]    // ror.b d0,d1
-        [InlineData(0xE859, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // ror.w #4,d1
-        [InlineData(0xE859, 0x00000000, 0x00002010, 0x00000201, (SRFlags)0)]    // ror.w #4,d1
-        [InlineData(0xE859, 0x00000000, 0x00000001, 0x00001000, (SRFlags)0)]    // ror.w #4,d1
-        [InlineData(0xE859, 0x00000000, 0x00000008, 0x00008000, SRFlags.Negative | SRFlags.Carry)]    // ror.w #4,d1
-        [InlineData(0xE079, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // ror.w d0,d1
-        [InlineData(0xE079, 0x0000000B, 0x00008000, 0x00000010, (SRFlags)0)]    // ror.w d0,d1
-        [InlineData(0xE079, 0x00000005, 0x00000010, 0x00008000, SRFlags.Negative | SRFlags.Carry)]    // ror.w d0,d1
-        [InlineData(0xE899, 0x00000000, 0x00000000, 0x00000000, SRFlags.Zero)]    // ror.l #4,d1
-        [InlineData(0xE899, 0x00000000, 0x10204080, 0x01020408, (SRFlags)0)]    // ror.l #4,d1
-        [InlineData(0xE899, 0x00000000, 0x12345678, 0x81234567, SRFlags.Negative | SRFlags.Carry)]    // ror.l #4,d1
-        [InlineData(0xE0B9, 0x00000005, 0x00000000, 0x00000000, SRFlags.Zero)]    // ror.l d0,d1
-        [InlineData(0xE0B9, 0x00000010, 0x00100000, 0x00000010, (SRFlags)0)]    // ror.l d0,d1
-        [InlineData(0xE0B9, 0x00000005, 0x00000010, 0x80000000, SRFlags.Carry | SRFlags.Negative)]    // ror.l d0,d1
-        public void ROR_Register(ushort opcode, uint d0Val, uint d1Val, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(0xE819, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // ror.b #4,d1
+        [InlineData(0xE819, 0x00000000, 0x00000010, 0x00000001, (ushort)0x0000)]    // ror.b #4,d1
+        [InlineData(0xE819, 0x00000000, 0x00000008, 0x00000080, (ushort)0x0009)]    // ror.b #4,d1
+        [InlineData(0xE039, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // ror.b d0,d1
+        [InlineData(0xE039, 0x00000005, 0x00000020, 0x00000001, (ushort)0x0000)]    // ror.b d0,d1
+        [InlineData(0xE039, 0x00000005, 0x00000008, 0x00000040, (ushort)0x0000)]    // ror.b d0,d1
+        [InlineData(0xE039, 0x00000005, 0x00000010, 0x00000080, (ushort)0x0009)]    // ror.b d0,d1
+        [InlineData(0xE859, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // ror.w #4,d1
+        [InlineData(0xE859, 0x00000000, 0x00002010, 0x00000201, (ushort)0x0000)]    // ror.w #4,d1
+        [InlineData(0xE859, 0x00000000, 0x00000001, 0x00001000, (ushort)0x0000)]    // ror.w #4,d1
+        [InlineData(0xE859, 0x00000000, 0x00000008, 0x00008000, (ushort)0x0009)]    // ror.w #4,d1
+        [InlineData(0xE079, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // ror.w d0,d1
+        [InlineData(0xE079, 0x0000000B, 0x00008000, 0x00000010, (ushort)0x0000)]    // ror.w d0,d1
+        [InlineData(0xE079, 0x00000005, 0x00000010, 0x00008000, (ushort)0x0009)]    // ror.w d0,d1
+        [InlineData(0xE899, 0x00000000, 0x00000000, 0x00000000, (ushort)0x0004)]    // ror.l #4,d1
+        [InlineData(0xE899, 0x00000000, 0x10204080, 0x01020408, (ushort)0x0000)]    // ror.l #4,d1
+        [InlineData(0xE899, 0x00000000, 0x12345678, 0x81234567, (ushort)0x0009)]    // ror.l #4,d1
+        [InlineData(0xE0B9, 0x00000005, 0x00000000, 0x00000000, (ushort)0x0004)]    // ror.l d0,d1
+        [InlineData(0xE0B9, 0x00000010, 0x00100000, 0x00000010, (ushort)0x0000)]    // ror.l d0,d1
+        [InlineData(0xE0B9, 0x00000005, 0x00000010, 0x80000000, (ushort)0x0009)]    // ror.l d0,d1
+        public void ROR_Register(ushort opcode, uint d0Val, uint d1Val, uint expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2740,15 +2740,15 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xE6D1, 0x0000, 0x0000, SRFlags.Zero)]    // ror (a1)
-        [InlineData(0xE6D1, 0x0200, 0x0100, (SRFlags)0)]    // ror (a1)
-        [InlineData(0xE6D1, 0x0001, 0x8000, SRFlags.Carry | SRFlags.Negative)]    // ror (a1)
-        [InlineData(0xE6D1, 0x0003, 0x8001, SRFlags.Negative | SRFlags.Carry)]    // ror (a1)
-        public void ROR_Memory(ushort opcode, ushort a1Val, ushort expectedResult, SRFlags expectedFlags)
+        [InlineData(0xE6D1, 0x0000, 0x0000, (ushort)0x0004)]    // ror (a1)
+        [InlineData(0xE6D1, 0x0200, 0x0100, (ushort)0x0000)]    // ror (a1)
+        [InlineData(0xE6D1, 0x0001, 0x8000, (ushort)0x0009)]    // ror (a1)
+        [InlineData(0xE6D1, 0x0003, 0x8001, (ushort)0x0009)]    // ror (a1)
+        public void ROR_Memory(ushort opcode, ushort a1Val, ushort expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2766,31 +2766,31 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xE911, 0x00000000, 0x00000000, (SRFlags)0, 0x00000000, SRFlags.Zero)]    // roxl.b #4,d1
-        [InlineData(0xE911, 0x00000000, 0x00000001, SRFlags.Extend, 0x00000018, (SRFlags)0)]    // roxl.b #4,d1
-        [InlineData(0xE911, 0x00000000, 0x00000010, (SRFlags)0, 0x00000000, SRFlags.Carry | SRFlags.Zero | SRFlags.Extend)]    // roxl.b #4,d1
-        [InlineData(0xE131, 0x00000005, 0x00000000, (SRFlags)0, 0x00000000, SRFlags.Zero)]    // roxl.b d0,d1
-        [InlineData(0xE131, 0x00000005, 0x00000001, SRFlags.Extend, 0x00000030, (SRFlags)0)]    // roxl.b d0,d1
-        [InlineData(0xE131, 0x00000005, 0x00000008, SRFlags.Extend, 0x00000010, SRFlags.Carry | SRFlags.Extend)]    // roxl.b d0,d1
-        [InlineData(0xE131, 0x00000005, 0x00000004, SRFlags.Extend, 0x00000090, SRFlags.Negative)]    // roxl.b d0,d1
-        [InlineData(0xE951, 0x00000000, 0x00000000, (SRFlags)0, 0x00000000, SRFlags.Zero)]    // roxl.w #4,d1
-        [InlineData(0xE951, 0x00000000, 0x00000201, SRFlags.Extend, 0x00002018, (SRFlags)0)]    // roxl.w #4,d1
-        [InlineData(0xE951, 0x00000000, 0x00001000, SRFlags.Extend, 0x00000008, SRFlags.Carry | SRFlags.Extend)]    // roxl.w #4,d1
-        [InlineData(0xE951, 0x00000000, 0x00000800, (SRFlags)0, 0x00008000, SRFlags.Negative)]    // roxl.w #4,d1
-        [InlineData(0xE171, 0x00000005, 0x00000000, (SRFlags)0, 0x00000000, SRFlags.Zero)]    // roxl.w d0,d1
-        [InlineData(0xE171, 0x0000000B, 0x00000010, SRFlags.Extend, 0x00008400, SRFlags.Negative)]    // roxl.w d0,d1
-        [InlineData(0xE171, 0x00000005, 0x00000800, (SRFlags)0, 0x00000000, SRFlags.Carry | SRFlags.Zero | SRFlags.Extend)]    // roxl.w d0,d1
-        [InlineData(0xE991, 0x00000000, 0x00000000, (SRFlags)0, 0x00000000, SRFlags.Zero)]    // roxl.l #4,d1
-        [InlineData(0xE991, 0x00000000, 0x01020408, SRFlags.Extend, 0x10204088, (SRFlags)0)]    // roxl.l #4,d1
-        [InlineData(0xE991, 0x00000000, 0x12345678, SRFlags.Extend, 0x23456788, SRFlags.Carry | SRFlags.Extend)]    // roxl.l #4,d1
-        [InlineData(0xE1B1, 0x00000005, 0x00000000, (SRFlags)0, 0x00000000, SRFlags.Zero)]    // roxl.l d0,d1
-        [InlineData(0xE1B1, 0x00000010, 0x00000010, SRFlags.Extend, 0x00108000, (SRFlags)0)]    // roxl.l d0,d1
-        [InlineData(0xE1B1, 0x00000005, 0x08000000, (SRFlags)0, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // roxl.l d0,d1
-        public void ROXL_Register(ushort opcode, uint d0Val, uint d1Val, SRFlags initFlags, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(0xE911, 0x00000000, 0x00000000, (ushort)0x0000, 0x00000000, (ushort)0x0004)]    // roxl.b #4,d1
+        [InlineData(0xE911, 0x00000000, 0x00000001, (ushort)0x0010, 0x00000018, (ushort)0x0000)]    // roxl.b #4,d1
+        [InlineData(0xE911, 0x00000000, 0x00000010, (ushort)0x0000, 0x00000000, (ushort)0x0015)]    // roxl.b #4,d1
+        [InlineData(0xE131, 0x00000005, 0x00000000, (ushort)0x0000, 0x00000000, (ushort)0x0004)]    // roxl.b d0,d1
+        [InlineData(0xE131, 0x00000005, 0x00000001, (ushort)0x0010, 0x00000030, (ushort)0x0000)]    // roxl.b d0,d1
+        [InlineData(0xE131, 0x00000005, 0x00000008, (ushort)0x0010, 0x00000010, (ushort)0x0011)]    // roxl.b d0,d1
+        [InlineData(0xE131, 0x00000005, 0x00000004, (ushort)0x0010, 0x00000090, (ushort)0x0008)]    // roxl.b d0,d1
+        [InlineData(0xE951, 0x00000000, 0x00000000, (ushort)0x0000, 0x00000000, (ushort)0x0004)]    // roxl.w #4,d1
+        [InlineData(0xE951, 0x00000000, 0x00000201, (ushort)0x0010, 0x00002018, (ushort)0x0000)]    // roxl.w #4,d1
+        [InlineData(0xE951, 0x00000000, 0x00001000, (ushort)0x0010, 0x00000008, (ushort)0x0011)]    // roxl.w #4,d1
+        [InlineData(0xE951, 0x00000000, 0x00000800, (ushort)0x0000, 0x00008000, (ushort)0x0008)]    // roxl.w #4,d1
+        [InlineData(0xE171, 0x00000005, 0x00000000, (ushort)0x0000, 0x00000000, (ushort)0x0004)]    // roxl.w d0,d1
+        [InlineData(0xE171, 0x0000000B, 0x00000010, (ushort)0x0010, 0x00008400, (ushort)0x0008)]    // roxl.w d0,d1
+        [InlineData(0xE171, 0x00000005, 0x00000800, (ushort)0x0000, 0x00000000, (ushort)0x0015)]    // roxl.w d0,d1
+        [InlineData(0xE991, 0x00000000, 0x00000000, (ushort)0x0000, 0x00000000, (ushort)0x0004)]    // roxl.l #4,d1
+        [InlineData(0xE991, 0x00000000, 0x01020408, (ushort)0x0010, 0x10204088, (ushort)0x0000)]    // roxl.l #4,d1
+        [InlineData(0xE991, 0x00000000, 0x12345678, (ushort)0x0010, 0x23456788, (ushort)0x0011)]    // roxl.l #4,d1
+        [InlineData(0xE1B1, 0x00000005, 0x00000000, (ushort)0x0000, 0x00000000, (ushort)0x0004)]    // roxl.l d0,d1
+        [InlineData(0xE1B1, 0x00000010, 0x00000010, (ushort)0x0010, 0x00108000, (ushort)0x0000)]    // roxl.l d0,d1
+        [InlineData(0xE1B1, 0x00000005, 0x08000000, (ushort)0x0000, 0x00000000, (ushort)0x0015)]    // roxl.l d0,d1
+        public void ROXL_Register(ushort opcode, uint d0Val, uint d1Val, ushort initFlags, uint expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2799,7 +2799,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             {
                 D0 = d0Val,
                 D1 = d1Val,
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
 
@@ -2808,16 +2808,16 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xE5D1, 0x0000, (SRFlags)0, 0x0000, SRFlags.Zero)]    // roxl (a1)
-        [InlineData(0xE5D1, 0x0000, SRFlags.Extend, 0x0001, (SRFlags)0)]    // roxl (a1)
-        [InlineData(0xE5D1, 0x0100, (SRFlags)0, 0x0200, (SRFlags)0)]    // roxl (a1)
-        [InlineData(0xE5D1, 0x8000, SRFlags.Extend, 0x0001, SRFlags.Carry | SRFlags.Extend)]    // roxl (a1)
-        [InlineData(0xE5D1, 0xC000, (SRFlags)0, 0x8000, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]    // roxl (a1)
-        public void ROXL_Memory(ushort opcode, ushort a1Val, SRFlags initFlags, ushort expectedResult, SRFlags expectedFlags)
+        [InlineData(0xE5D1, 0x0000, (ushort)0x0000, 0x0000, (ushort)0x0004)]    // roxl (a1)
+        [InlineData(0xE5D1, 0x0000, (ushort)0x0010, 0x0001, (ushort)0x0000)]    // roxl (a1)
+        [InlineData(0xE5D1, 0x0100, (ushort)0x0000, 0x0200, (ushort)0x0000)]    // roxl (a1)
+        [InlineData(0xE5D1, 0x8000, (ushort)0x0010, 0x0001, (ushort)0x0011)]    // roxl (a1)
+        [InlineData(0xE5D1, 0xC000, (ushort)0x0000, 0x8000, (ushort)0x0019)]    // roxl (a1)
+        public void ROXL_Memory(ushort opcode, ushort a1Val, ushort initFlags, ushort expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2825,7 +2825,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             CPUState initState = new CPUState
             {
                 A1 = 0x00003000,
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
             ushort[] data = new ushort[] { a1Val };
@@ -2836,31 +2836,31 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xE811, 0x00000000, 0x00000000, (SRFlags)0, 0x00000000, SRFlags.Zero)]    // roxr.b #4,d1
-        [InlineData(0xE811, 0x00000000, 0x00000010, SRFlags.Extend, 0x00000011, (SRFlags)0)]    // roxr.b #4,d1
-        [InlineData(0xE811, 0x00000000, 0x00000008, (SRFlags)0, 0x00000000, SRFlags.Carry | SRFlags.Zero | SRFlags.Extend)]    // roxr.b #4,d1
-        [InlineData(0xE031, 0x00000005, 0x00000000, (SRFlags)0, 0x00000000, SRFlags.Zero)]    // roxr.b d0,d1
-        [InlineData(0xE031, 0x00000005, 0x00000020, SRFlags.Extend, 0x00000009, (SRFlags)0)]    // roxr.b d0,d1
-        [InlineData(0xE031, 0x00000005, 0x00000008, (SRFlags)0, 0x00000080, SRFlags.Negative)]    // roxr.b d0,d1
-        [InlineData(0xE031, 0x00000005, 0x00000010, SRFlags.Extend, 0x00000008, SRFlags.Extend | SRFlags.Carry)]    // roxr.b d0,d1
-        [InlineData(0xE851, 0x00000000, 0x00000000, (SRFlags)0, 0x00000000, SRFlags.Zero)]    // roxr.w #4,d1
-        [InlineData(0xE851, 0x00000000, 0x00002010, SRFlags.Extend, 0x00001201, (SRFlags)0)]    // roxr.w #4,d1
-        [InlineData(0xE851, 0x00000000, 0x00000001, (SRFlags)0, 0x00002000, (SRFlags)0)]    // roxr.w #4,d1
-        [InlineData(0xE851, 0x00000000, 0x00000008, (SRFlags)0, 0x00000000, SRFlags.Zero | SRFlags.Carry | SRFlags.Extend)]    // roxr.w #4,d1
-        [InlineData(0xE071, 0x00000005, 0x00000000, (SRFlags)0, 0x00000000, SRFlags.Zero)]    // roxr.w d0,d1
-        [InlineData(0xE071, 0x0000000B, 0x00008000, SRFlags.Extend, 0x00000030, (SRFlags)0)]    // roxr.w d0,d1
-        [InlineData(0xE071, 0x00000005, 0x00000018, (SRFlags)0, 0x00008000, SRFlags.Negative | SRFlags.Carry | SRFlags.Extend)]    // roxr.w d0,d1
-        [InlineData(0xE891, 0x00000000, 0x00000000, (SRFlags)0, 0x00000000, SRFlags.Zero)]    // roxr.l #4,d1
-        [InlineData(0xE891, 0x00000000, 0x10204080, SRFlags.Extend, 0x11020408, (SRFlags)0)]    // roxr.l #4,d1
-        [InlineData(0xE891, 0x00000000, 0x12345678, SRFlags.Extend, 0x11234567, SRFlags.Carry | SRFlags.Extend)]    // roxr.l #4,d1
-        [InlineData(0xE0B1, 0x00000005, 0x00000000, (SRFlags)0, 0x00000000, SRFlags.Zero)]    // roxr.l d0,d1
-        [InlineData(0xE0B1, 0x00000010, 0x00100000, SRFlags.Extend, 0x00010010, (SRFlags)0)]    // roxr.l d0,d1
-        [InlineData(0xE0B1, 0x00000005, 0x00000018, (SRFlags)0, 0x80000000, SRFlags.Carry | SRFlags.Negative | SRFlags.Extend)]    // roxr.l d0,d1
-        public void ROXR_Register(ushort opcode, uint d0Val, uint d1Val, SRFlags initFlags, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(0xE811, 0x00000000, 0x00000000, (ushort)0x0000, 0x00000000, (ushort)0x0004)]    // roxr.b #4,d1
+        [InlineData(0xE811, 0x00000000, 0x00000010, (ushort)0x0010, 0x00000011, (ushort)0x0000)]    // roxr.b #4,d1
+        [InlineData(0xE811, 0x00000000, 0x00000008, (ushort)0x0000, 0x00000000, (ushort)0x0015)]    // roxr.b #4,d1
+        [InlineData(0xE031, 0x00000005, 0x00000000, (ushort)0x0000, 0x00000000, (ushort)0x0004)]    // roxr.b d0,d1
+        [InlineData(0xE031, 0x00000005, 0x00000020, (ushort)0x0010, 0x00000009, (ushort)0x0000)]    // roxr.b d0,d1
+        [InlineData(0xE031, 0x00000005, 0x00000008, (ushort)0x0000, 0x00000080, (ushort)0x0008)]    // roxr.b d0,d1
+        [InlineData(0xE031, 0x00000005, 0x00000010, (ushort)0x0010, 0x00000008, (ushort)0x0011)]    // roxr.b d0,d1
+        [InlineData(0xE851, 0x00000000, 0x00000000, (ushort)0x0000, 0x00000000, (ushort)0x0004)]    // roxr.w #4,d1
+        [InlineData(0xE851, 0x00000000, 0x00002010, (ushort)0x0010, 0x00001201, (ushort)0x0000)]    // roxr.w #4,d1
+        [InlineData(0xE851, 0x00000000, 0x00000001, (ushort)0x0000, 0x00002000, (ushort)0x0000)]    // roxr.w #4,d1
+        [InlineData(0xE851, 0x00000000, 0x00000008, (ushort)0x0000, 0x00000000, (ushort)0x0015)]    // roxr.w #4,d1
+        [InlineData(0xE071, 0x00000005, 0x00000000, (ushort)0x0000, 0x00000000, (ushort)0x0004)]    // roxr.w d0,d1
+        [InlineData(0xE071, 0x0000000B, 0x00008000, (ushort)0x0010, 0x00000030, (ushort)0x0000)]    // roxr.w d0,d1
+        [InlineData(0xE071, 0x00000005, 0x00000018, (ushort)0x0000, 0x00008000, (ushort)0x0019)]    // roxr.w d0,d1
+        [InlineData(0xE891, 0x00000000, 0x00000000, (ushort)0x0000, 0x00000000, (ushort)0x0004)]    // roxr.l #4,d1
+        [InlineData(0xE891, 0x00000000, 0x10204080, (ushort)0x0010, 0x11020408, (ushort)0x0000)]    // roxr.l #4,d1
+        [InlineData(0xE891, 0x00000000, 0x12345678, (ushort)0x0010, 0x11234567, (ushort)0x0011)]    // roxr.l #4,d1
+        [InlineData(0xE0B1, 0x00000005, 0x00000000, (ushort)0x0000, 0x00000000, (ushort)0x0004)]    // roxr.l d0,d1
+        [InlineData(0xE0B1, 0x00000010, 0x00100000, (ushort)0x0010, 0x00010010, (ushort)0x0000)]    // roxr.l d0,d1
+        [InlineData(0xE0B1, 0x00000005, 0x00000018, (ushort)0x0000, 0x80000000, (ushort)0x0019)]    // roxr.l d0,d1
+        public void ROXR_Register(ushort opcode, uint d0Val, uint d1Val, ushort initFlags, uint expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2869,7 +2869,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             {
                 D0 = d0Val,
                 D1 = d1Val,
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
 
@@ -2878,17 +2878,17 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(1));
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(0xE4D1, 0x0000, (SRFlags)0, 0x0000, SRFlags.Zero)]    // roxr (a1)
-        [InlineData(0xE4D1, 0x0000, SRFlags.Extend, 0x8000, SRFlags.Negative)]    // roxr (a1)
-        [InlineData(0xE4D1, 0x0001, SRFlags.Extend, 0x8000, SRFlags.Negative | SRFlags.Extend | SRFlags.Carry)]    // roxr (a1)
-        [InlineData(0xE4D1, 0x0200, (SRFlags)0, 0x0100, (SRFlags)0)]    // ror (a1)
-        [InlineData(0xE4D1, 0x0001, (SRFlags)0, 0x0000, SRFlags.Carry | SRFlags.Zero | SRFlags.Extend)]    // roxr (a1)
-        [InlineData(0xE4D1, 0x0003, (SRFlags)0, 0x0001, SRFlags.Extend | SRFlags.Carry)]    // roxr (a1)
-        public void ROXR_Memory(ushort opcode, ushort a1Val, SRFlags initFlags, ushort expectedResult, SRFlags expectedFlags)
+        [InlineData(0xE4D1, 0x0000, (ushort)0x0000, 0x0000, (ushort)0x0004)]    // roxr (a1)
+        [InlineData(0xE4D1, 0x0000, (ushort)0x0010, 0x8000, (ushort)0x0008)]    // roxr (a1)
+        [InlineData(0xE4D1, 0x0001, (ushort)0x0010, 0x8000, (ushort)0x0019)]    // roxr (a1)
+        [InlineData(0xE4D1, 0x0200, (ushort)0x0000, 0x0100, (ushort)0x0000)]    // ror (a1)
+        [InlineData(0xE4D1, 0x0001, (ushort)0x0000, 0x0000, (ushort)0x0015)]    // roxr (a1)
+        [InlineData(0xE4D1, 0x0003, (ushort)0x0000, 0x0001, (ushort)0x0011)]    // roxr (a1)
+        public void ROXR_Memory(ushort opcode, ushort a1Val, ushort initFlags, ushort expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             ushort[] code = new ushort[] { opcode };
@@ -2896,7 +2896,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             CPUState initState = new CPUState
             {
                 A1 = 0x00003000,
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
             ushort[] data = new ushort[] { a1Val };
@@ -2907,15 +2907,15 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
 
             // Assert
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(new ushort[] { 0x0800, 0x0002 }, 0x00000000, 0x00000000, SRFlags.Zero)]    // btst #2,d0
-        [InlineData(new ushort[] { 0x0300 }, 0x80000000, 0x0000001F, (SRFlags)0)]    // btst d1,d0
-        [InlineData(new ushort[] { 0x0800, 0x0010 }, 0x00010000, 0x00000000, (SRFlags)0)]    // btst #16,d0
-        [InlineData(new ushort[] { 0x0300 }, 0xFFFF0FFF, 0x0000000F, SRFlags.Zero)]    // btst d1,d0
-        public void BTST_Register(ushort[] code, uint d0Val, uint d1Val, SRFlags expectedFlags)
+        [InlineData(new ushort[] { 0x0800, 0x0002 }, 0x00000000, 0x00000000, (ushort)0x0004)]    // btst #2,d0
+        [InlineData(new ushort[] { 0x0300 }, 0x80000000, 0x0000001F, (ushort)0x0000)]    // btst d1,d0
+        [InlineData(new ushort[] { 0x0800, 0x0010 }, 0x00010000, 0x00000000, (ushort)0x0000)]    // btst #16,d0
+        [InlineData(new ushort[] { 0x0300 }, 0xFFFF0FFF, 0x0000000F, (ushort)0x0004)]    // btst d1,d0
+        public void BTST_Register(ushort[] code, uint d0Val, uint d1Val, ushort expectedFlags)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
@@ -2930,18 +2930,18 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(new ushort[] { 0x0811, 0x0002 }, 0x0000, 0x00000000, SRFlags.Zero)]    // btst #2,(a1)
-        [InlineData(new ushort[] { 0x0311 }, 0x8000, 0x0000001F, (SRFlags)0)]    // btst d1,(a1)
-        [InlineData(new ushort[] { 0x0311 }, 0x0400, 0x0000001F, SRFlags.Zero)]    // btst d1,(a1)
-        [InlineData(new ushort[] { 0x0811, 0x0010 }, 0x0100, 0x00000000, (SRFlags)0)]    // btst #16,(a1)
-        [InlineData(new ushort[] { 0x0811, 0x0010 }, 0x0200, 0x00000000, SRFlags.Zero)]    // btst #16,(a1)
-        [InlineData(new ushort[] { 0x0311 }, 0x0FFF, 0x0000000F, SRFlags.Zero)]    // btst d1,(a1)
-        [InlineData(new ushort[] { 0x0311 }, 0x0FFF, 0x0000000B, (SRFlags)0)]    // btst d1,(a1)
-        public void BTST_Memory(ushort[] code, ushort a1Val, uint d1Val, SRFlags expectedFlags)
+        [InlineData(new ushort[] { 0x0811, 0x0002 }, 0x0000, 0x00000000, (ushort)0x0004)]    // btst #2,(a1)
+        [InlineData(new ushort[] { 0x0311 }, 0x8000, 0x0000001F, (ushort)0x0000)]    // btst d1,(a1)
+        [InlineData(new ushort[] { 0x0311 }, 0x0400, 0x0000001F, (ushort)0x0004)]    // btst d1,(a1)
+        [InlineData(new ushort[] { 0x0811, 0x0010 }, 0x0100, 0x00000000, (ushort)0x0000)]    // btst #16,(a1)
+        [InlineData(new ushort[] { 0x0811, 0x0010 }, 0x0200, 0x00000000, (ushort)0x0004)]    // btst #16,(a1)
+        [InlineData(new ushort[] { 0x0311 }, 0x0FFF, 0x0000000F, (ushort)0x0004)]    // btst d1,(a1)
+        [InlineData(new ushort[] { 0x0311 }, 0x0FFF, 0x0000000B, (ushort)0x0000)]    // btst d1,(a1)
+        public void BTST_Memory(ushort[] code, ushort a1Val, uint d1Val, ushort expectedFlags)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
@@ -2958,15 +2958,15 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
         }
 
         [Theory]
-        [InlineData(new ushort[] { 0x0840, 0x0002 }, 0x00000000, 0x00000000, 0x00000004, SRFlags.Zero)]    // bchg #2,d0
-        [InlineData(new ushort[] { 0x0340 }, 0xC0000000, 0x0000001F, 0x40000000, (SRFlags)0)]    // bchg d1,d0
-        [InlineData(new ushort[] { 0x0840, 0x0010 }, 0x00012345, 0x00000000, 0x00002345, (SRFlags)0)]    // bchg #16,d0
-        [InlineData(new ushort[] { 0x0340 }, 0xFFFF0FFF, 0x0000000F, 0xFFFF8FFF, SRFlags.Zero)]    // bchg d1,d0
-        public void BCHG_Register(ushort[] code, uint d0Val, uint d1Val, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(new ushort[] { 0x0840, 0x0002 }, 0x00000000, 0x00000000, 0x00000004, (ushort)0x0004)]    // bchg #2,d0
+        [InlineData(new ushort[] { 0x0340 }, 0xC0000000, 0x0000001F, 0x40000000, (ushort)0x0000)]    // bchg d1,d0
+        [InlineData(new ushort[] { 0x0840, 0x0010 }, 0x00012345, 0x00000000, 0x00002345, (ushort)0x0000)]    // bchg #16,d0
+        [InlineData(new ushort[] { 0x0340 }, 0xFFFF0FFF, 0x0000000F, 0xFFFF8FFF, (ushort)0x0004)]    // bchg d1,d0
+        public void BCHG_Register(ushort[] code, uint d0Val, uint d1Val, uint expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
@@ -2981,19 +2981,19 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
         }
 
         [Theory]
-        [InlineData(new ushort[] { 0x0851, 0x0002 }, 0x0000, 0x00000000, 0x0400, SRFlags.Zero)]    // bchg #2,(a1)
-        [InlineData(new ushort[] { 0x0351 }, 0xC000, 0x0000001F, 0x4000, (SRFlags)0)]    // bchg d1,(a1)
-        [InlineData(new ushort[] { 0x0351 }, 0x0400, 0x0000001F, 0x8400, SRFlags.Zero)]    // bchg d1,(a1)
-        [InlineData(new ushort[] { 0x0851, 0x0010 }, 0x0100, 0x00000000, 0x0000, (SRFlags)0)]    // bchg #16,(a1)
-        [InlineData(new ushort[] { 0x0851, 0x0010 }, 0x0200, 0x00000000, 0x0300, SRFlags.Zero)]    // bchg #16,(a1)
-        [InlineData(new ushort[] { 0x0351 }, 0x0FFF, 0x0000000F, 0x8FFF, SRFlags.Zero)]    // bchg d1,(a1)
-        [InlineData(new ushort[] { 0x0351 }, 0x0FFF, 0x0000000B, 0x07FF, (SRFlags)0)]    // bchg d1,(a1)
-        public void BCHG_Memory(ushort[] code, ushort a1Val, uint d1Val, ushort expectedResult, SRFlags expectedFlags)
+        [InlineData(new ushort[] { 0x0851, 0x0002 }, 0x0000, 0x00000000, 0x0400, (ushort)0x0004)]    // bchg #2,(a1)
+        [InlineData(new ushort[] { 0x0351 }, 0xC000, 0x0000001F, 0x4000, (ushort)0x0000)]    // bchg d1,(a1)
+        [InlineData(new ushort[] { 0x0351 }, 0x0400, 0x0000001F, 0x8400, (ushort)0x0004)]    // bchg d1,(a1)
+        [InlineData(new ushort[] { 0x0851, 0x0010 }, 0x0100, 0x00000000, 0x0000, (ushort)0x0000)]    // bchg #16,(a1)
+        [InlineData(new ushort[] { 0x0851, 0x0010 }, 0x0200, 0x00000000, 0x0300, (ushort)0x0004)]    // bchg #16,(a1)
+        [InlineData(new ushort[] { 0x0351 }, 0x0FFF, 0x0000000F, 0x8FFF, (ushort)0x0004)]    // bchg d1,(a1)
+        [InlineData(new ushort[] { 0x0351 }, 0x0FFF, 0x0000000B, 0x07FF, (ushort)0x0000)]    // bchg d1,(a1)
+        public void BCHG_Memory(ushort[] code, ushort a1Val, uint d1Val, ushort expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
@@ -3010,16 +3010,16 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
         }
 
         [Theory]
-        [InlineData(new ushort[] { 0x0880, 0x0002 }, 0x0000FFF8, 0x00000000, 0x0000FFF8, SRFlags.Zero)]    // bclr #2,d0
-        [InlineData(new ushort[] { 0x0380 }, 0xC0000000, 0x0000001F, 0x40000000, (SRFlags)0)]    // bclr d1,d0
-        [InlineData(new ushort[] { 0x0880, 0x0010 }, 0x00032345, 0x00000000, 0x00022345, (SRFlags)0)]    // bclr #16,d0
-        [InlineData(new ushort[] { 0x0380 }, 0xFFFF0FFF, 0x0000000F, 0xFFFF0FFF, SRFlags.Zero)]    // bclr d1,d0
-        public void BCLR_Register(ushort[] code, uint d0Val, uint d1Val, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(new ushort[] { 0x0880, 0x0002 }, 0x0000FFF8, 0x00000000, 0x0000FFF8, (ushort)0x0004)]    // bclr #2,d0
+        [InlineData(new ushort[] { 0x0380 }, 0xC0000000, 0x0000001F, 0x40000000, (ushort)0x0000)]    // bclr d1,d0
+        [InlineData(new ushort[] { 0x0880, 0x0010 }, 0x00032345, 0x00000000, 0x00022345, (ushort)0x0000)]    // bclr #16,d0
+        [InlineData(new ushort[] { 0x0380 }, 0xFFFF0FFF, 0x0000000F, 0xFFFF0FFF, (ushort)0x0004)]    // bclr d1,d0
+        public void BCLR_Register(ushort[] code, uint d0Val, uint d1Val, uint expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
@@ -3034,19 +3034,19 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
         }
 
         [Theory]
-        [InlineData(new ushort[] { 0x0891, 0x0002 }, 0xF000, 0x00000000, 0xF000, SRFlags.Zero)]    // bclr #2,(a1)
-        [InlineData(new ushort[] { 0x0391 }, 0xC000, 0x0000001F, 0x4000, (SRFlags)0)]    // bclr d1,(a1)
-        [InlineData(new ushort[] { 0x0391 }, 0x0400, 0x0000001F, 0x0400, SRFlags.Zero)]    // bclr d1,(a1)
-        [InlineData(new ushort[] { 0x0891, 0x0010 }, 0xFF00, 0x00000000, 0xFE00, (SRFlags)0)]    // bclr #16,(a1)
-        [InlineData(new ushort[] { 0x0891, 0x0010 }, 0x0200, 0x00000000, 0x0200, SRFlags.Zero)]    // bclr #16,(a1)
-        [InlineData(new ushort[] { 0x0391 }, 0x0FFF, 0x0000000F, 0x0FFF, SRFlags.Zero)]    // bclr d1,(a1)
-        [InlineData(new ushort[] { 0x0391 }, 0x0FFF, 0x0000000B, 0x07FF, (SRFlags)0)]    // bclr d1,(a1)
-        public void BCLR_Memory(ushort[] code, ushort a1Val, uint d1Val, ushort expectedResult, SRFlags expectedFlags)
+        [InlineData(new ushort[] { 0x0891, 0x0002 }, 0xF000, 0x00000000, 0xF000, (ushort)0x0004)]    // bclr #2,(a1)
+        [InlineData(new ushort[] { 0x0391 }, 0xC000, 0x0000001F, 0x4000, (ushort)0x0000)]    // bclr d1,(a1)
+        [InlineData(new ushort[] { 0x0391 }, 0x0400, 0x0000001F, 0x0400, (ushort)0x0004)]    // bclr d1,(a1)
+        [InlineData(new ushort[] { 0x0891, 0x0010 }, 0xFF00, 0x00000000, 0xFE00, (ushort)0x0000)]    // bclr #16,(a1)
+        [InlineData(new ushort[] { 0x0891, 0x0010 }, 0x0200, 0x00000000, 0x0200, (ushort)0x0004)]    // bclr #16,(a1)
+        [InlineData(new ushort[] { 0x0391 }, 0x0FFF, 0x0000000F, 0x0FFF, (ushort)0x0004)]    // bclr d1,(a1)
+        [InlineData(new ushort[] { 0x0391 }, 0x0FFF, 0x0000000B, 0x07FF, (ushort)0x0000)]    // bclr d1,(a1)
+        public void BCLR_Memory(ushort[] code, ushort a1Val, uint d1Val, ushort expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
@@ -3063,16 +3063,16 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
         }
 
         [Theory]
-        [InlineData(new ushort[] { 0x08C0, 0x0002 }, 0x0000FFF8, 0x00000000, 0x0000FFFC, SRFlags.Zero)]    // bset #2,d0
-        [InlineData(new ushort[] { 0x03C0 }, 0xC0000000, 0x0000001F, 0xC0000000, (SRFlags)0)]    // bset d1,d0
-        [InlineData(new ushort[] { 0x08C0, 0x0010 }, 0x00032345, 0x00000000, 0x00032345, (SRFlags)0)]    // bset #16,d0
-        [InlineData(new ushort[] { 0x03C0 }, 0xFFFF0FFF, 0x0000000F, 0xFFFF8FFF, SRFlags.Zero)]    // bset d1,d0
-        public void BSET_Register(ushort[] code, uint d0Val, uint d1Val, uint expectedResult, SRFlags expectedFlags)
+        [InlineData(new ushort[] { 0x08C0, 0x0002 }, 0x0000FFF8, 0x00000000, 0x0000FFFC, (ushort)0x0004)]    // bset #2,d0
+        [InlineData(new ushort[] { 0x03C0 }, 0xC0000000, 0x0000001F, 0xC0000000, (ushort)0x0000)]    // bset d1,d0
+        [InlineData(new ushort[] { 0x08C0, 0x0010 }, 0x00032345, 0x00000000, 0x00032345, (ushort)0x0000)]    // bset #16,d0
+        [InlineData(new ushort[] { 0x03C0 }, 0xFFFF0FFF, 0x0000000F, 0xFFFF8FFF, (ushort)0x0004)]    // bset d1,d0
+        public void BSET_Register(ushort[] code, uint d0Val, uint d1Val, uint expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
@@ -3087,19 +3087,19 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(0));
         }
 
         [Theory]
-        [InlineData(new ushort[] { 0x08D1, 0x0002 }, 0xF000, 0x00000000, 0xF400, SRFlags.Zero)]    // bclr #2,(a1)
-        [InlineData(new ushort[] { 0x03D1 }, 0xC000, 0x0000001F, 0xC000, (SRFlags)0)]    // bclr d1,(a1)
-        [InlineData(new ushort[] { 0x03D1 }, 0x0400, 0x0000001F, 0x8400, SRFlags.Zero)]    // bclr d1,(a1)
-        [InlineData(new ushort[] { 0x08D1, 0x0010 }, 0xFF00, 0x00000000, 0xFF00, (SRFlags)0)]    // bclr #16,(a1)
-        [InlineData(new ushort[] { 0x08D1, 0x0010 }, 0x0200, 0x00000000, 0x0300, SRFlags.Zero)]    // bclr #16,(a1)
-        [InlineData(new ushort[] { 0x03D1 }, 0x0FFF, 0x0000000F, 0x8FFF, SRFlags.Zero)]    // bclr d1,(a1)
-        [InlineData(new ushort[] { 0x03D1 }, 0x0FFF, 0x0000000B, 0x0FFF, (SRFlags)0)]    // bclr d1,(a1)
-        public void BSET_Memory(ushort[] code, ushort a1Val, uint d1Val, ushort expectedResult, SRFlags expectedFlags)
+        [InlineData(new ushort[] { 0x08D1, 0x0002 }, 0xF000, 0x00000000, 0xF400, (ushort)0x0004)]    // bclr #2,(a1)
+        [InlineData(new ushort[] { 0x03D1 }, 0xC000, 0x0000001F, 0xC000, (ushort)0x0000)]    // bclr d1,(a1)
+        [InlineData(new ushort[] { 0x03D1 }, 0x0400, 0x0000001F, 0x8400, (ushort)0x0004)]    // bclr d1,(a1)
+        [InlineData(new ushort[] { 0x08D1, 0x0010 }, 0xFF00, 0x00000000, 0xFF00, (ushort)0x0000)]    // bclr #16,(a1)
+        [InlineData(new ushort[] { 0x08D1, 0x0010 }, 0x0200, 0x00000000, 0x0300, (ushort)0x0004)]    // bclr #16,(a1)
+        [InlineData(new ushort[] { 0x03D1 }, 0x0FFF, 0x0000000F, 0x8FFF, (ushort)0x0004)]    // bclr d1,(a1)
+        [InlineData(new ushort[] { 0x03D1 }, 0x0FFF, 0x0000000B, 0x0FFF, (ushort)0x0000)]    // bclr d1,(a1)
+        public void BSET_Memory(ushort[] code, ushort a1Val, uint d1Val, ushort expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(code, 0x0200);
@@ -3116,7 +3116,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
             Assert.Equal(expectedResult, machine.Memory.ReadWord(0x00003000).Value);
         }
 
@@ -3172,7 +3172,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.LoadExecutableData(new ushort[] { 0x4E72, 0x2010 }, 0x0200);    // stop #$10
             CPUState initState = new CPUState
             {
-                SR = SRFlags.SupervisorMode | SRFlags.Carry
+                SR = (SRValue)0x2001
             };
             machine.SetCPUState(initState);
 
@@ -3180,31 +3180,31 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(SRFlags.SupervisorMode | SRFlags.Extend, machine.CPU.SR);
+            Assert.Equal((SRValue)0x2010, machine.CPU.SR);
             Assert.True(machine.ExecutionStopped);
         }
 
         [Theory]
-        [InlineData(SRFlags.Extend, 0x2010)]    // Not in supervisor mode but trying to go into supervisor mode
-        [InlineData(SRFlags.SupervisorMode | SRFlags.Extend, 0x0010)]    // Already in supervisor mode but trying to come out of supervisor mode
-        public void STOP_PrivilegeViolation(SRFlags initFlags, ushort operand)
+        [InlineData((ushort)0x0010, 0x2010)]    // Not in supervisor mode but trying to go into supervisor mode
+        [InlineData((ushort)0x2010, 0x0010)]    // Already in supervisor mode but trying to come out of supervisor mode
+        public void STOP_PrivilegeViolation(ushort initFlags, ushort operand)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(new ushort[] { 0x4E72, operand }, 0x0200);    // stop #<operand>
             CPUState initState = new CPUState
             {
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
 
             // Act and Assert
-            if (initFlags.HasFlag(SRFlags.SupervisorMode) && !initFlags.HasFlag(SRFlags.TraceMode))
+            if (((SRValue)initFlags).SupervisorMode && !((SRValue)initFlags).TraceMode)
             {
                 // Coming out of supervisor mode just stops
                 machine.ExecuteUntilException();
                 Assert.True(machine.ExecutionStopped);
             }
-            else if (initFlags.HasFlag(SRFlags.SupervisorMode) && initFlags.HasFlag(SRFlags.TraceMode))
+            else if (((SRValue)initFlags).SupervisorMode && ((SRValue)initFlags).TraceMode)
             {
                 Assert.True(true); // Placeholder to indicate this case is handled
             }
@@ -3217,10 +3217,10 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
         }
 
         [Theory]
-        [InlineData(0x00, SRFlags.Zero)]
-        [InlineData(0x7F, (SRFlags)0)]
-        [InlineData(0xF0, SRFlags.Negative)]
-        public void TAS(byte memVal, SRFlags expectedFlags)
+        [InlineData(0x00, (ushort)0x0004)]
+        [InlineData(0x7F, (ushort)0x0000)]
+        [InlineData(0xF0, (ushort)0x0008)]
+        public void TAS(byte memVal, ushort expectedFlags)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(new ushort[] { 0x4AD4 }, 0x0200);    // tas (a4)
@@ -3236,19 +3236,19 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
             Assert.Equal((byte)(memVal | 0x80), machine.Memory.ReadByte(0x00002000).Value);
         }
 
         [Theory]
-        [InlineData(0x00, 0x00, (SRFlags)0, 0x00, (SRFlags)0)]
-        [InlineData(0x00, 0x00, SRFlags.Zero, 0x00, SRFlags.Zero)]
-        [InlineData(0x00, 0x01, SRFlags.Zero, 0x01, (SRFlags)0)]
-        [InlineData(0x00, 0x10, SRFlags.Extend, 0x11, (SRFlags)0)]
-        [InlineData(0x04, 0x16, (SRFlags)0, 0x20, (SRFlags)0)]
-        [InlineData(0x44, 0x56, (SRFlags)0, 0x00, SRFlags.Extend | SRFlags.Carry)]
-        [InlineData(0x99, 0x00, SRFlags.Extend, 0x00, SRFlags.Extend | SRFlags.Carry)]
-        public void ABCD_DataReg(byte d5Val, byte d6Val, SRFlags initFlags, byte expectedResult, SRFlags expectedFlags)
+        [InlineData(0x00, 0x00, (ushort)0x0000, 0x00, (ushort)0x0000)]
+        [InlineData(0x00, 0x00, (ushort)0x0004, 0x00, (ushort)0x0004)]
+        [InlineData(0x00, 0x01, (ushort)0x0004, 0x01, (ushort)0x0000)]
+        [InlineData(0x00, 0x10, (ushort)0x0010, 0x11, (ushort)0x0000)]
+        [InlineData(0x04, 0x16, (ushort)0x0000, 0x20, (ushort)0x0000)]
+        [InlineData(0x44, 0x56, (ushort)0x0000, 0x00, (ushort)0x0011)]
+        [InlineData(0x99, 0x00, (ushort)0x0010, 0x00, (ushort)0x0011)]
+        public void ABCD_DataReg(byte d5Val, byte d6Val, ushort initFlags, byte expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(new ushort[] { 0xCD05 }, 0x0200);    // abcd d5,d6
@@ -3256,7 +3256,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             {
                 D5 = d5Val,
                 D6 = d6Val,
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
 
@@ -3264,19 +3264,19 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteInstruction();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(6));
         }
 
         [Theory]
-        [InlineData(0x00, 0x00, (SRFlags)0, 0x00, (SRFlags)0)]
-        [InlineData(0x00, 0x00, SRFlags.Zero, 0x00, SRFlags.Zero)]
-        [InlineData(0x00, 0x01, SRFlags.Zero, 0x01, (SRFlags)0)]
-        [InlineData(0x00, 0x10, SRFlags.Extend, 0x11, (SRFlags)0)]
-        [InlineData(0x04, 0x16, (SRFlags)0, 0x20, (SRFlags)0)]
-        [InlineData(0x44, 0x56, (SRFlags)0, 0x00, SRFlags.Extend | SRFlags.Carry)]
-        [InlineData(0x99, 0x00, SRFlags.Extend, 0x00, SRFlags.Extend | SRFlags.Carry)]
-        public void ABCD_Memory(byte a3Val, byte a4Val, SRFlags initFlags, byte expectedResult, SRFlags expectedFlags)
+        [InlineData(0x00, 0x00, (ushort)0x0000, 0x00, (ushort)0x0000)]
+        [InlineData(0x00, 0x00, (ushort)0x0004, 0x00, (ushort)0x0004)]
+        [InlineData(0x00, 0x01, (ushort)0x0004, 0x01, (ushort)0x0000)]
+        [InlineData(0x00, 0x10, (ushort)0x0010, 0x11, (ushort)0x0000)]
+        [InlineData(0x04, 0x16, (ushort)0x0000, 0x20, (ushort)0x0000)]
+        [InlineData(0x44, 0x56, (ushort)0x0000, 0x00, (ushort)0x0011)]
+        [InlineData(0x99, 0x00, (ushort)0x0010, 0x00, (ushort)0x0011)]
+        public void ABCD_Memory(byte a3Val, byte a4Val, ushort initFlags, byte expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(new ushort[] { 0xC90B }, 0x0200);    // abcd -(a3),-(a4)
@@ -3284,7 +3284,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             {
                 A3 = 0x00002001,
                 A4 = 0x00002003,
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
             byte[] data = new byte[] { a3Val, 0x00, a4Val, 0x00 };
@@ -3294,21 +3294,21 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteInstruction();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
             Assert.Equal(expectedResult, machine.Memory.ReadByte(0x00002002).Value);
             Assert.Equal((uint)0x00002000, machine.CPU.ReadAddressRegister(3));
             Assert.Equal((uint)0x00002002, machine.CPU.ReadAddressRegister(4));
         }
 
         [Theory]
-        [InlineData(0x00, 0x00, (SRFlags)0, 0x00, (SRFlags)0)]
-        [InlineData(0x00, 0x00, SRFlags.Zero, 0x00, SRFlags.Zero)]
-        [InlineData(0x01, 0x02, SRFlags.Zero, 0x01, (SRFlags)0)]
-        [InlineData(0x10, 0x22, SRFlags.Extend, 0x11, (SRFlags)0)]
-        [InlineData(0x16, 0x20, (SRFlags)0, 0x04, (SRFlags)0)]
-        [InlineData(0x99, 0x44, (SRFlags)0, 0x45, SRFlags.Extend | SRFlags.Overflow | SRFlags.Carry)]
-        [InlineData(0x00, 0x00, SRFlags.Extend, 0x99, SRFlags.Negative | SRFlags.Extend | SRFlags.Carry)]
-        public void SBCD_DataReg(byte d5Val, byte d6Val, SRFlags initFlags, byte expectedResult, SRFlags expectedFlags)
+        [InlineData(0x00, 0x00, (ushort)0x0000, 0x00, (ushort)0x0000)]
+        [InlineData(0x00, 0x00, (ushort)0x0004, 0x00, (ushort)0x0004)]
+        [InlineData(0x01, 0x02, (ushort)0x0004, 0x01, (ushort)0x0000)]
+        [InlineData(0x10, 0x22, (ushort)0x0010, 0x11, (ushort)0x0000)]
+        [InlineData(0x16, 0x20, (ushort)0x0000, 0x04, (ushort)0x0000)]
+        [InlineData(0x99, 0x44, (ushort)0x0000, 0x45, (ushort)0x0013)]
+        [InlineData(0x00, 0x00, (ushort)0x0010, 0x99, (ushort)0x0019)]
+        public void SBCD_DataReg(byte d5Val, byte d6Val, ushort initFlags, byte expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(new ushort[] { 0x8D05 }, 0x0200);    // sbcd d5,d6
@@ -3316,7 +3316,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             {
                 D5 = d5Val,
                 D6 = d6Val,
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
 
@@ -3324,19 +3324,19 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(6));
         }
 
         [Theory]
-        [InlineData(0x00, 0x00, (SRFlags)0, 0x00, (SRFlags)0)]
-        [InlineData(0x00, 0x00, SRFlags.Zero, 0x00, SRFlags.Zero)]
-        [InlineData(0x01, 0x02, SRFlags.Zero, 0x01, (SRFlags)0)]
-        [InlineData(0x10, 0x22, SRFlags.Extend, 0x11, (SRFlags)0)]
-        [InlineData(0x16, 0x20, (SRFlags)0, 0x04, (SRFlags)0)]
-        [InlineData(0x99, 0x44, (SRFlags)0, 0x45, SRFlags.Extend | SRFlags.Overflow | SRFlags.Carry)]
-        [InlineData(0x00, 0x00, SRFlags.Extend, 0x99, SRFlags.Extend | SRFlags.Negative | SRFlags.Carry)]
-        public void SBCD_Memory(byte a3Val, byte a4Val, SRFlags initFlags, byte expectedResult, SRFlags expectedFlags)
+        [InlineData(0x00, 0x00, (ushort)0x0000, 0x00, (ushort)0x0000)]
+        [InlineData(0x00, 0x00, (ushort)0x0004, 0x00, (ushort)0x0004)]
+        [InlineData(0x01, 0x02, (ushort)0x0004, 0x01, (ushort)0x0000)]
+        [InlineData(0x10, 0x22, (ushort)0x0010, 0x11, (ushort)0x0000)]
+        [InlineData(0x16, 0x20, (ushort)0x0000, 0x04, (ushort)0x0000)]
+        [InlineData(0x99, 0x44, (ushort)0x0000, 0x45, (ushort)0x0013)]
+        [InlineData(0x00, 0x00, (ushort)0x0010, 0x99, (ushort)0x0019)]
+        public void SBCD_Memory(byte a3Val, byte a4Val, ushort initFlags, byte expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(new ushort[] { 0x890B }, 0x0200);    // sbcd -(a3),-(a4)
@@ -3344,7 +3344,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             {
                 A3 = 0x00002001,
                 A4 = 0x00002003,
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
             byte[] data = new byte[] { a3Val, 0x00, a4Val, 0x00 };
@@ -3354,27 +3354,27 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
             Assert.Equal(expectedResult, machine.Memory.ReadByte(0x00002002).Value);
             Assert.Equal((uint)0x00002000, machine.CPU.ReadAddressRegister(3));
             Assert.Equal((uint)0x00002002, machine.CPU.ReadAddressRegister(4));
         }
 
         [Theory]
-        [InlineData(0x00, (SRFlags)0, 0x00, (SRFlags)0)]
-        [InlineData(0x00, SRFlags.Zero, 0x00, SRFlags.Zero)]
-        [InlineData(0x28, SRFlags.Zero, 0x72, SRFlags.Carry | SRFlags.Overflow | SRFlags.Extend)]
-        [InlineData(0x28, SRFlags.Extend | SRFlags.Zero, 0x71, SRFlags.Carry | SRFlags.Overflow | SRFlags.Extend)]
-        [InlineData(0x99, SRFlags.Zero, 0x01, SRFlags.Extend | SRFlags.Carry)]
-        [InlineData(0x99, SRFlags.Extend | SRFlags.Zero, 0x00, SRFlags.Extend | SRFlags.Carry | SRFlags.Zero)]
-        public void NBCD(byte d2Val, SRFlags initFlags, byte expectedResult, SRFlags expectedFlags)
+        [InlineData(0x00, (ushort)0x0000, 0x00, (ushort)0x0000)]
+        [InlineData(0x00, (ushort)0x0004, 0x00, (ushort)0x0004)]
+        [InlineData(0x28, (ushort)0x0004, 0x72, (ushort)0x0013)]
+        [InlineData(0x28, (ushort)0x0014, 0x71, (ushort)0x0013)]
+        [InlineData(0x99, (ushort)0x0004, 0x01, (ushort)0x0011)]
+        [InlineData(0x99, (ushort)0x0014, 0x00, (ushort)0x0015)]
+        public void NBCD(byte d2Val, ushort initFlags, byte expectedResult, ushort expectedFlags)
         {
             Machine machine = new Machine();
             machine.LoadExecutableData(new ushort[] { 0x4802 }, 0x0200);    // nbcd d2
             CPUState initState = new CPUState
             {
                 D2 = d2Val,
-                SR = initFlags
+                SR = (SRValue)initFlags
             };
             machine.SetCPUState(initState);
 
@@ -3382,7 +3382,7 @@ namespace PendleCodeMonkey.MC68000Emulator.Tests
             machine.ExecuteUntilException();
 
             // Assert
-            Assert.Equal(expectedFlags, machine.CPU.SR);
+            Assert.Equal((SRValue)expectedFlags, machine.CPU.SR);
             Assert.Equal(expectedResult, machine.CPU.ReadDataRegister(2));
         }
 

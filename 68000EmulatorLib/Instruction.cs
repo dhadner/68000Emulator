@@ -24,8 +24,8 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// <param name="destAddrMode">Optional Address Mode for the destination operand.</param>
             /// <param name="destExtWord1">Optional extension word 1 for the destination operand.</param>
             /// <param name="destExtWord2">Optional extension word 2 for the destination operand.</param>
-            internal Instruction(ushort opcode, InstructionInfo info, OpSize? size = null, byte? srcAddrMode = null, ushort? srcExtWord1 = null, ushort? srcExtWord2 = null,
-                                 byte? destAddrMode = null, ushort? destExtWord1 = null, ushort? destExtWord2 = null)
+            internal Instruction(ushort opcode, InstructionInfo info, Option<OpSize> size, Option<byte> srcAddrMode, Option<ushort> srcExtWord1, Option<ushort> srcExtWord2,
+                                 Option<byte> destAddrMode, Option<ushort> destExtWord1, Option<ushort> destExtWord2)
             {
                 Opcode = opcode;
                 Info = info;
@@ -37,8 +37,20 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
                 DestExtWord1 = destExtWord1;
                 DestExtWord2 = destExtWord2;
                 Address = 0;
-                AccessAddress = null;
-                AccessAddressType = null;
+                AccessAddress = None;
+                AccessAddressType = None;
+            }
+
+            /// <summary>
+            /// Constructor.  Initializes a new instance of the <see cref="Instruction"/> class with only opcode, info, size, and source addressing mode.
+            /// </summary>
+            /// <param name="opcode"></param>
+            /// <param name="info"></param>
+            /// <param name="size"></param>
+            /// <param name="srcAddrMode"></param>
+            internal Instruction(ushort opcode, InstructionInfo info, Option<OpSize> size, Option<byte> srcAddrMode)
+                : this(opcode, info, size, srcAddrMode, None, None, None, None, None)
+            {
             }
 
             /// <summary>
@@ -56,7 +68,7 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// </summary>
             public ulong Clocks { get; internal set; }
 
-            private uint? _length;
+            private Option<uint> _length;
 
             /// <summary>
             /// Instruction length in bytes.
@@ -65,18 +77,18 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             {
                 get
                 {
-                    if (_length.HasValue)
+                    if (_length.IsSome)
                     {
                         return _length.Value;
                     }
                     else
                     {
                         uint len = 2; // Minimum length is 2 bytes for the opcode itself
-                        if (SourceExtWord1.HasValue) len += 2;
-                        if (SourceExtWord2.HasValue) len += 2;
-                        if (DestExtWord1.HasValue) len += 2;
-                        if (DestExtWord2.HasValue) len += 2;
-                        _length = len;
+                        if (SourceExtWord1.IsSome) len += 2;
+                        if (SourceExtWord2.IsSome) len += 2;
+                        if (DestExtWord1.IsSome) len += 2;
+                        if (DestExtWord2.IsSome) len += 2;
+                        _length = Some(len);
                         return len;
                     }
                 }
@@ -91,71 +103,71 @@ namespace PendleCodeMonkey.MC68000EmulatorLib
             /// Address accessed by this instruction (if not immediate or register).
             /// Required for trap handling.
             /// </summary>
-            public uint? AccessAddress { get; internal set; }
+            public Option<uint> AccessAddress { get; internal set; }
 
             /// <summary>
             /// Type of access to <see cref="AccessAddress"/>.  Required for 
             /// trap handling.
             /// </summary>
-            public EAType? AccessAddressType { get; internal set; }
+            public Option<EAType> AccessAddressType { get; internal set; }
 
             /// <summary>
             /// The size of the operation [byte, word, or long] (if any).
             /// </summary>
-            public OpSize? Size { get; internal set; }
+            public Option<OpSize> Size { get; internal set; }
 
             /// <summary>
             /// The value of the source addressing mode (if any).
             /// </summary>
-            public byte? SourceAddrMode
+            public Option<byte> SourceAddrMode
             {
                 get => field;
-                internal set { field = value; _length = null; }
+                internal set { field = value; _length = None; }
             }
 
             /// <summary>
             /// The value of the first source extension word (if any).
             /// </summary>
-            public ushort? SourceExtWord1
+            public Option<ushort> SourceExtWord1
             {
                 get => field;
-                internal set { field = value; _length = null; }
+                internal set { field = value; _length = None; }
             }
 
             /// <summary>
             /// The value of the second source extension word (if any).
             /// </summary>
-            public ushort? SourceExtWord2
+            public Option<ushort> SourceExtWord2
             {
                 get => field;
-                internal set { field = value; _length = null; }
+                internal set { field = value; _length = None; }
             }
 
             /// <summary>
             /// The value of the destination addressing mode (if any).
             /// </summary>
-            public byte? DestAddrMode
+            public Option<byte> DestAddrMode
             {
                 get => field;
-                internal set { field = value; _length = null; }
+                internal set { field = value; _length = None; }
             }
 
             /// <summary>
             /// The value of the first destination extension word (if any).
             /// </summary>
-            public ushort? DestExtWord1
+            public Option<ushort> DestExtWord1
             {
                 get => field;
-                internal set { field = value; _length = null; }
+                internal set { field = value; _length = None; }
             }
 
             /// <summary>
             /// The value of the second destination extension word (if any).
             /// </summary>
-            public ushort? DestExtWord2
+            public Option<ushort> DestExtWord2
             {
                 get => field;
-                internal set { field = value; _length = null; }
+                internal set { field = value; _length = None; }
             }
         }
     }
