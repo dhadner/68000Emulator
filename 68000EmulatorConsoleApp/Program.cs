@@ -18,9 +18,9 @@ namespace PendleCodeMonkey.MC68000EmulatorConsoleApp
 
         private static void EmulatorTest_RunProgram()
         {
-            Machine machine = new Machine();
+            Machine machine = new();
 
-            CPUState initState = new CPUState
+            CPUState initState = new()
             {
                 SR = new SRValue { SupervisorMode = true }
             };
@@ -48,12 +48,12 @@ namespace PendleCodeMonkey.MC68000EmulatorConsoleApp
 
         private static void EmulatorTest_8BitSort()
         {
-            Machine machine = new Machine();
+            Machine machine = new();
 
-            ushort[] code = new ushort[] { 0x41F8, 0x2000, 0x4240, 0x1018, 0x43F0, 0x00FF, 0x4241, 0x2448, 0x101A, 0xB012, 0x650A,
-                                            0x1212, 0x1541, 0xFFFF, 0x1480, 0x5241, 0xB3CA, 0x62EC, 0x4A41, 0x66E4, 0x4E75};
+            ushort[] code = [ 0x41F8, 0x2000, 0x4240, 0x1018, 0x43F0, 0x00FF, 0x4241, 0x2448, 0x101A, 0xB012, 0x650A,
+                              0x1212, 0x1541, 0xFFFF, 0x1480, 0x5241, 0xB3CA, 0x62EC, 0x4A41, 0x66E4, 0x4E75];
             machine.LoadExecutableData(code, 0x1000);
-            CPUState initState = new CPUState
+            CPUState initState = new()
             {
                 USP = 0x00004000
             };
